@@ -257,6 +257,16 @@ async function initializeFirebaseAuth() {
                 startForceLogoutListener();
                 // Initialize team after authentication
                 await initializeUserTeam();
+                
+                // Check for pending join code from URL
+                const pendingJoinCode = sessionStorage.getItem('pendingJoinCode');
+                if (pendingJoinCode) {
+                    sessionStorage.removeItem('pendingJoinCode');
+                    // Small delay to ensure UI is ready
+                    setTimeout(() => {
+                        processJoinCode(pendingJoinCode);
+                    }, 1000);
+                }
             } else {
                 // No user signed in - clear sensitive data and redirect to login
                 console.log('❌ No user authenticated - redirecting to login');
@@ -12124,6 +12134,90 @@ window.closeJoinTeamModal = function() {
     }
 }
 
+// Generate shareable join link
+window.generateJoinLink = function() {
+    if (!appState.currentTeamData?.teamCode) {
+        showToast('No team code available', 'error');
+        return;
+    }
+    const baseUrl = window.location.origin + window.location.pathname.replace(/\/[^\/]*$/, '');
+    const joinUrl = `${baseUrl}/index.html?join=${appState.currentTeamData.teamCode}`;
+    
+    navigator.clipboard.writeText(joinUrl).then(() => {
+        showToast('Join link copied to clipboard!', 'success');
+    }).catch(() => {
+        // Fallback - show the link
+        prompt('Copy this join link:', joinUrl);
+    });
+}
+
+// Process join code from URL
+async function processJoinCode(teamCode) {
+    if (!currentAuthUser) {
+        showToast('Please sign in first', 'error');
+        return;
+    }
+    
+    showToast('Processing join request...', 'info');
+    
+    try {
+        const { collection, query, where, getDocs, doc, updateDoc, serverTimestamp } = 
+            await import('https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js');
+
+        // Find team by code
+        const teamsRef = collection(db, 'teams');
+        const q = query(teamsRef, where('teamCode', '==', teamCode));
+        const querySnapshot = await getDocs(q);
+
+        if (querySnapshot.empty) {
+            showToast('Invalid join link. Team not found.', 'error');
+            return;
+        }
+
+        const teamDoc = querySnapshot.docs[0];
+        const teamData = teamDoc.data();
+        const teamId = teamDoc.id;
+
+        // Check if already a member
+        if (teamData.members && teamData.members[currentAuthUser.uid]) {
+            showToast('You are already a member of this team!', 'info');
+            return;
+        }
+
+        // Check if already requested
+        if (teamData.pendingRequests && teamData.pendingRequests[currentAuthUser.uid]) {
+            showToast('You have already requested to join. Waiting for approval.', 'info');
+            return;
+        }
+
+        // Show confirmation dialog
+        const confirmJoin = confirm(
+            `You've been invited to join "${teamData.name}"!\n\n` +
+            `Click OK to send a join request to the team owner.`
+        );
+        
+        if (!confirmJoin) return;
+
+        // Add join request
+        const teamRef = doc(db, 'teams', teamId);
+        await updateDoc(teamRef, {
+            [`pendingRequests.${currentAuthUser.uid}`]: {
+                name: currentAuthUser.displayName || currentAuthUser.email.split('@')[0],
+                email: currentAuthUser.email,
+                photoURL: currentAuthUser.photoURL || null,
+                requestedAt: serverTimestamp(),
+                status: 'pending'
+            }
+        });
+        
+        showToast(`Join request sent to "${teamData.name}"! The owner will review it.`, 'success');
+
+    } catch (error) {
+        console.error('Error processing join code:', error);
+        showToast('Failed to process join link. Please try again.', 'error');
+    }
+}
+
 // Submit join request
 window.submitJoinRequest = async function() {
     if (!currentAuthUser) {
@@ -16850,6 +16944,16 @@ async function updateEventInFirestore(event) {
 // ===================================
 document.addEventListener('DOMContentLoaded', async () => {
     console.log('TeamHub App Initializing...');
+    
+    // Check for join code in URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const joinCode = urlParams.get('join');
+    if (joinCode) {
+        // Store the join code to process after auth
+        sessionStorage.setItem('pendingJoinCode', joinCode.toUpperCase());
+        // Clean the URL
+        window.history.replaceState({}, document.title, window.location.pathname);
+    }
     
     // Initialize Firebase Authentication first
     // Note: initializeUserTeam() is now called inside onAuthStateChanged
