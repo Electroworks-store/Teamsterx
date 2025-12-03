@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teamster - Account</title>
+    <link rel="stylesheet" href="auth.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body>
+    <div class="auth-container">
+        <!-- Left Side - Branding -->
+        <div class="auth-brand">
+            <div class="brand-content">
+                <div class="logo">
+                    <i class="fas fa-users-cog"></i>
+                    <span>TeamHub</span>
+                </div>
+                <h1>Welcome to Your Team Workspace</h1>
+                <p>Collaborate, communicate, and achieve more together with TeamHub's powerful collaboration platform.</p>
+                
+                <div class="features">
+                    <div class="feature-item">
+                        <i class="fas fa-comments"></i>
+                        <span>Real-time Chat</span>
+                    </div>
+                    <div class="feature-item">
+                        <i class="fas fa-calendar-alt"></i>
+                        <span>Shared Calendar</span>
+                    </div>
+                    <div class="feature-item">
+                        <i class="fas fa-tasks"></i>
+                        <span>Task Management</span>
+                    </div>
+                    <div class="feature-item">
+                        <i class="fas fa-stream"></i>
+                        <span>Activity Feed</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Side - Authentication Forms -->
+        <div class="auth-forms">
+            <div class="form-container">
+                <!-- Sign In Form -->
+                <div class="auth-form active" id="signInForm">
+                    <div class="form-header">
+                        <h2>Sign In</h2>
+                        <p>Welcome back! Please sign in to continue</p>
+                    </div>
+
+                    <form id="emailSignInForm">
+                        <div class="form-group">
+                            <label for="signInEmail">
+                                <i class="fas fa-envelope"></i>
+                                Email Address
+                            </label>
+                            <input type="email" id="signInEmail" required placeholder="Enter your email">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="signInPassword">
+                                <i class="fas fa-lock"></i>
+                                Password
+                            </label>
+                            <div class="password-input-wrapper">
+                                <input type="password" id="signInPassword" required placeholder="Enter your password">
+                                <button type="button" class="password-toggle" onclick="togglePassword('signInPassword')">
+                                    <i data-lucide="eye-off"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="form-options">
+                            <label class="remember-me">
+                                <input type="checkbox" id="rememberMe">
+                                <span>Remember me</span>
+                            </label>
+                            <a href="#" class="forgot-password" id="forgotPasswordLink">Forgot password?</a>
+                        </div>
+
+                        <button type="submit" class="btn-primary btn-full">
+                            <i class="fas fa-sign-in-alt"></i>
+                            Sign In
+                        </button>
+                    </form>
+
+                    <div class="divider">
+                        <span>or continue with</span>
+                    </div>
+
+                    <button class="btn-google" id="googleSignInBtn">
+                        <i class="fab fa-google"></i>
+                        Sign in with Google
+                    </button>
+
+                    <div class="form-footer">
+                        <p>Don't have an account? <a href="#" id="showSignUpBtn">Sign up</a></p>
+                    </div>
+                </div>
+
+                <!-- Sign Up Form -->
+                <div class="auth-form" id="signUpForm">
+                    <div class="form-header">
+                        <h2>Create Account</h2>
+                        <p>Join your team on Teamster</p>
+                    </div>
+
+                    <form id="emailSignUpForm">
+                        <div class="form-group">
+                            <label for="signUpName">
+                                <i class="fas fa-user"></i>
+                                Full Name
+                            </label>
+                            <input type="text" id="signUpName" required placeholder="Enter your full name">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="signUpEmail">
+                                <i class="fas fa-envelope"></i>
+                                Email Address
+                            </label>
+                            <input type="email" id="signUpEmail" required placeholder="Enter your email">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="signUpPassword">
+                                <i class="fas fa-lock"></i>
+                                Password
+                            </label>
+                            <div class="password-input-wrapper">
+                                <input type="password" id="signUpPassword" required placeholder="Create a password" minlength="6">
+                                <button type="button" class="password-toggle" onclick="togglePassword('signUpPassword')">
+                                    <i data-lucide="eye-off"></i>
+                                </button>
+                            </div>
+                            <small class="form-hint">Password must be at least 6 characters</small>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="signUpPasswordConfirm">
+                                <i class="fas fa-lock"></i>
+                                Confirm Password
+                            </label>
+                            <div class="password-input-wrapper">
+                                <input type="password" id="signUpPasswordConfirm" required placeholder="Confirm your password">
+                                <button type="button" class="password-toggle" onclick="togglePassword('signUpPasswordConfirm')">
+                                    <i data-lucide="eye-off"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="form-options">
+                            <label class="remember-me">
+                                <input type="checkbox" id="agreeTerms" required>
+                                <span>I agree to the <a href="#" class="link">Terms & Conditions</a></span>
+                            </label>
+                        </div>
+
+                        <button type="submit" class="btn-primary btn-full">
+                            <i class="fas fa-user-plus"></i>
+                            Create Account
+                        </button>
+                    </form>
+
+                    <div class="divider">
+                        <span>or continue with</span>
+                    </div>
+
+                    <button class="btn-google" id="googleSignUpBtn">
+                        <i class="fab fa-google"></i>
+                        Sign up with Google
+                    </button>
+
+                    <div class="form-footer">
+                        <p>Already have an account? <a href="#" id="showSignInBtn">Sign in</a></p>
+                    </div>
+                </div>
+
+                <!-- Password Reset Form -->
+                <div class="auth-form" id="resetPasswordForm">
+                    <div class="form-header">
+                        <h2>Reset Password</h2>
+                        <p>Enter your email to receive a password reset link</p>
+                    </div>
+
+                    <form id="emailResetForm">
+                        <div class="form-group">
+                            <label for="resetEmail">
+                                <i class="fas fa-envelope"></i>
+                                Email Address
+                            </label>
+                            <input type="email" id="resetEmail" required placeholder="Enter your email">
+                        </div>
+
+                        <button type="submit" class="btn-primary btn-full">
+                            <i class="fas fa-paper-plane"></i>
+                            Send Reset Link
+                        </button>
+                    </form>
+
+                    <div class="form-footer">
+                        <p><a href="#" id="backToSignInBtn">Back to Sign In</a></p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Alert Messages -->
+            <div class="alert" id="alertBox">
+                <i class="fas fa-info-circle"></i>
+                <span id="alertMessage"></span>
+                <button class="alert-close" id="alertClose">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+
+            <!-- Loading Overlay -->
+            <div class="loading-overlay" id="loadingOverlay">
+                <div class="spinner"></div>
+                <p>Please wait...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Firebase SDK -->
+    <script type="module">
+        // Import Firebase modules
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.5.0/firebase-app.js';
+        import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, 
+                 signInWithPopup, GoogleAuthProvider, sendPasswordResetEmail, 
+                 updateProfile, setPersistence, browserSessionPersistence, 
+                 browserLocalPersistence } from 'https://www.gstatic.com/firebasejs/10.5.0/firebase-auth.js';
+
+        // Firebase Configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyBsV-g9DBRTCE9sk1bsYy4TRsohAETF7vg",
+            authDomain: "teamhub-bf61f.firebaseapp.com",
+            projectId: "teamhub-bf61f",
+            storageBucket: "teamhub-bf61f.firebasestorage.app",
+            messagingSenderId: "186552753103",
+            appId: "1:186552753103:web:4a102aa3b91aa71c4150ba",
+            measurementId: "G-1VH5ZLCH63"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const googleProvider = new GoogleAuthProvider();
+
+        // Make auth available globally
+        window.firebaseAuth = auth;
+        window.googleProvider = googleProvider;
+    </script>
+
+    <!-- Authentication Logic -->
+    <script src="auth.js"></script>
+
+    <!-- Initialize Lucide Icons and Password Toggle -->
+    <script>
+        // Initialize Lucide icons
+        lucide.createIcons();
+
+        // Toggle password visibility
+        window.togglePassword = function(inputId) {
+            const input = document.getElementById(inputId);
+            const button = input.parentElement.querySelector('.password-toggle');
+            
+            if (input.type === 'password') {
+                // Password is hidden, show it - use eye (open)
+                input.type = 'text';
+                button.innerHTML = '<i data-lucide="eye"></i>';
+            } else {
+                // Password is visible, hide it - use eye-off (slash through eye)
+                input.type = 'password';
+                button.innerHTML = '<i data-lucide="eye-off"></i>';
+            }
+            
+            // Re-render the icon
+            lucide.createIcons();
+        };
+    </script>
+</body>
+</html>

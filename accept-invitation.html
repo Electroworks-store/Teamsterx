@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Accept Team Invitation - Teamster</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="auth.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .invitation-container {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+        }
+
+        .invitation-card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            max-width: 500px;
+            width: 100%;
+            padding: 40px;
+            text-align: center;
+        }
+
+        .invitation-icon {
+            width: 80px;
+            height: 80px;
+            background: var(--primary-color);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 20px;
+            font-size: 36px;
+            color: white;
+        }
+
+        .invitation-title {
+            font-size: 24px;
+            font-weight: 600;
+            color: var(--text-color);
+            margin-bottom: 10px;
+        }
+
+        .invitation-details {
+            background: var(--bg-light);
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+            text-align: left;
+        }
+
+        .invitation-detail-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 12px;
+            font-size: 14px;
+        }
+
+        .invitation-detail-row:last-child {
+            margin-bottom: 0;
+        }
+
+        .invitation-detail-label {
+            color: var(--gray);
+            font-weight: 500;
+        }
+
+        .invitation-detail-value {
+            color: var(--text-color);
+            font-weight: 600;
+        }
+
+        .invitation-actions {
+            display: flex;
+            gap: 12px;
+            margin-top: 24px;
+        }
+
+        .invitation-actions button {
+            flex: 1;
+            padding: 14px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn-accept {
+            background: var(--primary-color);
+            color: white;
+        }
+
+        .btn-accept:hover {
+            background: var(--primary-dark);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 120, 212, 0.3);
+        }
+
+        .btn-decline {
+            background: var(--bg-light);
+            color: var(--gray);
+        }
+
+        .btn-decline:hover {
+            background: var(--border-color);
+        }
+
+        .invitation-message {
+            color: var(--gray);
+            font-size: 14px;
+            line-height: 1.6;
+            margin: 16px 0;
+        }
+
+        .error-state {
+            color: var(--danger);
+        }
+
+        .success-state {
+            color: var(--success);
+        }
+
+        .loading-spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 0.6s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="invitation-container">
+        <div class="invitation-card">
+            <!-- Loading State -->
+            <div id="loadingState">
+                <div class="invitation-icon">
+                    <div class="loading-spinner"></div>
+                </div>
+                <h1 class="invitation-title">Loading Invitation...</h1>
+                <p class="invitation-message">Please wait while we verify your invitation.</p>
+            </div>
+
+            <!-- Valid Invitation State -->
+            <div id="validInvitationState" class="hidden">
+                <div class="invitation-icon">
+                    <i class="fas fa-envelope-open"></i>
+                </div>
+                <h1 class="invitation-title">You're Invited!</h1>
+                <p class="invitation-message" id="invitationMessage"></p>
+
+                <div class="invitation-details">
+                    <div class="invitation-detail-row">
+                        <span class="invitation-detail-label">Team Name:</span>
+                        <span class="invitation-detail-value" id="teamName"></span>
+                    </div>
+                    <div class="invitation-detail-row">
+                        <span class="invitation-detail-label">Invited By:</span>
+                        <span class="invitation-detail-value" id="inviterName"></span>
+                    </div>
+                    <div class="invitation-detail-row">
+                        <span class="invitation-detail-label">Your Email:</span>
+                        <span class="invitation-detail-value" id="invitedEmail"></span>
+                    </div>
+                </div>
+
+                <div class="invitation-actions">
+                    <button class="btn-decline" onclick="declineInvitation()">
+                        <i class="fas fa-times"></i> Decline
+                    </button>
+                    <button class="btn-accept" onclick="acceptInvitation()">
+                        <i class="fas fa-check"></i> Accept & Join Team
+                    </button>
+                </div>
+
+                <p class="invitation-message" style="margin-top: 20px; font-size: 12px;">
+                    By accepting, you'll be able to access and collaborate on team tasks, messages, and events.
+                </p>
+            </div>
+
+            <!-- Error State -->
+            <div id="errorState" class="hidden">
+                <div class="invitation-icon" style="background: var(--danger);">
+                    <i class="fas fa-exclamation-triangle"></i>
+                </div>
+                <h1 class="invitation-title error-state">Invalid Invitation</h1>
+                <p class="invitation-message" id="errorMessage"></p>
+                <button class="btn-accept" onclick="window.location.href='account.html'" style="margin-top: 20px; width: 100%;">
+                    Go to Login
+                </button>
+            </div>
+
+            <!-- Success State -->
+            <div id="successState" class="hidden">
+                <div class="invitation-icon" style="background: var(--success);">
+                    <i class="fas fa-check-circle"></i>
+                </div>
+                <h1 class="invitation-title success-state">Welcome to the Team!</h1>
+                <p class="invitation-message">You've successfully joined the team. Redirecting to Teamster...</p>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.5.0/firebase-app.js';
+        import { getAuth, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.5.0/firebase-auth.js';
+        import { getFirestore, doc, getDoc, setDoc, updateDoc, serverTimestamp } from 'https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js';
+
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyBsV-g9DBRTCE9sk1bsYy4TRsohAETF7vg",
+            authDomain: "teamhub-bf61f.firebaseapp.com",
+            projectId: "teamhub-bf61f",
+            storageBucket: "teamhub-bf61f.firebasestorage.app",
+            messagingSenderId: "186552753103",
+            appId: "1:186552753103:web:4a102aa3b91aa71c4150ba",
+            measurementId: "G-1VH5ZLCH63"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        let currentUser = null;
+        let invitationData = null;
+
+        // Get invitation token from URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const token = urlParams.get('token');
+        const invitationId = urlParams.get('id');
+
+        // Check authentication and load invitation
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                currentUser = user;
+                await loadInvitation();
+            } else {
+                // User not logged in - redirect to login with return URL
+                const returnUrl = encodeURIComponent(window.location.href);
+                window.location.href = `account.html?returnUrl=${returnUrl}`;
+            }
+        });
+
+        async function loadInvitation() {
+            try {
+                if (!token || !invitationId) {
+                    debugLog('Missing invitation parameters');
+                    showError('Invalid invitation link. Missing token or invitation ID.');
+                    return;
+                }
+
+                // Load invitation from Firestore
+                const invitationRef = doc(db, 'teamInvitations', invitationId);
+                const invitationDoc = await getDoc(invitationRef);
+
+                if (!invitationDoc.exists()) {
+                    debugLog('Invitation not found');
+                    showError('Invitation not found. It may have been deleted or expired.');
+                    return;
+                }
+
+                invitationData = invitationDoc.data();
+                debugLog('Invitation loaded', { 
+                    teamId: invitationData.teamId,
+                    status: invitationData.status 
+                });
+
+                // Validate invitation token (security check)
+                if (invitationData.token !== token) {
+                    debugLog('Invalid token');
+                    showError('Invalid invitation token. Please use the correct link.');
+                    return;
+                }
+
+                // Check invitation status
+                if (invitationData.status !== 'pending') {
+                    debugLog('Invitation not pending', { status: invitationData.status });
+                    showError(`This invitation has already been ${invitationData.status}. Please request a new one.`);
+                    return;
+                }
+
+                // Check if invitation expired
+                const expiresAt = invitationData.expiresAt?.toDate();
+                if (expiresAt && expiresAt < new Date()) {
+                    debugLog('Invitation expired', { expired: true });
+                    showError(
+                        'This invitation has expired. ' +
+                        'Please ask the team owner to send you a new invite.'
+                    );
+                    return;
+                }
+
+                // Check if invited email matches current user
+                if (invitationData.invitedEmail.toLowerCase() !== currentUser.email.toLowerCase()) {
+                    debugLog('Email mismatch');
+                    showError(
+                        `This invitation is for ${invitationData.invitedEmail}. ` +
+                        `You are logged in as ${currentUser.email}. ` +
+                        `Please log in with the correct account.`
+                    );
+                    return;
+                }
+
+                // Show valid invitation
+                debugLog('Invitation is valid');
+                showValidInvitation();
+
+            } catch (error) {
+                debugLog('Error loading invitation', { 
+                    code: error.code,
+                    message: error.message 
+                });
+                
+                // Handle specific Firestore errors
+                if (error.code === 'permission-denied') {
+                    showError(
+                        'You do not have permission to view this invitation. ' +
+                        'Please ensure you are logged in with the correct account.'
+                    );
+                } else {
+                    showError('Failed to load invitation. Please try again later or contact the team owner.');
+                }
+            }
+        }
+
+        function showValidInvitation() {
+            document.getElementById('loadingState').classList.add('hidden');
+            document.getElementById('validInvitationState').classList.remove('hidden');
+
+            document.getElementById('invitationMessage').textContent = 
+                `${invitationData.invitedByName} has invited you to join their team on Teamster.`;
+            document.getElementById('teamName').textContent = invitationData.teamName;
+            document.getElementById('inviterName').textContent = invitationData.invitedByName;
+            document.getElementById('invitedEmail').textContent = invitationData.invitedEmail;
+        }
+
+        function showError(message) {
+            document.getElementById('loadingState').classList.add('hidden');
+            document.getElementById('errorState').classList.remove('hidden');
+            document.getElementById('errorMessage').textContent = message;
+        }
+
+        function showSuccess() {
+            document.getElementById('validInvitationState').classList.add('hidden');
+            document.getElementById('successState').classList.remove('hidden');
+
+            // Redirect to main app after 2 seconds
+            setTimeout(() => {
+                window.location.href = 'index.html';
+            }, 2000);
+        }
+
+        // Debug log helper (no sensitive data)
+        function debugLog(message, data = null) {
+            if (data) {
+                // Only log safe metadata, never tokens or full documents
+                const safeData = {
+                    teamId: data.teamId || 'N/A',
+                    status: data.status || 'N/A',
+                    expired: data.expired || false
+                };
+                console.log(`[Invitation] ${message}`, safeData);
+            } else {
+                console.log(`[Invitation] ${message}`);
+            }
+        }
+
+        // Make functions global
+        window.acceptInvitation = async function() {
+            if (!currentUser || !invitationData) return;
+
+            const acceptBtn = document.querySelector('.btn-accept');
+            acceptBtn.disabled = true;
+            acceptBtn.innerHTML = '<div class="loading-spinner"></div> Accepting...';
+
+            try {
+                // STEP 1: Update invitation status FIRST (security-critical)
+                // This must succeed before adding user to team
+                const invitationRef = doc(db, 'teamInvitations', invitationId);
+                
+                try {
+                    await updateDoc(invitationRef, {
+                        status: 'used',
+                        acceptedAt: serverTimestamp(),
+                        usedAt: serverTimestamp(),
+                        acceptedBy: currentUser.uid
+                    });
+                    debugLog('Invitation marked as used');
+                } catch (inviteError) {
+                    // Handle Firestore security rule failures
+                    if (inviteError.code === 'permission-denied') {
+                        debugLog('Permission denied updating invitation', { 
+                            teamId: invitationData.teamId,
+                            status: 'permission-denied'
+                        });
+                        showError(
+                            'This invitation is no longer valid or has expired. ' +
+                            'Please ask the team owner to send you a new invite.'
+                        );
+                        return; // STOP - do not proceed
+                    }
+                    
+                    // Other Firestore errors
+                    debugLog('Error updating invitation', { 
+                        code: inviteError.code,
+                        teamId: invitationData.teamId 
+                    });
+                    throw new Error('Unable to accept invitation. It may have already been used or expired.');
+                }
+
+                // STEP 2: Add user to team (only if invitation update succeeded)
+                const teamRef = doc(db, 'teams', invitationData.teamId);
+                const teamDoc = await getDoc(teamRef);
+
+                if (!teamDoc.exists()) {
+                    debugLog('Team not found', { teamId: invitationData.teamId });
+                    throw new Error('Team not found. It may have been deleted.');
+                }
+
+                // Update team members
+                await updateDoc(teamRef, {
+                    [`members.${currentUser.uid}`]: {
+                        role: 'member',
+                        name: currentUser.displayName || currentUser.email.split('@')[0],
+                        email: currentUser.email,
+                        photoURL: currentUser.photoURL || null,
+                        occupation: invitationData.occupation || 'Team Member',
+                        joinedAt: serverTimestamp()
+                    }
+                });
+                debugLog('User added to team members');
+
+                // STEP 3: Update user's teams list
+                const userRef = doc(db, 'users', currentUser.uid);
+                const userDoc = await getDoc(userRef);
+
+                if (userDoc.exists()) {
+                    const userData = userDoc.data();
+                    const userTeams = userData.teams || [];
+                    if (!userTeams.includes(invitationData.teamId)) {
+                        await updateDoc(userRef, {
+                            teams: [...userTeams, invitationData.teamId]
+                        });
+                        debugLog('Team added to user teams list');
+                    }
+                } else {
+                    await setDoc(userRef, {
+                        email: currentUser.email,
+                        displayName: currentUser.displayName || currentUser.email.split('@')[0],
+                        photoURL: currentUser.photoURL || null,
+                        teams: [invitationData.teamId],
+                        createdAt: serverTimestamp()
+                    });
+                    debugLog('User document created with team');
+                }
+
+                debugLog('Successfully joined team');
+                showSuccess();
+
+            } catch (error) {
+                // Handle any errors during team joining process
+                debugLog('Error accepting invitation', { 
+                    code: error.code,
+                    message: error.message 
+                });
+                
+                // Show user-friendly error
+                let errorMessage = 'Failed to accept invitation. ';
+                
+                if (error.code === 'permission-denied') {
+                    errorMessage += 'You do not have permission to join this team.';
+                } else if (error.message.includes('expired')) {
+                    errorMessage += 'This invitation has expired. Please request a new one.';
+                } else if (error.message.includes('not found')) {
+                    errorMessage += error.message;
+                } else {
+                    errorMessage += 'Please try again or contact the team owner.';
+                }
+                
+                showError(errorMessage);
+                
+                // Re-enable button only if we're still on the valid invitation view
+                if (!document.getElementById('errorState').classList.contains('hidden')) {
+                    // Already showing error state, button doesn't exist anymore
+                    return;
+                }
+                
+                acceptBtn.disabled = false;
+                acceptBtn.innerHTML = '<i class="fas fa-check"></i> Accept & Join Team';
+            }
+        };
+
+        window.declineInvitation = async function() {
+            if (!invitationData) return;
+
+            if (!confirm('Are you sure you want to decline this invitation?')) {
+                return;
+            }
+
+            const declineBtn = document.querySelector('.btn-decline');
+            declineBtn.disabled = true;
+            declineBtn.innerHTML = '<div class="loading-spinner"></div> Declining...';
+
+            try {
+                const invitationRef = doc(db, 'teamInvitations', invitationId);
+                
+                await updateDoc(invitationRef, {
+                    status: 'declined',
+                    declinedAt: serverTimestamp(),
+                    declinedBy: currentUser.uid
+                });
+
+                debugLog('Invitation declined');
+                alert('Invitation declined.');
+                window.location.href = 'index.html';
+
+            } catch (error) {
+                debugLog('Error declining invitation', { 
+                    code: error.code 
+                });
+                
+                // Handle permission denied errors
+                if (error.code === 'permission-denied') {
+                    showError(
+                        'Unable to decline this invitation. It may have expired or already been used. ' +
+                        'You can safely close this page.'
+                    );
+                } else {
+                    showError('Failed to decline invitation. Please try again or close this page.');
+                }
+                
+                declineBtn.disabled = false;
+                declineBtn.innerHTML = '<i class="fas fa-times"></i> Decline';
+            }
+        };
+    </script>
+</body>
+</html>
