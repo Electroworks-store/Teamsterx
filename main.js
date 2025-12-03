@@ -12437,23 +12437,23 @@ window.closePendingRequestsModal = function() {
 
 // Approve join request (admin/owner only)
 window.approveJoinRequest = async function(userId) {
-    // Check if user has admin permissions
-    const teamRef = doc(db, 'teams', appState.currentTeamId);
-    const teamDoc = await getDoc(teamRef);
-    const teamData = teamDoc.data();
-    
-    if (!isAdmin(teamData)) {
-        alert('Only admins and owners can approve join requests.');
-        return;
-    }
-    
-    if (!confirm('Approve this user to join your team?')) {
-        return;
-    }
-
     try {
         const { doc, getDoc, updateDoc, serverTimestamp, deleteField } = 
             await import('https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js');
+
+        // Check if user has admin permissions
+        const teamRef = doc(db, 'teams', appState.currentTeamId);
+        const teamDoc = await getDoc(teamRef);
+        const teamData = teamDoc.data();
+        
+        if (!isAdmin(teamData)) {
+            alert('Only admins and owners can approve join requests.');
+            return;
+        }
+        
+        if (!confirm('Approve this user to join your team?')) {
+            return;
+        }
 
         const request = teamData.pendingRequests[userId];
 
