@@ -9704,6 +9704,621 @@ body.dark-mode .notification-prefs-toggles .toggle-label:hover {
     border: 1px dashed var(--border-subtle);
 }
 
+/* ===================================
+   LINK LOBBY - Apple-style Design
+   =================================== */
+.link-lobby-section {
+    margin-top: 24px;
+}
+
+.link-lobby-container {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+/* Empty State */
+.link-lobby-empty {
+    text-align: center;
+    padding: 48px 24px;
+    background: var(--bg-surface);
+    border: 2px dashed var(--border-subtle);
+    border-radius: var(--radius-lg);
+}
+
+.link-lobby-empty-icon {
+    width: 64px;
+    height: 64px;
+    margin: 0 auto 16px;
+    background: var(--accent-soft);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--accent);
+    font-size: 24px;
+}
+
+.link-lobby-empty h3 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--text-main);
+    margin: 0 0 8px 0;
+}
+
+.link-lobby-empty p {
+    font-size: 0.9rem;
+    color: var(--text-muted);
+    margin: 0 0 20px 0;
+}
+
+/* Link Group Card */
+.link-group {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    transition: all 0.2s ease;
+}
+
+.link-group:hover {
+    box-shadow: var(--shadow-card);
+}
+
+.link-group.dragging {
+    opacity: 0.5;
+    transform: scale(0.98);
+}
+
+.link-group.drag-over {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px var(--accent-soft);
+}
+
+/* Group Header */
+.link-group-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 20px;
+    background: var(--bg-surface-soft);
+    border-bottom: 1px solid var(--border-subtle);
+    cursor: default;
+}
+
+.link-group-drag-handle {
+    cursor: grab;
+    color: var(--text-muted);
+    padding: 4px;
+    border-radius: 4px;
+    transition: all 0.15s ease;
+    display: flex;
+    align-items: center;
+}
+
+.link-group-drag-handle:hover {
+    color: var(--text-main);
+    background: var(--bg-body);
+}
+
+.link-group-drag-handle:active {
+    cursor: grabbing;
+}
+
+.link-group-title {
+    flex: 1;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-main);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.link-group-title .group-count {
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--text-muted);
+    background: var(--bg-body);
+    padding: 2px 8px;
+    border-radius: 99px;
+}
+
+.link-group-title .auto-domain-badge {
+    font-size: 0.65rem;
+    font-weight: 600;
+    color: var(--accent);
+    background: var(--accent-soft);
+    padding: 3px 8px;
+    border-radius: 99px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+.link-group-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.link-group-btn {
+    width: 32px;
+    height: 32px;
+    border: none;
+    background: transparent;
+    color: var(--text-muted);
+    border-radius: 8px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s ease;
+    font-size: 14px;
+}
+
+.link-group-btn:hover {
+    background: var(--bg-body);
+    color: var(--accent);
+}
+
+.link-group-btn.add-link-btn {
+    color: var(--accent);
+}
+
+.link-group-btn.add-link-btn:hover {
+    background: var(--accent-soft);
+}
+
+/* Group Menu Dropdown */
+.link-group-menu {
+    position: relative;
+}
+
+.link-group-menu-dropdown {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    margin-top: 4px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-soft);
+    min-width: 180px;
+    z-index: 100;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-8px);
+    transition: all 0.15s ease;
+}
+
+.link-group-menu-dropdown.active {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+}
+
+.link-group-menu-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 10px 14px;
+    border: none;
+    background: transparent;
+    color: var(--text-main);
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    text-align: left;
+}
+
+.link-group-menu-item:hover {
+    background: var(--accent-soft);
+    color: var(--accent);
+}
+
+.link-group-menu-item.danger {
+    color: var(--danger);
+}
+
+.link-group-menu-item.danger:hover {
+    background: var(--danger-soft);
+    color: var(--danger);
+}
+
+.link-group-menu-item i {
+    width: 16px;
+    text-align: center;
+    font-size: 13px;
+}
+
+.link-group-menu-divider {
+    height: 1px;
+    background: var(--border-subtle);
+    margin: 4px 0;
+}
+
+/* Links List */
+.link-group-content {
+    padding: 12px;
+}
+
+.link-group-empty {
+    text-align: center;
+    padding: 24px 16px;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+}
+
+.links-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+/* Domain Subgroup */
+.domain-subgroup {
+    background: var(--bg-body);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    margin-bottom: 8px;
+}
+
+.domain-subgroup:last-child {
+    margin-bottom: 0;
+}
+
+.domain-subgroup-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    background: rgba(0, 0, 0, 0.02);
+    border-bottom: 1px solid var(--border-subtle);
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+
+.domain-subgroup-header:hover {
+    background: rgba(0, 0, 0, 0.04);
+}
+
+.domain-subgroup-icon {
+    width: 20px;
+    height: 20px;
+    border-radius: 4px;
+    object-fit: contain;
+}
+
+.domain-subgroup-title {
+    flex: 1;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-muted);
+}
+
+.domain-subgroup-count {
+    font-size: 0.75rem;
+    color: var(--text-light);
+    background: var(--bg-surface);
+    padding: 2px 8px;
+    border-radius: 99px;
+}
+
+.domain-subgroup-toggle {
+    color: var(--text-muted);
+    font-size: 12px;
+    transition: transform 0.2s ease;
+}
+
+.domain-subgroup.collapsed .domain-subgroup-toggle {
+    transform: rotate(-90deg);
+}
+
+.domain-subgroup-content {
+    padding: 8px;
+}
+
+.domain-subgroup.collapsed .domain-subgroup-content {
+    display: none;
+}
+
+/* Individual Link Item */
+.link-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    transition: all 0.15s ease;
+}
+
+.link-item:hover {
+    border-color: var(--accent-soft);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.link-item.favorite {
+    background: linear-gradient(135deg, rgba(255, 204, 0, 0.05) 0%, rgba(255, 149, 0, 0.05) 100%);
+    border-color: rgba(255, 204, 0, 0.2);
+}
+
+.link-favicon {
+    width: 24px;
+    height: 24px;
+    border-radius: 6px;
+    object-fit: contain;
+    flex-shrink: 0;
+    background: var(--bg-body);
+    padding: 2px;
+}
+
+.link-favicon-fallback {
+    width: 24px;
+    height: 24px;
+    border-radius: 6px;
+    background: var(--accent-soft);
+    color: var(--accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    flex-shrink: 0;
+}
+
+.link-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.link-label {
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: var(--text-main);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-bottom: 2px;
+}
+
+.link-domain {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.link-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+}
+
+.link-action-btn {
+    width: 32px;
+    height: 32px;
+    border: none;
+    background: transparent;
+    color: var(--text-muted);
+    border-radius: 8px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s ease;
+    font-size: 14px;
+}
+
+.link-action-btn:hover {
+    background: var(--bg-body);
+    color: var(--text-main);
+}
+
+.link-action-btn.star-btn {
+    color: var(--text-light);
+}
+
+.link-action-btn.star-btn:hover {
+    color: #FFD700;
+    background: rgba(255, 215, 0, 0.1);
+}
+
+.link-action-btn.star-btn.active {
+    color: #FFD700;
+}
+
+.link-action-btn.star-btn.active:hover {
+    background: rgba(255, 215, 0, 0.15);
+}
+
+.link-action-btn.open-btn {
+    background: var(--accent);
+    color: white;
+}
+
+.link-action-btn.open-btn:hover {
+    background: var(--accent-hover);
+    color: white;
+}
+
+.link-action-btn.delete-btn:hover {
+    color: var(--danger);
+    background: var(--danger-soft);
+}
+
+/* Link Preview in Modal */
+.link-preview {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 14px;
+    background: var(--bg-body);
+    border-radius: var(--radius-md);
+    margin-top: 8px;
+}
+
+.link-favicon-preview {
+    width: 20px;
+    height: 20px;
+    border-radius: 4px;
+    object-fit: contain;
+}
+
+/* Small button variant */
+.btn-sm {
+    padding: 8px 14px;
+    font-size: 0.85rem;
+}
+
+/* Checkbox label styling */
+.checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    font-weight: 500;
+}
+
+.checkbox-label input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    accent-color: var(--accent);
+    cursor: pointer;
+}
+
+.form-hint {
+    display: block;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin-top: 6px;
+    margin-left: 28px;
+}
+
+/* Modal small variant */
+.modal-sm {
+    max-width: 420px;
+}
+
+/* Dark mode adjustments for Link Lobby */
+body.dark-mode .link-group {
+    background: var(--bg-surface);
+    border-color: var(--border-medium);
+}
+
+body.dark-mode .link-group-header {
+    background: rgba(255, 255, 255, 0.03);
+}
+
+body.dark-mode .link-group-drag-handle:hover {
+    background: rgba(255, 255, 255, 0.08);
+}
+
+body.dark-mode .link-group-btn:hover {
+    background: rgba(255, 255, 255, 0.08);
+}
+
+body.dark-mode .link-group-menu-dropdown {
+    background: var(--bg-surface);
+    border-color: var(--border-medium);
+}
+
+body.dark-mode .link-group-menu-item:hover {
+    background: rgba(10, 132, 255, 0.15);
+}
+
+body.dark-mode .domain-subgroup {
+    background: rgba(255, 255, 255, 0.03);
+}
+
+body.dark-mode .domain-subgroup-header:hover {
+    background: rgba(255, 255, 255, 0.06);
+}
+
+body.dark-mode .link-item {
+    background: var(--bg-surface);
+    border-color: var(--border-medium);
+}
+
+body.dark-mode .link-item:hover {
+    border-color: var(--accent);
+}
+
+body.dark-mode .link-item.favorite {
+    background: linear-gradient(135deg, rgba(255, 204, 0, 0.08) 0%, rgba(255, 149, 0, 0.08) 100%);
+    border-color: rgba(255, 204, 0, 0.25);
+}
+
+body.dark-mode .link-action-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+body.dark-mode .link-lobby-empty {
+    background: rgba(255, 255, 255, 0.02);
+    border-color: var(--border-medium);
+}
+
+/* Link Lobby Mobile Responsive */
+@media (max-width: 768px) {
+    .link-lobby-section {
+        margin: 0;
+        padding: 16px;
+    }
+    
+    .link-group-header {
+        padding: 14px 16px;
+    }
+    
+    .link-group-title {
+        font-size: 0.95rem;
+    }
+    
+    .link-group-content {
+        padding: 8px;
+    }
+    
+    .link-item {
+        padding: 10px 12px;
+        gap: 10px;
+    }
+    
+    .link-label {
+        font-size: 0.85rem;
+    }
+    
+    .link-action-btn {
+        width: 36px;
+        height: 36px;
+    }
+    
+    .link-group-menu-dropdown {
+        right: -8px;
+    }
+}
+
+@media (max-width: 480px) {
+    .link-lobby-empty {
+        padding: 32px 16px;
+    }
+    
+    .link-lobby-empty-icon {
+        width: 56px;
+        height: 56px;
+        font-size: 20px;
+    }
+    
+    .link-item .link-domain {
+        display: none;
+    }
+    
+    .link-group-actions {
+        gap: 4px;
+    }
+}
+
 @media (max-width: 768px) {
     .profile-preview {
         flex-direction: column;

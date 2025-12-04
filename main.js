@@ -11800,6 +11800,9 @@ async function loadTeamData() {
         // Load activities
         await loadActivities();
         
+        // Subscribe to Link Lobby groups
+        await subscribeLinkLobbyGroups();
+        
         // Initialize team section display
         await initTeamSection();
 
@@ -16983,6 +16986,691 @@ async function updateEventInFirestore(event) {
 }
 
 // ===================================
+// LINK LOBBY SYSTEM
+// ===================================
+let linkLobbyGroups = [];
+let linkLobbyUnsubscribe = null;
+let linkGroupMenuOpen = null;
+
+// Initialize Link Lobby
+function initLinkLobby() {
+    // Add button event listener
+    const addGroupBtn = document.getElementById('addLinkGroupBtn');
+    if (addGroupBtn) {
+        addGroupBtn.addEventListener('click', openAddGroupModal);
+    }
+    
+    // Close menus when clicking outside
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('.link-group-menu')) {
+            closeAllGroupMenus();
+        }
+    });
+    
+    // URL input preview listener
+    const linkUrlInput = document.getElementById('linkUrl');
+    if (linkUrlInput) {
+        linkUrlInput.addEventListener('input', debounce(updateLinkPreview, 300));
+    }
+}
+
+// Subscribe to Link Lobby groups
+async function subscribeLinkLobbyGroups() {
+    if (!db || !appState.currentTeamId) return;
+    
+    // Unsubscribe from previous listener
+    if (linkLobbyUnsubscribe) {
+        linkLobbyUnsubscribe();
+    }
+    
+    try {
+        const { collection, query, orderBy, onSnapshot, getDocs } = 
+            await import('https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js');
+        
+        const groupsRef = collection(db, 'teams', appState.currentTeamId, 'linkLobbyGroups');
+        const q = query(groupsRef, orderBy('sortOrder', 'asc'));
+        
+        linkLobbyUnsubscribe = onSnapshot(q, async (snapshot) => {
+            linkLobbyGroups = [];
+            
+            for (const docSnapshot of snapshot.docs) {
+                const groupData = { id: docSnapshot.id, ...docSnapshot.data(), links: [], domainGroups: {} };
+                
+                // Fetch links for this group using getDocs
+                const linksRef = collection(db, 'teams', appState.currentTeamId, 'linkLobbyGroups', docSnapshot.id, 'links');
+                const linksQuery = query(linksRef, orderBy('createdAt', 'desc'));
+                
+                const linksSnapshot = await getDocs(linksQuery);
+                
+                linksSnapshot.forEach(linkDoc => {
+                    const linkData = { id: linkDoc.id, ...linkDoc.data() };
+                    
+                    // If auto-domain grouping is enabled, organize by domain
+                    if (groupData.autoGroupDomain && linkData.domain) {
+                        if (!groupData.domainGroups[linkData.domain]) {
+                            groupData.domainGroups[linkData.domain] = [];
+                        }
+                        groupData.domainGroups[linkData.domain].push(linkData);
+                    } else {
+                        groupData.links.push(linkData);
+                    }
+                });
+                
+                // Sort links: favorites first, then by createdAt
+                groupData.links.sort((a, b) => {
+                    if (a.favorite && !b.favorite) return -1;
+                    if (!a.favorite && b.favorite) return 1;
+                    return (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0);
+                });
+                
+                // Sort domain group links
+                Object.keys(groupData.domainGroups).forEach(domain => {
+                    groupData.domainGroups[domain].sort((a, b) => {
+                        if (a.favorite && !b.favorite) return -1;
+                        if (!a.favorite && b.favorite) return 1;
+                        return (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0);
+                    });
+                });
+                
+                linkLobbyGroups.push(groupData);
+            }
+            
+            renderLinkLobby();
+        }, (error) => {
+            console.error('Error subscribing to link lobby groups:', error);
+        });
+        
+    } catch (error) {
+        console.error('Error setting up link lobby subscription:', error);
+    }
+}
+
+// Render Link Lobby
+function renderLinkLobby() {
+    const container = document.getElementById('linkLobbyContainer');
+    const emptyState = document.getElementById('linkLobbyEmpty');
+    
+    if (!container) return;
+    
+    if (linkLobbyGroups.length === 0) {
+        if (emptyState) emptyState.style.display = 'block';
+        // Remove any rendered groups
+        container.querySelectorAll('.link-group').forEach(el => el.remove());
+        return;
+    }
+    
+    if (emptyState) emptyState.style.display = 'none';
+    
+    // Clear existing groups
+    container.querySelectorAll('.link-group').forEach(el => el.remove());
+    
+    // Render each group
+    linkLobbyGroups.forEach((group, index) => {
+        const groupEl = createGroupElement(group, index);
+        container.appendChild(groupEl);
+    });
+    
+    // Initialize drag and drop
+    initGroupDragAndDrop();
+}
+
+// Create group element
+function createGroupElement(group, index) {
+    const totalLinks = group.links.length + Object.values(group.domainGroups).reduce((sum, arr) => sum + arr.length, 0);
+    
+    const groupEl = document.createElement('div');
+    groupEl.className = 'link-group';
+    groupEl.dataset.groupId = group.id;
+    groupEl.dataset.sortOrder = group.sortOrder;
+    
+    groupEl.innerHTML = `
+        <div class="link-group-header">
+            <div class="link-group-drag-handle" draggable="true">
+                <i class="fas fa-grip-vertical"></i>
+            </div>
+            <div class="link-group-title">
+                ${escapeHtml(group.title)}
+                <span class="group-count">${totalLinks}</span>
+                ${group.autoGroupDomain ? '<span class="auto-domain-badge">Auto-group</span>' : ''}
+            </div>
+            <div class="link-group-actions">
+                <button class="link-group-btn add-link-btn" onclick="openAddLinkModal('${group.id}')" title="Add link">
+                    <i class="fas fa-plus"></i>
+                </button>
+                <div class="link-group-menu">
+                    <button class="link-group-btn" onclick="toggleGroupMenu('${group.id}')" title="More options">
+                        <i class="fas fa-ellipsis-v"></i>
+                    </button>
+                    <div class="link-group-menu-dropdown" id="groupMenu-${group.id}">
+                        <button class="link-group-menu-item" onclick="openEditGroupModal('${group.id}')">
+                            <i class="fas fa-edit"></i> Rename group
+                        </button>
+                        <button class="link-group-menu-item" onclick="toggleAutoDomain('${group.id}', ${!group.autoGroupDomain})">
+                            <i class="fas fa-${group.autoGroupDomain ? 'times-circle' : 'magic'}"></i> 
+                            ${group.autoGroupDomain ? 'Disable' : 'Enable'} auto-grouping
+                        </button>
+                        <div class="link-group-menu-divider"></div>
+                        <button class="link-group-menu-item danger" onclick="openDeleteGroupModal('${group.id}', '${escapeHtml(group.title)}')">
+                            <i class="fas fa-trash"></i> Delete group
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="link-group-content">
+            ${renderGroupContent(group)}
+        </div>
+    `;
+    
+    return groupEl;
+}
+
+// Render group content (links and domain subgroups)
+function renderGroupContent(group) {
+    const hasDomainGroups = Object.keys(group.domainGroups).length > 0;
+    const hasLinks = group.links.length > 0;
+    
+    if (!hasDomainGroups && !hasLinks) {
+        return '<div class="link-group-empty"><i class="fas fa-link"></i> No links yet. Click + to add one.</div>';
+    }
+    
+    let html = '';
+    
+    // Render domain subgroups first
+    if (hasDomainGroups) {
+        Object.entries(group.domainGroups).forEach(([domain, links]) => {
+            const faviconUrl = `https://www.google.com/s2/favicons?domain=${domain}&sz=32`;
+            html += `
+                <div class="domain-subgroup" data-domain="${escapeHtml(domain)}">
+                    <div class="domain-subgroup-header" onclick="toggleDomainSubgroup(this.parentElement)">
+                        <img class="domain-subgroup-icon" src="${faviconUrl}" alt="" onerror="this.style.display='none'">
+                        <span class="domain-subgroup-title">${escapeHtml(domain)}</span>
+                        <span class="domain-subgroup-count">${links.length}</span>
+                        <i class="fas fa-chevron-down domain-subgroup-toggle"></i>
+                    </div>
+                    <div class="domain-subgroup-content">
+                        <div class="links-list">
+                            ${links.map(link => renderLinkItem(link, group.id)).join('')}
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+    }
+    
+    // Render ungrouped links
+    if (hasLinks) {
+        html += `<div class="links-list">${group.links.map(link => renderLinkItem(link, group.id)).join('')}</div>`;
+    }
+    
+    return html;
+}
+
+// Render individual link item
+function renderLinkItem(link, groupId) {
+    const faviconUrl = link.iconUrl || `https://www.google.com/s2/favicons?domain=${link.domain}&sz=32`;
+    
+    return `
+        <div class="link-item ${link.favorite ? 'favorite' : ''}" data-link-id="${link.id}">
+            <img class="link-favicon" src="${faviconUrl}" alt="" onerror="this.outerHTML='<div class=\\'link-favicon-fallback\\'><i class=\\'fas fa-link\\'></i></div>'">
+            <div class="link-content">
+                <div class="link-label">${escapeHtml(link.label)}</div>
+                <div class="link-domain">${escapeHtml(link.domain || '')}</div>
+            </div>
+            <div class="link-actions">
+                <button class="link-action-btn star-btn ${link.favorite ? 'active' : ''}" onclick="toggleLinkFavorite('${groupId}', '${link.id}', ${!link.favorite})" title="${link.favorite ? 'Remove from favorites' : 'Add to favorites'}">
+                    <i class="fas fa-star"></i>
+                </button>
+                <button class="link-action-btn open-btn" onclick="openLink('${escapeHtml(link.url)}')" title="Open link">
+                    <i class="fas fa-external-link-alt"></i>
+                </button>
+                <button class="link-action-btn delete-btn" onclick="deleteLink('${groupId}', '${link.id}')" title="Delete link">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </div>
+        </div>
+    `;
+}
+
+// Toggle domain subgroup collapse
+function toggleDomainSubgroup(el) {
+    el.classList.toggle('collapsed');
+}
+
+// Open link in new tab
+function openLink(url) {
+    window.open(url, '_blank', 'noopener,noreferrer');
+}
+
+// Toggle group menu
+function toggleGroupMenu(groupId) {
+    const menu = document.getElementById(`groupMenu-${groupId}`);
+    if (!menu) return;
+    
+    const isOpen = menu.classList.contains('active');
+    closeAllGroupMenus();
+    
+    if (!isOpen) {
+        menu.classList.add('active');
+        linkGroupMenuOpen = groupId;
+    }
+}
+
+// Close all group menus
+function closeAllGroupMenus() {
+    document.querySelectorAll('.link-group-menu-dropdown.active').forEach(menu => {
+        menu.classList.remove('active');
+    });
+    linkGroupMenuOpen = null;
+}
+
+// ===================================
+// LINK LOBBY - Group CRUD Operations
+// ===================================
+
+// Open add group modal
+function openAddGroupModal() {
+    document.getElementById('linkGroupModalTitle').innerHTML = '<i class="fas fa-folder-plus"></i> Create Group';
+    document.getElementById('linkGroupId').value = '';
+    document.getElementById('linkGroupName').value = '';
+    document.getElementById('linkGroupAutoDomain').checked = false;
+    document.getElementById('linkGroupSubmitBtn').innerHTML = '<i class="fas fa-plus"></i> Create Group';
+    document.getElementById('linkGroupModal').classList.add('active');
+}
+
+// Open edit group modal
+function openEditGroupModal(groupId) {
+    closeAllGroupMenus();
+    const group = linkLobbyGroups.find(g => g.id === groupId);
+    if (!group) return;
+    
+    document.getElementById('linkGroupModalTitle').innerHTML = '<i class="fas fa-edit"></i> Edit Group';
+    document.getElementById('linkGroupId').value = groupId;
+    document.getElementById('linkGroupName').value = group.title;
+    document.getElementById('linkGroupAutoDomain').checked = group.autoGroupDomain || false;
+    document.getElementById('linkGroupSubmitBtn').innerHTML = '<i class="fas fa-check"></i> Save Changes';
+    document.getElementById('linkGroupModal').classList.add('active');
+}
+
+// Close group modal
+function closeLinkGroupModal() {
+    document.getElementById('linkGroupModal').classList.remove('active');
+}
+
+// Save group (create or update)
+async function saveLinkGroup(event) {
+    event.preventDefault();
+    
+    const groupId = document.getElementById('linkGroupId').value;
+    const title = document.getElementById('linkGroupName').value.trim();
+    const autoGroupDomain = document.getElementById('linkGroupAutoDomain').checked;
+    
+    if (!title) {
+        showToast('Please enter a group name', 'error');
+        return;
+    }
+    
+    if (!db || !appState.currentTeamId) {
+        showToast('Not connected to team', 'error');
+        return;
+    }
+    
+    try {
+        const { collection, doc, addDoc, updateDoc, serverTimestamp } = 
+            await import('https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js');
+        
+        if (groupId) {
+            // Update existing group
+            const groupRef = doc(db, 'teams', appState.currentTeamId, 'linkLobbyGroups', groupId);
+            await updateDoc(groupRef, { title, autoGroupDomain });
+            showToast('Group updated!', 'success');
+        } else {
+            // Create new group
+            const groupsRef = collection(db, 'teams', appState.currentTeamId, 'linkLobbyGroups');
+            const sortOrder = linkLobbyGroups.length;
+            await addDoc(groupsRef, {
+                title,
+                autoGroupDomain,
+                sortOrder,
+                createdAt: serverTimestamp(),
+                createdBy: currentAuthUser.uid
+            });
+            showToast('Group created!', 'success');
+        }
+        
+        closeLinkGroupModal();
+        
+    } catch (error) {
+        console.error('Error saving group:', error);
+        showToast('Error saving group: ' + error.message, 'error');
+    }
+}
+
+// Toggle auto-domain grouping
+async function toggleAutoDomain(groupId, enabled) {
+    closeAllGroupMenus();
+    
+    if (!db || !appState.currentTeamId) return;
+    
+    try {
+        const { doc, updateDoc } = 
+            await import('https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js');
+        
+        const groupRef = doc(db, 'teams', appState.currentTeamId, 'linkLobbyGroups', groupId);
+        await updateDoc(groupRef, { autoGroupDomain: enabled });
+        showToast(enabled ? 'Auto-grouping enabled!' : 'Auto-grouping disabled!', 'success');
+        
+    } catch (error) {
+        console.error('Error toggling auto-domain:', error);
+        showToast('Error updating group', 'error');
+    }
+}
+
+// Open delete group modal
+function openDeleteGroupModal(groupId, groupTitle) {
+    closeAllGroupMenus();
+    document.getElementById('deleteGroupId').value = groupId;
+    document.getElementById('deleteGroupName').textContent = groupTitle;
+    document.getElementById('deleteLinkGroupModal').classList.add('active');
+}
+
+// Close delete group modal
+function closeDeleteLinkGroupModal() {
+    document.getElementById('deleteLinkGroupModal').classList.remove('active');
+}
+
+// Confirm delete group
+async function confirmDeleteLinkGroup() {
+    const groupId = document.getElementById('deleteGroupId').value;
+    
+    if (!db || !appState.currentTeamId || !groupId) return;
+    
+    try {
+        const { doc, deleteDoc, collection, getDocs } = 
+            await import('https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js');
+        
+        // Delete all links in the group first
+        const linksRef = collection(db, 'teams', appState.currentTeamId, 'linkLobbyGroups', groupId, 'links');
+        const linksSnapshot = await getDocs(linksRef);
+        
+        const deletePromises = linksSnapshot.docs.map(linkDoc => 
+            deleteDoc(doc(db, 'teams', appState.currentTeamId, 'linkLobbyGroups', groupId, 'links', linkDoc.id))
+        );
+        await Promise.all(deletePromises);
+        
+        // Delete the group
+        const groupRef = doc(db, 'teams', appState.currentTeamId, 'linkLobbyGroups', groupId);
+        await deleteDoc(groupRef);
+        
+        showToast('Group deleted!', 'success');
+        closeDeleteLinkGroupModal();
+        
+    } catch (error) {
+        console.error('Error deleting group:', error);
+        showToast('Error deleting group: ' + error.message, 'error');
+    }
+}
+
+// ===================================
+// LINK LOBBY - Link CRUD Operations
+// ===================================
+
+// Open add link modal
+function openAddLinkModal(groupId) {
+    document.getElementById('linkModalTitle').innerHTML = '<i class="fas fa-link"></i> Add Link';
+    document.getElementById('linkId').value = '';
+    document.getElementById('linkGroupIdForLink').value = groupId;
+    document.getElementById('linkUrl').value = '';
+    document.getElementById('linkLabel').value = '';
+    document.getElementById('linkPreview').style.display = 'none';
+    document.getElementById('linkSubmitBtn').innerHTML = '<i class="fas fa-plus"></i> Add Link';
+    document.getElementById('linkModal').classList.add('active');
+    
+    // Focus the URL input
+    setTimeout(() => document.getElementById('linkUrl').focus(), 100);
+}
+
+// Close link modal
+function closeLinkModal() {
+    document.getElementById('linkModal').classList.remove('active');
+}
+
+// Update link preview based on URL
+function updateLinkPreview() {
+    const urlInput = document.getElementById('linkUrl');
+    const previewEl = document.getElementById('linkPreview');
+    const faviconEl = document.getElementById('linkFaviconPreview');
+    const domainEl = document.getElementById('linkDomainPreview');
+    
+    try {
+        const url = new URL(urlInput.value);
+        const domain = url.hostname;
+        
+        faviconEl.src = `https://www.google.com/s2/favicons?domain=${domain}&sz=32`;
+        domainEl.textContent = domain;
+        previewEl.style.display = 'flex';
+    } catch (e) {
+        previewEl.style.display = 'none';
+    }
+}
+
+// Save link
+async function saveLink(event) {
+    event.preventDefault();
+    
+    const groupId = document.getElementById('linkGroupIdForLink').value;
+    const urlValue = document.getElementById('linkUrl').value.trim();
+    const label = document.getElementById('linkLabel').value.trim();
+    
+    if (!urlValue || !label) {
+        showToast('Please fill in all fields', 'error');
+        return;
+    }
+    
+    // Validate URL
+    let url, domain;
+    try {
+        url = new URL(urlValue);
+        domain = url.hostname;
+    } catch (e) {
+        showToast('Please enter a valid URL', 'error');
+        return;
+    }
+    
+    if (!db || !appState.currentTeamId || !groupId) {
+        showToast('Not connected to team', 'error');
+        return;
+    }
+    
+    try {
+        const { collection, addDoc, serverTimestamp } = 
+            await import('https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js');
+        
+        const linksRef = collection(db, 'teams', appState.currentTeamId, 'linkLobbyGroups', groupId, 'links');
+        
+        await addDoc(linksRef, {
+            url: url.href,
+            label,
+            domain,
+            iconUrl: `https://www.google.com/s2/favicons?domain=${domain}&sz=32`,
+            favorite: false,
+            createdAt: serverTimestamp(),
+            createdBy: currentAuthUser.uid
+        });
+        
+        showToast('Link added!', 'success');
+        closeLinkModal();
+        
+        // Re-fetch to update the UI (snapshot listener will handle this)
+        
+    } catch (error) {
+        console.error('Error saving link:', error);
+        showToast('Error saving link: ' + error.message, 'error');
+    }
+}
+
+// Toggle link favorite
+async function toggleLinkFavorite(groupId, linkId, favorite) {
+    if (!db || !appState.currentTeamId) return;
+    
+    try {
+        const { doc, updateDoc } = 
+            await import('https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js');
+        
+        const linkRef = doc(db, 'teams', appState.currentTeamId, 'linkLobbyGroups', groupId, 'links', linkId);
+        await updateDoc(linkRef, { favorite });
+        
+        // The snapshot listener will update the UI
+        
+    } catch (error) {
+        console.error('Error toggling favorite:', error);
+        showToast('Error updating favorite', 'error');
+    }
+}
+
+// Delete link
+async function deleteLink(groupId, linkId) {
+    if (!confirm('Delete this link?')) return;
+    
+    if (!db || !appState.currentTeamId) return;
+    
+    try {
+        const { doc, deleteDoc } = 
+            await import('https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js');
+        
+        const linkRef = doc(db, 'teams', appState.currentTeamId, 'linkLobbyGroups', groupId, 'links', linkId);
+        await deleteDoc(linkRef);
+        
+        showToast('Link deleted!', 'success');
+        
+    } catch (error) {
+        console.error('Error deleting link:', error);
+        showToast('Error deleting link', 'error');
+    }
+}
+
+// ===================================
+// LINK LOBBY - Drag and Drop
+// ===================================
+
+function initGroupDragAndDrop() {
+    const container = document.getElementById('linkLobbyContainer');
+    if (!container) return;
+    
+    const groups = container.querySelectorAll('.link-group');
+    let draggedGroup = null;
+    
+    groups.forEach(group => {
+        const handle = group.querySelector('.link-group-drag-handle');
+        if (!handle) return;
+        
+        handle.addEventListener('dragstart', (e) => {
+            draggedGroup = group;
+            group.classList.add('dragging');
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', group.dataset.groupId);
+        });
+        
+        handle.addEventListener('dragend', () => {
+            draggedGroup = null;
+            group.classList.remove('dragging');
+            document.querySelectorAll('.link-group.drag-over').forEach(el => el.classList.remove('drag-over'));
+        });
+        
+        group.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            if (draggedGroup && draggedGroup !== group) {
+                group.classList.add('drag-over');
+            }
+        });
+        
+        group.addEventListener('dragleave', () => {
+            group.classList.remove('drag-over');
+        });
+        
+        group.addEventListener('drop', async (e) => {
+            e.preventDefault();
+            group.classList.remove('drag-over');
+            
+            if (!draggedGroup || draggedGroup === group) return;
+            
+            // Reorder in DOM
+            const allGroups = [...container.querySelectorAll('.link-group')];
+            const draggedIndex = allGroups.indexOf(draggedGroup);
+            const dropIndex = allGroups.indexOf(group);
+            
+            if (draggedIndex < dropIndex) {
+                group.after(draggedGroup);
+            } else {
+                group.before(draggedGroup);
+            }
+            
+            // Update sort orders in Firestore
+            await updateGroupSortOrders();
+        });
+    });
+}
+
+// Update sort orders in Firestore
+async function updateGroupSortOrders() {
+    const container = document.getElementById('linkLobbyContainer');
+    if (!container || !db || !appState.currentTeamId) return;
+    
+    try {
+        const { doc, updateDoc } = 
+            await import('https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js');
+        
+        const groups = container.querySelectorAll('.link-group');
+        const updates = [];
+        
+        groups.forEach((group, index) => {
+            const groupId = group.dataset.groupId;
+            if (groupId) {
+                const groupRef = doc(db, 'teams', appState.currentTeamId, 'linkLobbyGroups', groupId);
+                updates.push(updateDoc(groupRef, { sortOrder: index }));
+            }
+        });
+        
+        await Promise.all(updates);
+        console.log('Group sort orders updated');
+        
+    } catch (error) {
+        console.error('Error updating sort orders:', error);
+    }
+}
+
+// Debounce helper
+function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+        const later = () => {
+            clearTimeout(timeout);
+            func(...args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+    };
+}
+
+// Make functions globally accessible
+window.openAddGroupModal = openAddGroupModal;
+window.openEditGroupModal = openEditGroupModal;
+window.closeLinkGroupModal = closeLinkGroupModal;
+window.saveLinkGroup = saveLinkGroup;
+window.toggleAutoDomain = toggleAutoDomain;
+window.openDeleteGroupModal = openDeleteGroupModal;
+window.closeDeleteLinkGroupModal = closeDeleteLinkGroupModal;
+window.confirmDeleteLinkGroup = confirmDeleteLinkGroup;
+window.openAddLinkModal = openAddLinkModal;
+window.closeLinkModal = closeLinkModal;
+window.saveLink = saveLink;
+window.toggleLinkFavorite = toggleLinkFavorite;
+window.deleteLink = deleteLink;
+window.openLink = openLink;
+window.toggleGroupMenu = toggleGroupMenu;
+window.toggleDomainSubgroup = toggleDomainSubgroup;
+
+// ===================================
 // INITIALIZATION
 // ===================================
 document.addEventListener('DOMContentLoaded', async () => {
@@ -17013,6 +17701,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     initSearch();
     initSettings();
     initJoinTeamModal(); // Initialize join team modal
+    initLinkLobby(); // Initialize Link Lobby
     startActivityRefreshTimer(); // Start periodic refresh of activity times
     
     console.log('TeamHub App Ready!');
