@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Teamster - Internal Collaboration Platform</title>
-    <link rel="stylesheet" href="styles.css?v=14">
+    <link rel="stylesheet" href="styles.css?v=16">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
@@ -1096,273 +1096,286 @@
         </main>
     </div>
 
-    <!-- Modal for Logout All Devices -->
-    <div class="modal" id="logoutAllModal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2><i class="fas fa-shield-halved"></i> Log Out of All Devices</h2>
-                <button class="modal-close" id="closeLogoutAllModal">
+    <!-- Modal for Logout All Devices - Unified Style -->
+    <div class="unified-modal" id="logoutAllModal">
+        <div class="unified-modal-container modal-sm">
+            <div class="unified-modal-header">
+                <div class="unified-modal-title">
+                    <h2><i class="fas fa-shield-halved"></i> Log Out Everywhere</h2>
+                </div>
+                <button class="unified-modal-close" id="closeLogoutAllModal">
                     <i class="fas fa-times"></i>
                 </button>
             </div>
-            <div class="modal-body" style="padding: 32px;">
-                <div class="security-warning-box">
-                    <div class="warning-icon">
-                        <i class="fas fa-triangle-exclamation"></i>
+            <div class="unified-modal-body">
+                <div class="unified-confirm-box warning">
+                    <div class="unified-confirm-icon">
+                        <i class="fas fa-power-off"></i>
                     </div>
-                    <div class="warning-content">
-                        <p class="warning-title">This action will sign you out everywhere</p>
-                        <p class="warning-text">
+                    <div class="unified-confirm-content">
+                        <p class="unified-confirm-title">Sign out from all devices?</p>
+                        <p class="unified-confirm-text">
                             You will be signed out from all devices and browsers where you're currently logged in, including this one.
                         </p>
-                        <p class="warning-text">
+                        <p class="unified-confirm-text" style="margin-top: 8px;">
                             You'll need to sign in again on each device you want to use.
                         </p>
                     </div>
                 </div>
             </div>
-            <div class="modal-footer" style="gap: 12px; padding: 20px 32px;">
-                <button class="btn-secondary" id="cancelLogoutAll">
-                    <i class="fas fa-times"></i> Cancel
-                </button>
-                <button class="btn-danger" id="confirmLogoutAll">
+            <div class="unified-modal-footer">
+                <button class="unified-btn unified-btn-secondary" id="cancelLogoutAll">Cancel</button>
+                <button class="unified-btn unified-btn-danger" id="confirmLogoutAll">
                     <i class="fas fa-power-off"></i> Log Out Everywhere
                 </button>
             </div>
         </div>
     </div>
 
-    <!-- Modal for Delete Chat History -->
-    <div class="modal" id="deleteChatHistoryModal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2><i class="fas fa-trash-alt"></i> Delete All Chat History</h2>
-                <button class="modal-close" id="closeDeleteChatHistoryModal">
+    <!-- Modal for Delete Chat History - Unified Style -->
+    <div class="unified-modal" id="deleteChatHistoryModal">
+        <div class="unified-modal-container modal-sm">
+            <div class="unified-modal-header">
+                <div class="unified-modal-title">
+                    <h2><i class="fas fa-trash-alt"></i> Delete Chat History</h2>
+                </div>
+                <button class="unified-modal-close" id="closeDeleteChatHistoryModal">
                     <i class="fas fa-times"></i>
                 </button>
             </div>
-            <div class="modal-body" style="padding: 32px;">
-                <div class="security-warning-box">
-                    <div class="warning-icon" style="background: linear-gradient(135deg, #d32f2f 0%, #b71c1c 100%);">
+            <div class="unified-modal-body">
+                <div class="unified-confirm-box danger">
+                    <div class="unified-confirm-icon">
                         <i class="fas fa-exclamation-triangle"></i>
                     </div>
-                    <div class="warning-content">
-                        <p class="warning-title" style="color: #d32f2f;">PERMANENT ACTION</p>
-                        <p class="warning-text" style="font-weight: 600; color: #d32f2f;">
-                            This will permanently delete all team messages. This action cannot be undone.
+                    <div class="unified-confirm-content">
+                        <p class="unified-confirm-title" style="color: #ff3b30;">⚠️ PERMANENT ACTION</p>
+                        <p class="unified-confirm-text">
+                            This will permanently delete all team messages.
+                        </p>
+                        <p class="unified-confirm-text" style="font-weight: 600; color: #ff3b30; margin-top: 8px;">
+                            This action cannot be undone.
                         </p>
                     </div>
                 </div>
             </div>
-            <div class="modal-footer" style="gap: 12px; padding: 20px 32px;">
-                <button class="btn-secondary" id="cancelDeleteChatHistory">
-                    <i class="fas fa-times"></i> Cancel
-                </button>
-                <button class="btn-danger" id="confirmDeleteChatHistory" style="background: linear-gradient(135deg, #d32f2f 0%, #b71c1c 100%);">
+            <div class="unified-modal-footer">
+                <button class="unified-btn unified-btn-secondary" id="cancelDeleteChatHistory">Cancel</button>
+                <button class="unified-btn unified-btn-danger" id="confirmDeleteChatHistory">
                     <i class="fas fa-trash-alt"></i> Delete All Messages
                 </button>
             </div>
         </div>
     </div>
 
-    <!-- Modal for Promoting Member -->
-    <div class="modal" id="promoteModal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2><i class="fas fa-arrow-up"></i> Promote to Admin</h2>
-                <button class="modal-close" onclick="closePromoteModal()">
+    <!-- Modal for Promoting Member - Unified Style -->
+    <div class="unified-modal" id="promoteModal">
+        <div class="unified-modal-container modal-sm">
+            <div class="unified-modal-header">
+                <div class="unified-modal-title">
+                    <h2><i class="fas fa-arrow-up"></i> Promote to Admin</h2>
+                </div>
+                <button class="unified-modal-close" onclick="closePromoteModal()">
                     <i class="fas fa-times"></i>
                 </button>
             </div>
-            <div class="modal-body" style="padding: 32px;">
-                <p style="font-size: 15px; color: var(--text-main); margin-bottom: 20px;">
-                    Promote <strong id="promoteMemberName"></strong> to Admin?
-                </p>
-                <div style="background: var(--bg-surface-soft); border-radius: var(--radius-md); padding: 20px;">
-                    <p style="font-weight: 600; margin-bottom: 12px; color: var(--text-main);">Admins can:</p>
-                    <ul style="list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 8px;">
-                        <li style="display: flex; align-items: center; gap: 10px; color: var(--text-main);">
-                            <i class="fas fa-check" style="color: var(--accent); font-size: 12px;"></i>
-                            Invite new members
-                        </li>
-                        <li style="display: flex; align-items: center; gap: 10px; color: var(--text-main);">
-                            <i class="fas fa-check" style="color: var(--accent); font-size: 12px;"></i>
-                            Approve/deny join requests
-                        </li>
-                        <li style="display: flex; align-items: center; gap: 10px; color: var(--text-main);">
-                            <i class="fas fa-check" style="color: var(--accent); font-size: 12px;"></i>
-                            Manage tasks and events
-                        </li>
-                        <li style="display: flex; align-items: center; gap: 10px; color: var(--text-muted); font-size: 14px;">
-                            <i class="fas fa-times" style="color: var(--text-muted); font-size: 12px;"></i>
-                            Cannot change owner or other admin roles
-                        </li>
-                    </ul>
+            <div class="unified-modal-body">
+                <div class="unified-confirm-box info">
+                    <div class="unified-confirm-icon">
+                        <i class="fas fa-user-shield"></i>
+                    </div>
+                    <div class="unified-confirm-content">
+                        <p class="unified-confirm-title">Promote <strong id="promoteMemberName"></strong> to Admin?</p>
+                        <p class="unified-confirm-text">Admins have elevated permissions in the team.</p>
+                        <ul class="unified-feature-list">
+                            <li><i class="fas fa-check"></i> Invite new members</li>
+                            <li><i class="fas fa-check"></i> Approve/deny join requests</li>
+                            <li><i class="fas fa-check"></i> Manage tasks and events</li>
+                            <li class="muted"><i class="fas fa-times"></i> Cannot change owner or other admin roles</li>
+                        </ul>
+                    </div>
                 </div>
             </div>
-            <div class="modal-footer" style="gap: 12px; padding: 20px 32px;">
-                <button class="btn-secondary" onclick="closePromoteModal()">
-                    <i class="fas fa-times"></i> Cancel
-                </button>
-                <button class="btn-primary" id="confirmPromote">
+            <div class="unified-modal-footer">
+                <button class="unified-btn unified-btn-secondary" onclick="closePromoteModal()">Cancel</button>
+                <button class="unified-btn unified-btn-primary" id="confirmPromote">
                     <i class="fas fa-arrow-up"></i> Promote to Admin
                 </button>
             </div>
         </div>
     </div>
 
-    <!-- Modal for Demoting Member -->
-    <div class="modal" id="demoteModal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2><i class="fas fa-arrow-down"></i> Demote to Member</h2>
-                <button class="modal-close" onclick="closeDemoteModal()">
+    <!-- Modal for Demoting Member - Unified Style -->
+    <div class="unified-modal" id="demoteModal">
+        <div class="unified-modal-container modal-sm">
+            <div class="unified-modal-header">
+                <div class="unified-modal-title">
+                    <h2><i class="fas fa-arrow-down"></i> Demote to Member</h2>
+                </div>
+                <button class="unified-modal-close" onclick="closeDemoteModal()">
                     <i class="fas fa-times"></i>
                 </button>
             </div>
-            <div class="modal-body" style="padding: 32px;">
-                <p style="font-size: 15px; color: var(--text-main); margin-bottom: 20px;">
-                    Demote <strong id="demoteMemberName"></strong> to Member?
-                </p>
-                <div style="background: var(--bg-surface-soft); border-radius: var(--radius-md); padding: 20px;">
-                    <p style="font-weight: 600; margin-bottom: 12px; color: var(--text-main);">They will lose:</p>
-                    <ul style="list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 8px;">
-                        <li style="display: flex; align-items: center; gap: 10px; color: var(--text-muted);">
-                            <i class="fas fa-times" style="color: var(--text-muted); font-size: 12px;"></i>
-                            Ability to invite new members
-                        </li>
-                        <li style="display: flex; align-items: center; gap: 10px; color: var(--text-muted);">
-                            <i class="fas fa-times" style="color: var(--text-muted); font-size: 12px;"></i>
-                            Ability to approve/deny join requests
-                        </li>
-                        <li style="display: flex; align-items: center; gap: 10px; color: var(--text-muted);">
-                            <i class="fas fa-times" style="color: var(--text-muted); font-size: 12px;"></i>
-                            Admin management privileges
-                        </li>
-                        <li style="display: flex; align-items: center; gap: 10px; color: var(--text-main); font-size: 14px; margin-top: 8px;">
-                            <i class="fas fa-check" style="color: var(--accent); font-size: 12px;"></i>
-                            Will remain as a regular team member
-                        </li>
-                    </ul>
+            <div class="unified-modal-body">
+                <div class="unified-confirm-box warning">
+                    <div class="unified-confirm-icon">
+                        <i class="fas fa-user"></i>
+                    </div>
+                    <div class="unified-confirm-content">
+                        <p class="unified-confirm-title">Demote <strong id="demoteMemberName"></strong> to Member?</p>
+                        <p class="unified-confirm-text">They will lose the following privileges:</p>
+                        <ul class="unified-feature-list">
+                            <li class="muted"><i class="fas fa-times"></i> Ability to invite new members</li>
+                            <li class="muted"><i class="fas fa-times"></i> Ability to approve/deny join requests</li>
+                            <li class="muted"><i class="fas fa-times"></i> Admin management privileges</li>
+                            <li><i class="fas fa-check"></i> Will remain as a regular team member</li>
+                        </ul>
+                    </div>
                 </div>
             </div>
-            <div class="modal-footer" style="gap: 12px; padding: 20px 32px;">
-                <button class="btn-secondary" onclick="closeDemoteModal()">
-                    <i class="fas fa-times"></i> Cancel
-                </button>
-                <button class="btn-primary" id="confirmDemote" style="background: rgba(255, 193, 7, 0.15); color: #d68200; border: 1px solid rgba(255, 193, 7, 0.5);">
+            <div class="unified-modal-footer">
+                <button class="unified-btn unified-btn-secondary" onclick="closeDemoteModal()">Cancel</button>
+                <button class="unified-btn unified-btn-warning" id="confirmDemote">
                     <i class="fas fa-arrow-down"></i> Demote to Member
                 </button>
             </div>
         </div>
     </div>
 
-    <!-- Modal for Kicking Member -->
-    <div class="modal" id="kickModal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2><i class="fas fa-user-times"></i> Kick Member</h2>
-                <button class="modal-close" onclick="closeKickModal()">
+    <!-- Modal for Kicking Member - Unified Style -->
+    <div class="unified-modal" id="kickModal">
+        <div class="unified-modal-container modal-sm">
+            <div class="unified-modal-header">
+                <div class="unified-modal-title">
+                    <h2><i class="fas fa-user-times"></i> Kick Member</h2>
+                </div>
+                <button class="unified-modal-close" onclick="closeKickModal()">
                     <i class="fas fa-times"></i>
                 </button>
             </div>
-            <div class="modal-body" style="padding: 32px;">
-                <div class="security-warning-box" style="background: linear-gradient(135deg, rgba(255,59,48,0.05) 0%, rgba(255,59,48,0.02) 100%);">
-                    <div class="warning-icon" style="background: rgba(255,59,48,0.1);">
-                        <i class="fas fa-triangle-exclamation" style="color: rgb(255,59,48);"></i>
+            <div class="unified-modal-body">
+                <div class="unified-confirm-box danger">
+                    <div class="unified-confirm-icon">
+                        <i class="fas fa-triangle-exclamation"></i>
                     </div>
-                    <div class="warning-content">
-                        <p class="warning-title">Kick <strong id="kickMemberName"></strong> from the team?</p>
-                        <p class="warning-text">
+                    <div class="unified-confirm-content">
+                        <p class="unified-confirm-title">Remove <strong id="kickMemberName"></strong> from the team?</p>
+                        <p class="unified-confirm-text">
                             This will immediately remove them from the team and revoke all access.
                         </p>
-                        <p class="warning-text" style="font-weight: 600; color: rgb(255,59,48);">
+                        <p class="unified-confirm-text" style="font-weight: 600; color: #ff3b30; margin-top: 8px;">
                             This action cannot be undone.
                         </p>
                     </div>
                 </div>
             </div>
-            <div class="modal-footer" style="gap: 12px; padding: 20px 32px;">
-                <button class="btn-secondary" onclick="closeKickModal()">
-                    <i class="fas fa-times"></i> Cancel
-                </button>
-                <button class="btn-danger" id="confirmKick">
+            <div class="unified-modal-footer">
+                <button class="unified-btn unified-btn-secondary" onclick="closeKickModal()">Cancel</button>
+                <button class="unified-btn unified-btn-danger" id="confirmKick">
                     <i class="fas fa-user-times"></i> Kick Member
                 </button>
             </div>
         </div>
     </div>
 
-    <!-- Modal for Adding Events -->
-    <div class="modal" id="eventModal">
-        <div class="modal-content event-modal-compact">
-            <div class="modal-header">
-                <h2>Add New Event</h2>
-                <button class="modal-close" id="closeEventModal">
+    <!-- Modal for Adding Events - Unified Style -->
+    <div class="unified-modal" id="eventModal">
+        <div class="unified-modal-container">
+            <div class="unified-modal-header">
+                <div class="unified-modal-title">
+                    <h2><i class="fas fa-calendar-plus"></i> New Event</h2>
+                    <p class="subtitle">Schedule an event for your team</p>
+                </div>
+                <button class="unified-modal-close" id="closeEventModal">
                     <i class="fas fa-times"></i>
                 </button>
             </div>
-            <form class="modal-form event-form-compact" id="eventForm">
-                <!-- Title -->
-                <div class="form-group">
-                    <label for="eventTitle"><i class="fas fa-heading"></i> Event Title</label>
-                    <input type="text" id="eventTitle" required placeholder="Enter event name">
-                </div>
-                
-                <!-- Date and Time Row -->
-                <div class="event-datetime-row">
-                    <div class="form-group event-date-group">
-                        <label for="eventDate"><i class="fas fa-calendar"></i> Date</label>
-                        <input type="date" id="eventDate" required>
-                    </div>
-                    <div class="form-group event-time-group">
-                        <label><i class="fas fa-clock"></i> Start</label>
-                        <div class="time-input-compact">
-                            <input type="number" id="eventHour" min="0" max="23" placeholder="09" required>
-                            <span>:</span>
-                            <input type="number" id="eventMinute" min="0" max="59" placeholder="00" required>
+            <form id="eventForm">
+                <div class="unified-modal-body">
+                    <div class="unified-form-grid">
+                        <!-- Event Title - Full Width -->
+                        <div class="unified-form-field full-width">
+                            <label class="unified-form-label">
+                                Event Title <span class="required">*</span>
+                            </label>
+                            <input type="text" class="unified-input" id="eventTitle" required placeholder="Enter event name">
+                        </div>
+                        
+                        <!-- Date -->
+                        <div class="unified-form-field">
+                            <label class="unified-form-label">
+                                <i class="fas fa-calendar"></i> Date <span class="required">*</span>
+                            </label>
+                            <input type="date" class="unified-input" id="eventDate" required>
+                        </div>
+                        
+                        <!-- Duration Display -->
+                        <div class="unified-form-field">
+                            <label class="unified-form-label">
+                                <i class="fas fa-hourglass-half"></i> Duration
+                            </label>
+                            <div class="unified-input" style="background: var(--bg-surface-soft); color: var(--text-muted);" id="eventDuration">
+                                <span id="durationText">0 minutes</span>
+                            </div>
+                        </div>
+                        
+                        <!-- Start Time -->
+                        <div class="unified-form-field">
+                            <label class="unified-form-label">
+                                <i class="fas fa-clock"></i> Start Time <span class="required">*</span>
+                            </label>
+                            <div class="unified-time-input">
+                                <input type="number" id="eventHour" min="0" max="23" placeholder="09" required>
+                                <span>:</span>
+                                <input type="number" id="eventMinute" min="0" max="59" placeholder="00" required>
+                            </div>
+                        </div>
+                        
+                        <!-- End Time -->
+                        <div class="unified-form-field">
+                            <label class="unified-form-label">
+                                <i class="fas fa-clock"></i> End Time <span class="required">*</span>
+                            </label>
+                            <div class="unified-time-input">
+                                <input type="number" id="eventEndHour" min="0" max="23" placeholder="17" required>
+                                <span>:</span>
+                                <input type="number" id="eventEndMinute" min="0" max="59" placeholder="00" required>
+                            </div>
+                        </div>
+                        
+                        <!-- Color Picker - Full Width -->
+                        <div class="unified-form-field full-width">
+                            <label class="unified-form-label">
+                                <i class="fas fa-palette"></i> Color
+                            </label>
+                            <input type="hidden" id="eventColor" value="#007AFF">
+                            <div class="unified-color-grid">
+                                <button type="button" class="unified-color-option selected" data-color="#007AFF" style="background: #007AFF;" title="Blue"></button>
+                                <button type="button" class="unified-color-option" data-color="#5856D6" style="background: #5856D6;" title="Purple"></button>
+                                <button type="button" class="unified-color-option" data-color="#32ADE6" style="background: #32ADE6;" title="Teal"></button>
+                                <button type="button" class="unified-color-option" data-color="#FF3B30" style="background: #FF3B30;" title="Red"></button>
+                                <button type="button" class="unified-color-option" data-color="#34C759" style="background: #34C759;" title="Green"></button>
+                                <button type="button" class="unified-color-option" data-color="#FF9500" style="background: #FF9500;" title="Orange"></button>
+                                <button type="button" class="unified-color-option" data-color="#FF2D55" style="background: #FF2D55;" title="Pink"></button>
+                                <button type="button" class="unified-color-option" data-color="#AF52DE" style="background: #AF52DE;" title="Magenta"></button>
+                            </div>
+                        </div>
+                        
+                        <!-- Description - Full Width -->
+                        <div class="unified-form-field full-width">
+                            <label class="unified-form-label">
+                                Description <span class="optional">(optional)</span>
+                            </label>
+                            <textarea class="unified-textarea" id="eventDescription" rows="2" placeholder="Add details about this event..."></textarea>
                         </div>
                     </div>
-                    <div class="form-group event-time-group">
-                        <label><i class="fas fa-clock"></i> End</label>
-                        <div class="time-input-compact">
-                            <input type="number" id="eventEndHour" min="0" max="23" placeholder="17" required>
-                            <span>:</span>
-                            <input type="number" id="eventEndMinute" min="0" max="59" placeholder="00" required>
-                        </div>
-                    </div>
                 </div>
                 
-                <div class="duration-display" id="eventDuration" style="display: none;">
-                    <i class="fas fa-hourglass-half"></i> Duration: <span id="durationText">0 minutes</span>
-                </div>
-                
-                <!-- Color Picker -->
-                <div class="form-group">
-                    <label for="eventColor"><i class="fas fa-palette"></i> Color</label>
-                    <input type="hidden" id="eventColor" value="#007AFF">
-                    <div class="event-color-picker">
-                        <button type="button" class="event-color-option selected" data-color="#007AFF" style="background: #007AFF;" title="Blue"></button>
-                        <button type="button" class="event-color-option" data-color="#5856D6" style="background: #5856D6;" title="Purple"></button>
-                        <button type="button" class="event-color-option" data-color="#32ADE6" style="background: #32ADE6;" title="Teal"></button>
-                        <button type="button" class="event-color-option" data-color="#FF3B30" style="background: #FF3B30;" title="Red"></button>
-                        <button type="button" class="event-color-option" data-color="#34C759" style="background: #34C759;" title="Green"></button>
-                        <button type="button" class="event-color-option" data-color="#FF9500" style="background: #FF9500;" title="Orange"></button>
-                        <button type="button" class="event-color-option" data-color="#FF2D55" style="background: #FF2D55;" title="Pink"></button>
-                        <button type="button" class="event-color-option" data-color="#AF52DE" style="background: #AF52DE;" title="Magenta"></button>
-                    </div>
-                </div>
-                
-                <!-- Description - Auto-expanding -->
-                <div class="form-group">
-                    <label for="eventDescription"><i class="fas fa-align-left"></i> Description <span class="label-optional">(optional)</span></label>
-                    <textarea id="eventDescription" class="auto-expand-textarea" rows="2" placeholder="Add details about this event..."></textarea>
-                </div>
-                
-                <!-- Actions -->
-                <div class="modal-actions">
-                    <button type="button" class="btn-secondary" id="cancelEventBtn">Cancel</button>
-                    <button type="submit" class="btn-primary">Add Event</button>
+                <div class="unified-modal-footer">
+                    <button type="button" class="unified-btn unified-btn-secondary" id="cancelEventBtn">Cancel</button>
+                    <button type="submit" class="unified-btn unified-btn-primary">
+                        <i class="fas fa-check"></i> Add Event
+                    </button>
                 </div>
             </form>
         </div>
@@ -1448,339 +1461,414 @@
     </div>
 
     <!-- ===================================
-         ADD TASK MODAL - Clean Rebuild
-         Compact single-column layout
+         ADD TASK MODAL - Unified Modern Design
+         Wide 2-column layout, minimal scrolling
          =================================== -->
-    <div class="modal" id="taskModal">
-        <div class="modal-content task-modal-content">
-            <div class="modal-header">
-                <h2><i class="fas fa-plus-circle"></i> New Task</h2>
-                <button class="modal-close" id="closeTaskModal">
+    <div class="unified-modal" id="taskModal">
+        <div class="unified-modal-container">
+            <div class="unified-modal-header">
+                <div class="unified-modal-title">
+                    <h2><i class="fas fa-plus-circle"></i> New Task</h2>
+                    <p class="subtitle">Add a new task to your team's workflow</p>
+                </div>
+                <button class="unified-modal-close" id="closeTaskModal">
                     <i class="fas fa-times"></i>
                 </button>
             </div>
             
-            <form class="task-modal-form" id="taskForm">
-                <!-- Task Title with word counter -->
-                <div class="form-group">
-                    <label for="taskTitle">Title <span class="word-counter" id="taskTitleCounter">0/20 words</span></label>
-                    <input type="text" id="taskTitle" required placeholder="What needs to be done?">
-                </div>
-                
-                <!-- Description -->
-                <div class="form-group">
-                    <label for="taskDescription">Description <span class="optional">(optional)</span></label>
-                    <textarea id="taskDescription" rows="3" placeholder="Add details or context..."></textarea>
-                </div>
-                
-                <!-- Two-column row: Assignee + Due Date -->
-                <div class="form-row-2col">
-                    <div class="form-group">
-                        <label>Assignee</label>
-                        <div class="custom-dropdown-container" id="taskAssigneeDropdown">
-                            <div class="custom-dropdown-trigger" id="taskAssigneeTrigger">
-                                <div class="dropdown-trigger-content">
-                                    <span class="dropdown-placeholder">Select...</span>
+            <form id="taskForm">
+                <div class="unified-modal-body">
+                    <div class="unified-form-grid">
+                        <!-- Task Title - Full Width -->
+                        <div class="unified-form-field full-width">
+                            <label class="unified-form-label">
+                                Title <span class="required">*</span>
+                                <span class="optional" id="taskTitleCounter" style="margin-left: auto;">0/20 words</span>
+                            </label>
+                            <input type="text" class="unified-input" id="taskTitle" required placeholder="What needs to be done?">
+                        </div>
+                        
+                        <!-- Description - Full Width -->
+                        <div class="unified-form-field full-width">
+                            <label class="unified-form-label">
+                                Description <span class="optional">(optional)</span>
+                            </label>
+                            <textarea class="unified-textarea" id="taskDescription" rows="2" placeholder="Add details or context..."></textarea>
+                        </div>
+                        
+                        <!-- Assignee -->
+                        <div class="unified-form-field">
+                            <label class="unified-form-label">
+                                <i class="fas fa-user"></i> Assignee <span class="required">*</span>
+                            </label>
+                            <div class="unified-dropdown" id="taskAssigneeDropdown">
+                                <div class="unified-dropdown-trigger" id="taskAssigneeTrigger">
+                                    <div class="unified-dropdown-value">
+                                        <span class="dropdown-placeholder">Select team member...</span>
+                                    </div>
+                                    <i class="fas fa-chevron-down unified-dropdown-arrow"></i>
                                 </div>
-                                <i class="fas fa-chevron-down dropdown-arrow"></i>
+                                <div class="unified-dropdown-menu" id="taskAssigneeMenu"></div>
+                                <input type="hidden" id="taskAssignee" name="taskAssignee" required>
                             </div>
-                            <div class="custom-dropdown-menu" id="taskAssigneeMenu"></div>
-                            <input type="hidden" id="taskAssignee" name="taskAssignee" required>
+                        </div>
+                        
+                        <!-- Due Date -->
+                        <div class="unified-form-field">
+                            <label class="unified-form-label">
+                                <i class="fas fa-calendar"></i> Due Date
+                            </label>
+                            <input type="date" class="unified-input" id="taskDueDate">
+                        </div>
+                        
+                        <!-- Priority -->
+                        <div class="unified-form-field">
+                            <label class="unified-form-label">
+                                <i class="fas fa-flag"></i> Priority
+                            </label>
+                            <div class="unified-dropdown" id="taskPriorityDropdown">
+                                <div class="unified-dropdown-trigger" id="taskPriorityTrigger">
+                                    <div class="unified-dropdown-value">
+                                        <span class="unified-priority-dot medium"></span>
+                                        <span>Medium</span>
+                                    </div>
+                                    <i class="fas fa-chevron-down unified-dropdown-arrow"></i>
+                                </div>
+                                <div class="unified-dropdown-menu" id="taskPriorityMenu">
+                                    <div class="unified-dropdown-option" data-value="low">
+                                        <span class="unified-priority-dot low"></span>
+                                        <span>Low</span>
+                                        <i class="fas fa-check check-icon"></i>
+                                    </div>
+                                    <div class="unified-dropdown-option selected" data-value="medium">
+                                        <span class="unified-priority-dot medium"></span>
+                                        <span>Medium</span>
+                                        <i class="fas fa-check check-icon"></i>
+                                    </div>
+                                    <div class="unified-dropdown-option" data-value="high">
+                                        <span class="unified-priority-dot high"></span>
+                                        <span>High</span>
+                                        <i class="fas fa-check check-icon"></i>
+                                    </div>
+                                </div>
+                                <input type="hidden" id="taskPriority" name="taskPriority" value="medium">
+                            </div>
+                        </div>
+                        
+                        <!-- Status -->
+                        <div class="unified-form-field">
+                            <label class="unified-form-label">
+                                <i class="fas fa-circle-dot"></i> Status
+                            </label>
+                            <div class="unified-dropdown" id="taskStatusDropdown">
+                                <div class="unified-dropdown-trigger" id="taskStatusTrigger">
+                                    <div class="unified-dropdown-value">
+                                        <span class="unified-status-dot todo"></span>
+                                        <span>To Do</span>
+                                    </div>
+                                    <i class="fas fa-chevron-down unified-dropdown-arrow"></i>
+                                </div>
+                                <div class="unified-dropdown-menu" id="taskStatusMenu">
+                                    <div class="unified-dropdown-option selected" data-value="todo">
+                                        <span class="unified-status-dot todo"></span>
+                                        <span>To Do</span>
+                                        <i class="fas fa-check check-icon"></i>
+                                    </div>
+                                    <div class="unified-dropdown-option" data-value="inprogress">
+                                        <span class="unified-status-dot inprogress"></span>
+                                        <span>In Progress</span>
+                                        <i class="fas fa-check check-icon"></i>
+                                    </div>
+                                    <div class="unified-dropdown-option" data-value="done">
+                                        <span class="unified-status-dot done"></span>
+                                        <span>Done</span>
+                                        <i class="fas fa-check check-icon"></i>
+                                    </div>
+                                </div>
+                                <input type="hidden" id="taskStatus" name="taskStatus" value="todo">
+                            </div>
+                        </div>
+                        
+                        <!-- Budget -->
+                        <div class="unified-form-field">
+                            <label class="unified-form-label">
+                                <i class="fas fa-dollar-sign"></i> Budget <span class="optional">(optional)</span>
+                            </label>
+                            <div class="unified-input-group">
+                                <span class="input-addon">$</span>
+                                <input type="number" class="unified-input" id="taskBudget" placeholder="0.00" min="0" step="0.01">
+                            </div>
+                        </div>
+                        
+                        <!-- Estimated Time -->
+                        <div class="unified-form-field">
+                            <label class="unified-form-label">
+                                <i class="fas fa-clock"></i> Est. Time <span class="optional">(optional)</span>
+                            </label>
+                            <div class="unified-input-group">
+                                <input type="number" class="unified-input" id="taskEstimatedTime" placeholder="0" min="0" step="0.5">
+                                <span class="input-addon">hrs</span>
+                            </div>
+                        </div>
+                        
+                        <!-- Progress - Full Width -->
+                        <div class="unified-form-field full-width">
+                            <label class="unified-form-label">
+                                <i class="fas fa-tasks"></i> Progress
+                            </label>
+                            <div class="unified-progress-control">
+                                <div class="unified-progress-track">
+                                    <div class="unified-progress-fill" id="taskProgressFill"></div>
+                                </div>
+                                <div class="unified-progress-value">
+                                    <input type="number" id="taskProgress" min="0" max="100" value="0">
+                                    <span>%</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Spreadsheet Selection - Full Width -->
+                        <div class="unified-form-field full-width">
+                            <label class="unified-form-label">
+                                <i class="fas fa-table"></i> Add to Spreadsheet
+                            </label>
+                            <div class="unified-dropdown" id="taskSpreadsheetDropdown">
+                                <div class="unified-dropdown-trigger" id="taskSpreadsheetTrigger">
+                                    <div class="unified-dropdown-value">
+                                        <i class="fas fa-table" style="color: var(--accent);"></i>
+                                        <span>All Tasks</span>
+                                    </div>
+                                    <i class="fas fa-chevron-down unified-dropdown-arrow"></i>
+                                </div>
+                                <div class="unified-dropdown-menu" id="taskSpreadsheetMenu"></div>
+                                <input type="hidden" id="taskSpreadsheet" name="taskSpreadsheet" value="default">
+                            </div>
                         </div>
                     </div>
-                    <div class="form-group">
-                        <label for="taskDueDate">Due Date</label>
-                        <input type="date" id="taskDueDate">
-                    </div>
                 </div>
                 
-                <!-- Two-column row: Priority + Status -->
-                <div class="form-row-2col">
-                    <div class="form-group">
-                        <label>Priority</label>
-                        <div class="custom-dropdown-container" id="taskPriorityDropdown">
-                            <div class="custom-dropdown-trigger" id="taskPriorityTrigger">
-                                <div class="dropdown-trigger-content">
-                                    <span class="priority-dot medium"></span>
-                                    <span>Medium</span>
-                                </div>
-                                <i class="fas fa-chevron-down dropdown-arrow"></i>
-                            </div>
-                            <div class="custom-dropdown-menu" id="taskPriorityMenu">
-                                <div class="dropdown-menu-option" data-value="low">
-                                    <span class="priority-dot low"></span>
-                                    <span>Low</span>
-                                </div>
-                                <div class="dropdown-menu-option active" data-value="medium">
-                                    <span class="priority-dot medium"></span>
-                                    <span>Medium</span>
-                                    <i class="fas fa-check"></i>
-                                </div>
-                                <div class="dropdown-menu-option" data-value="high">
-                                    <span class="priority-dot high"></span>
-                                    <span>High</span>
-                                </div>
-                            </div>
-                            <input type="hidden" id="taskPriority" name="taskPriority" value="medium">
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <label>Status</label>
-                        <div class="custom-dropdown-container" id="taskStatusDropdown">
-                            <div class="custom-dropdown-trigger" id="taskStatusTrigger">
-                                <div class="dropdown-trigger-content">
-                                    <span class="status-dot todo"></span>
-                                    <span>To Do</span>
-                                </div>
-                                <i class="fas fa-chevron-down dropdown-arrow"></i>
-                            </div>
-                            <div class="custom-dropdown-menu" id="taskStatusMenu">
-                                <div class="dropdown-menu-option active" data-value="todo">
-                                    <span class="status-dot todo"></span>
-                                    <span>To Do</span>
-                                    <i class="fas fa-check"></i>
-                                </div>
-                                <div class="dropdown-menu-option" data-value="inprogress">
-                                    <span class="status-dot inprogress"></span>
-                                    <span>In Progress</span>
-                                </div>
-                                <div class="dropdown-menu-option" data-value="done">
-                                    <span class="status-dot done"></span>
-                                    <span>Done</span>
-                                </div>
-                            </div>
-                            <input type="hidden" id="taskStatus" name="taskStatus" value="todo">
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Two-column row: Budget + Est. Time -->
-                <div class="form-row-2col">
-                    <div class="form-group">
-                        <label for="taskBudget">Budget <span class="optional">($)</span></label>
-                        <input type="number" id="taskBudget" placeholder="0.00" min="0" step="0.01">
-                    </div>
-                    <div class="form-group">
-                        <label for="taskEstimatedTime">Est. Time <span class="optional">(hrs)</span></label>
-                        <input type="number" id="taskEstimatedTime" placeholder="0" min="0" step="0.5">
-                    </div>
-                </div>
-                
-                <!-- Progress - Clean Minimal Design -->
-                <div class="form-group">
-                    <label>Progress</label>
-                    <div class="task-progress-control">
-                        <div class="task-progress-track">
-                            <div class="task-progress-fill" id="taskProgressFill"></div>
-                        </div>
-                        <div class="task-progress-value">
-                            <input type="number" id="taskProgress" min="0" max="100" value="0">
-                            <span>%</span>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Spreadsheet Selection -->
-                <div class="form-group">
-                    <label>Add to Spreadsheet</label>
-                    <div class="custom-dropdown-container" id="taskSpreadsheetDropdown">
-                        <div class="custom-dropdown-trigger" id="taskSpreadsheetTrigger">
-                            <div class="dropdown-trigger-content">
-                                <i class="fas fa-table dropdown-icon"></i>
-                                <span>All Tasks</span>
-                            </div>
-                            <i class="fas fa-chevron-down dropdown-arrow"></i>
-                        </div>
-                        <div class="custom-dropdown-menu" id="taskSpreadsheetMenu"></div>
-                        <input type="hidden" id="taskSpreadsheet" name="taskSpreadsheet" value="default">
-                    </div>
-                </div>
-                
-                <!-- Actions -->
-                <div class="task-modal-actions">
-                    <button type="button" class="btn-secondary" id="cancelTaskBtn">Cancel</button>
-                    <button type="submit" class="btn-primary"><i class="fas fa-check"></i> Create Task</button>
+                <div class="unified-modal-footer">
+                    <button type="button" class="unified-btn unified-btn-secondary" id="cancelTaskBtn">Cancel</button>
+                    <button type="submit" class="unified-btn unified-btn-primary">
+                        <i class="fas fa-check"></i> Create Task
+                    </button>
                 </div>
             </form>
         </div>
     </div>
 
     <!-- ===================================
-         ADD LEAD MODAL
-         For adding leads to leads-type spreadsheets
+         ADD LEAD MODAL - Unified Modern Design
+         Wide 2-column layout for lead management
          =================================== -->
-    <div class="modal" id="leadModal">
-        <div class="modal-content task-modal-content">
-            <div class="modal-header">
-                <h2><i class="fas fa-user-plus"></i> New Lead</h2>
-                <button class="modal-close" id="closeLeadModal">
+    <div class="unified-modal" id="leadModal">
+        <div class="unified-modal-container">
+            <div class="unified-modal-header">
+                <div class="unified-modal-title">
+                    <h2><i class="fas fa-user-plus"></i> New Lead</h2>
+                    <p class="subtitle">Add a new lead to your sales pipeline</p>
+                </div>
+                <button class="unified-modal-close" id="closeLeadModal">
                     <i class="fas fa-times"></i>
                 </button>
             </div>
             
-            <form class="task-modal-form" id="leadForm">
-                <!-- Lead Name (required) -->
-                <div class="form-group">
-                    <label for="leadName">Lead Name <span class="required">*</span></label>
-                    <input type="text" id="leadName" required placeholder="Enter lead name">
-                </div>
-                
-                <!-- Two-column row: Status + Source -->
-                <div class="form-row-2col">
-                    <div class="form-group">
-                        <label>Status</label>
-                        <div class="custom-dropdown-container" id="leadStatusDropdown">
-                            <div class="custom-dropdown-trigger" id="leadStatusTrigger">
-                                <div class="dropdown-trigger-content">
-                                    <span class="status-dot" style="background: #007AFF;"></span>
-                                    <span>New</span>
+            <form id="leadForm">
+                <div class="unified-modal-body">
+                    <div class="unified-form-grid">
+                        <!-- Lead Name - Full Width -->
+                        <div class="unified-form-field full-width">
+                            <label class="unified-form-label">
+                                Lead Name <span class="required">*</span>
+                            </label>
+                            <input type="text" class="unified-input" id="leadName" required placeholder="Enter lead name or company">
+                        </div>
+                        
+                        <!-- Status -->
+                        <div class="unified-form-field">
+                            <label class="unified-form-label">
+                                <i class="fas fa-circle-dot"></i> Status
+                            </label>
+                            <div class="unified-dropdown" id="leadStatusDropdown">
+                                <div class="unified-dropdown-trigger" id="leadStatusTrigger">
+                                    <div class="unified-dropdown-value">
+                                        <span class="unified-status-dot new"></span>
+                                        <span>New</span>
+                                    </div>
+                                    <i class="fas fa-chevron-down unified-dropdown-arrow"></i>
                                 </div>
-                                <i class="fas fa-chevron-down dropdown-arrow"></i>
+                                <div class="unified-dropdown-menu" id="leadStatusMenu">
+                                    <div class="unified-dropdown-option selected" data-value="New" data-color="#007AFF">
+                                        <span class="unified-status-dot new"></span>
+                                        <span>New</span>
+                                        <i class="fas fa-check check-icon"></i>
+                                    </div>
+                                    <div class="unified-dropdown-option" data-value="Contacted" data-color="#5856D6">
+                                        <span class="unified-status-dot contacted"></span>
+                                        <span>Contacted</span>
+                                        <i class="fas fa-check check-icon"></i>
+                                    </div>
+                                    <div class="unified-dropdown-option" data-value="Qualified" data-color="#FF9500">
+                                        <span class="unified-status-dot qualified"></span>
+                                        <span>Qualified</span>
+                                        <i class="fas fa-check check-icon"></i>
+                                    </div>
+                                    <div class="unified-dropdown-option" data-value="Won" data-color="#34C759">
+                                        <span class="unified-status-dot won"></span>
+                                        <span>Won</span>
+                                        <i class="fas fa-check check-icon"></i>
+                                    </div>
+                                    <div class="unified-dropdown-option" data-value="Lost" data-color="#FF3B30">
+                                        <span class="unified-status-dot lost"></span>
+                                        <span>Lost</span>
+                                        <i class="fas fa-check check-icon"></i>
+                                    </div>
+                                </div>
+                                <input type="hidden" id="leadStatus" name="leadStatus" value="New">
                             </div>
-                            <div class="custom-dropdown-menu" id="leadStatusMenu">
-                                <div class="dropdown-menu-option active" data-value="New" data-color="#007AFF">
-                                    <span class="status-dot" style="background: #007AFF;"></span>
-                                    <span>New</span>
-                                    <i class="fas fa-check"></i>
+                        </div>
+                        
+                        <!-- Source -->
+                        <div class="unified-form-field">
+                            <label class="unified-form-label">
+                                <i class="fas fa-route"></i> Source
+                            </label>
+                            <div class="unified-dropdown" id="leadSourceDropdown">
+                                <div class="unified-dropdown-trigger" id="leadSourceTrigger">
+                                    <div class="unified-dropdown-value">
+                                        <span class="unified-status-dot" style="background: #007AFF;"></span>
+                                        <span>Website</span>
+                                    </div>
+                                    <i class="fas fa-chevron-down unified-dropdown-arrow"></i>
                                 </div>
-                                <div class="dropdown-menu-option" data-value="Contacted" data-color="#5856D6">
-                                    <span class="status-dot" style="background: #5856D6;"></span>
-                                    <span>Contacted</span>
+                                <div class="unified-dropdown-menu" id="leadSourceMenu">
+                                    <div class="unified-dropdown-option selected" data-value="Website" data-color="#007AFF">
+                                        <span class="unified-status-dot" style="background: #007AFF;"></span>
+                                        <span>Website</span>
+                                        <i class="fas fa-check check-icon"></i>
+                                    </div>
+                                    <div class="unified-dropdown-option" data-value="Referral" data-color="#34C759">
+                                        <span class="unified-status-dot" style="background: #34C759;"></span>
+                                        <span>Referral</span>
+                                        <i class="fas fa-check check-icon"></i>
+                                    </div>
+                                    <div class="unified-dropdown-option" data-value="Ad Campaign" data-color="#FF9500">
+                                        <span class="unified-status-dot" style="background: #FF9500;"></span>
+                                        <span>Ad Campaign</span>
+                                        <i class="fas fa-check check-icon"></i>
+                                    </div>
+                                    <div class="unified-dropdown-option" data-value="Social Media" data-color="#5856D6">
+                                        <span class="unified-status-dot" style="background: #5856D6;"></span>
+                                        <span>Social Media</span>
+                                        <i class="fas fa-check check-icon"></i>
+                                    </div>
+                                    <div class="unified-dropdown-option" data-value="Other" data-color="#8E8E93">
+                                        <span class="unified-status-dot" style="background: #8E8E93;"></span>
+                                        <span>Other</span>
+                                        <i class="fas fa-check check-icon"></i>
+                                    </div>
                                 </div>
-                                <div class="dropdown-menu-option" data-value="Qualified" data-color="#FF9500">
-                                    <span class="status-dot" style="background: #FF9500;"></span>
-                                    <span>Qualified</span>
-                                </div>
-                                <div class="dropdown-menu-option" data-value="Won" data-color="#34C759">
-                                    <span class="status-dot" style="background: #34C759;"></span>
-                                    <span>Won</span>
-                                </div>
-                                <div class="dropdown-menu-option" data-value="Lost" data-color="#FF3B30">
-                                    <span class="status-dot" style="background: #FF3B30;"></span>
-                                    <span>Lost</span>
-                                </div>
+                                <input type="hidden" id="leadSource" name="leadSource" value="Website">
                             </div>
-                            <input type="hidden" id="leadStatus" name="leadStatus" value="New">
+                        </div>
+                        
+                        <!-- Value -->
+                        <div class="unified-form-field">
+                            <label class="unified-form-label">
+                                <i class="fas fa-dollar-sign"></i> Value <span class="optional">(optional)</span>
+                            </label>
+                            <div class="unified-input-group">
+                                <span class="input-addon">$</span>
+                                <input type="number" class="unified-input" id="leadValue" placeholder="0" min="0" step="1">
+                            </div>
+                        </div>
+                        
+                        <!-- Contact -->
+                        <div class="unified-form-field">
+                            <label class="unified-form-label">
+                                <i class="fas fa-address-book"></i> Contact
+                            </label>
+                            <input type="text" class="unified-input" id="leadContact" placeholder="Email or phone number">
+                        </div>
+                        
+                        <!-- Notes - Full Width -->
+                        <div class="unified-form-field full-width">
+                            <label class="unified-form-label">
+                                Notes <span class="optional">(optional)</span>
+                            </label>
+                            <textarea class="unified-textarea" id="leadNotes" rows="2" placeholder="Add notes about this lead..."></textarea>
+                        </div>
+                        
+                        <!-- Spreadsheet Selection - Full Width -->
+                        <div class="unified-form-field full-width">
+                            <label class="unified-form-label">
+                                <i class="fas fa-table"></i> Add to Spreadsheet
+                            </label>
+                            <div class="unified-dropdown" id="leadSpreadsheetDropdown">
+                                <div class="unified-dropdown-trigger" id="leadSpreadsheetTrigger">
+                                    <div class="unified-dropdown-value">
+                                        <i class="fas fa-table" style="color: var(--accent);"></i>
+                                        <span id="leadSpreadsheetLabel">Select spreadsheet</span>
+                                    </div>
+                                    <i class="fas fa-chevron-down unified-dropdown-arrow"></i>
+                                </div>
+                                <div class="unified-dropdown-menu" id="leadSpreadsheetMenu"></div>
+                                <input type="hidden" id="leadSpreadsheet" name="leadSpreadsheet" value="">
+                            </div>
                         </div>
                     </div>
-                    <div class="form-group">
-                        <label>Source</label>
-                        <div class="custom-dropdown-container" id="leadSourceDropdown">
-                            <div class="custom-dropdown-trigger" id="leadSourceTrigger">
-                                <div class="dropdown-trigger-content">
-                                    <span class="source-dot" style="background: #007AFF;"></span>
-                                    <span>Website</span>
-                                </div>
-                                <i class="fas fa-chevron-down dropdown-arrow"></i>
-                            </div>
-                            <div class="custom-dropdown-menu" id="leadSourceMenu">
-                                <div class="dropdown-menu-option active" data-value="Website" data-color="#007AFF">
-                                    <span class="source-dot" style="background: #007AFF;"></span>
-                                    <span>Website</span>
-                                    <i class="fas fa-check"></i>
-                                </div>
-                                <div class="dropdown-menu-option" data-value="Referral" data-color="#34C759">
-                                    <span class="source-dot" style="background: #34C759;"></span>
-                                    <span>Referral</span>
-                                </div>
-                                <div class="dropdown-menu-option" data-value="Ad Campaign" data-color="#FF9500">
-                                    <span class="source-dot" style="background: #FF9500;"></span>
-                                    <span>Ad Campaign</span>
-                                </div>
-                                <div class="dropdown-menu-option" data-value="Social Media" data-color="#5856D6">
-                                    <span class="source-dot" style="background: #5856D6;"></span>
-                                    <span>Social Media</span>
-                                </div>
-                                <div class="dropdown-menu-option" data-value="Other" data-color="#8E8E93">
-                                    <span class="source-dot" style="background: #8E8E93;"></span>
-                                    <span>Other</span>
-                                </div>
-                            </div>
-                            <input type="hidden" id="leadSource" name="leadSource" value="Website">
-                        </div>
-                    </div>
                 </div>
                 
-                <!-- Two-column row: Value + Contact -->
-                <div class="form-row-2col">
-                    <div class="form-group">
-                        <label for="leadValue">Value <span class="optional">($)</span></label>
-                        <input type="number" id="leadValue" placeholder="0" min="0" step="1">
-                    </div>
-                    <div class="form-group">
-                        <label for="leadContact">Contact</label>
-                        <input type="text" id="leadContact" placeholder="Email or phone">
-                    </div>
-                </div>
-                
-                <!-- Notes -->
-                <div class="form-group">
-                    <label for="leadNotes">Notes <span class="optional">(optional)</span></label>
-                    <textarea id="leadNotes" rows="3" placeholder="Add notes about this lead..."></textarea>
-                </div>
-                
-                <!-- Spreadsheet Selection -->
-                <div class="form-group">
-                    <label>Add to Spreadsheet</label>
-                    <div class="custom-dropdown-container" id="leadSpreadsheetDropdown">
-                        <div class="custom-dropdown-trigger" id="leadSpreadsheetTrigger">
-                            <div class="dropdown-trigger-content">
-                                <i class="fas fa-table dropdown-icon"></i>
-                                <span id="leadSpreadsheetLabel">Select spreadsheet</span>
-                            </div>
-                            <i class="fas fa-chevron-down dropdown-arrow"></i>
-                        </div>
-                        <div class="custom-dropdown-menu" id="leadSpreadsheetMenu"></div>
-                        <input type="hidden" id="leadSpreadsheet" name="leadSpreadsheet" value="">
-                    </div>
-                </div>
-                
-                <!-- Actions -->
-                <div class="task-modal-actions">
-                    <button type="button" class="btn-secondary" id="cancelLeadBtn">Cancel</button>
-                    <button type="submit" class="btn-primary"><i class="fas fa-check"></i> Create Lead</button>
+                <div class="unified-modal-footer">
+                    <button type="button" class="unified-btn unified-btn-secondary" id="cancelLeadBtn">Cancel</button>
+                    <button type="submit" class="unified-btn unified-btn-primary">
+                        <i class="fas fa-check"></i> Create Lead
+                    </button>
                 </div>
             </form>
         </div>
     </div>
 
     <!-- Modal for Adding Teammates -->
-    <div class="modal" id="teammateModal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2>Add Team Member</h2>
-                <button class="modal-close" id="closeTeammateModal">
+    <div class="unified-modal" id="teammateModal">
+        <div class="unified-modal-container modal-sm">
+            <div class="unified-modal-header">
+                <div class="unified-modal-title">
+                    <h2><i class="fas fa-user-plus"></i> Add Team Member</h2>
+                    <p class="subtitle">Invite someone to join your team</p>
+                </div>
+                <button class="unified-modal-close" id="closeTeammateModal">
                     <i class="fas fa-times"></i>
                 </button>
             </div>
-            <form class="modal-form" id="teammateForm">
-                <div class="form-group">
-                    <label for="teammateName">
-                        <i class="fas fa-user"></i>
-                        Full Name
-                    </label>
-                    <input type="text" id="teammateName" required placeholder="Enter teammate's name">
+            <form id="teammateForm">
+                <div class="unified-modal-body">
+                    <div class="unified-form-grid single-col">
+                        <div class="unified-form-field">
+                            <label class="unified-form-label">
+                                <i class="fas fa-user"></i> Full Name <span class="required">*</span>
+                            </label>
+                            <input type="text" class="unified-input" id="teammateName" required placeholder="Enter teammate's name">
+                        </div>
+                        <div class="unified-form-field">
+                            <label class="unified-form-label">
+                                <i class="fas fa-envelope"></i> Email Address <span class="required">*</span>
+                            </label>
+                            <input type="email" class="unified-input" id="teammateEmail" required placeholder="Enter teammate's email">
+                            <p class="unified-form-hint">An invitation will be sent to this email</p>
+                        </div>
+                        <div class="unified-form-field">
+                            <label class="unified-form-label">
+                                <i class="fas fa-briefcase"></i> Role/Occupation <span class="required">*</span>
+                            </label>
+                            <input type="text" class="unified-input" id="teammateOccupation" required placeholder="e.g., Project Manager, Developer">
+                        </div>
+                    </div>
                 </div>
-                <div class="form-group">
-                    <label for="teammateEmail">
-                        <i class="fas fa-envelope"></i>
-                        Email Address
-                    </label>
-                    <input type="email" id="teammateEmail" required placeholder="Enter teammate's email">
-                    <small class="form-hint">An invitation will be sent to this email</small>
-                </div>
-                <div class="form-group">
-                    <label for="teammateOccupation">
-                        <i class="fas fa-briefcase"></i>
-                        Role/Occupation
-                    </label>
-                    <input type="text" id="teammateOccupation" required placeholder="e.g., Project Manager, Developer">
-                </div>
-                <div class="modal-actions">
-                    <button type="button" class="btn-secondary" id="cancelTeammateBtn">Cancel</button>
-                    <button type="submit" class="btn-primary">
-                        <i class="fas fa-paper-plane"></i>
-                        Add Team Member
+                <div class="unified-modal-footer">
+                    <button type="button" class="unified-btn unified-btn-secondary" id="cancelTeammateBtn">Cancel</button>
+                    <button type="submit" class="unified-btn unified-btn-primary">
+                        <i class="fas fa-paper-plane"></i> Send Invitation
                     </button>
                 </div>
             </form>
@@ -1788,26 +1876,32 @@
     </div>
 
     <!-- Join Team Modal -->
-    <div class="modal" id="joinTeamModal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2><i class="fas fa-sign-in-alt"></i> Join a Team</h2>
-                <button class="modal-close" id="closeJoinTeamModal">
+    <div class="unified-modal" id="joinTeamModal">
+        <div class="unified-modal-container modal-sm">
+            <div class="unified-modal-header">
+                <div class="unified-modal-title">
+                    <h2><i class="fas fa-sign-in-alt"></i> Join a Team</h2>
+                    <p class="subtitle">Enter the team code to request access</p>
+                </div>
+                <button class="unified-modal-close" id="closeJoinTeamModal">
                     <i class="fas fa-times"></i>
                 </button>
             </div>
-            <form class="modal-form" id="joinTeamModalForm">
-                <div class="form-group">
-                    <label for="joinTeamCodeModalInput">
-                        <i class="fas fa-key"></i>
-                        Team Code
-                    </label>
-                    <input type="text" id="joinTeamCodeModalInput" required placeholder="e.g., TEAM-ABC123 or ABC123" maxlength="11" style="text-transform: uppercase;">
-                    <small class="form-hint">Ask your team admin for the team code (you can enter with or without TEAM- prefix)</small>
+            <form id="joinTeamModalForm">
+                <div class="unified-modal-body">
+                    <div class="unified-form-grid single-col">
+                        <div class="unified-form-field">
+                            <label class="unified-form-label">
+                                <i class="fas fa-key"></i> Team Code <span class="required">*</span>
+                            </label>
+                            <input type="text" class="unified-input" id="joinTeamCodeModalInput" required placeholder="e.g., TEAM-ABC123 or ABC123" maxlength="11" style="text-transform: uppercase;">
+                            <p class="unified-form-hint">Ask your team admin for the team code</p>
+                        </div>
+                    </div>
                 </div>
-                <div class="modal-actions">
-                    <button type="button" class="btn-secondary" id="cancelJoinTeamBtn">Cancel</button>
-                    <button type="submit" class="btn-primary">
+                <div class="unified-modal-footer">
+                    <button type="button" class="unified-btn unified-btn-secondary" id="cancelJoinTeamBtn">Cancel</button>
+                    <button type="submit" class="unified-btn unified-btn-primary">
                         <i class="fas fa-arrow-right"></i>
                         Join Team
                     </button>
@@ -2037,94 +2131,121 @@
         </div>
     </div>
 
-    <!-- Link Lobby: Add/Edit Group Modal -->
-    <div class="modal" id="linkGroupModal">
-        <div class="modal-content modal-sm">
-            <div class="modal-header">
-                <h2 id="linkGroupModalTitle"><i class="fas fa-folder-plus"></i> Create Group</h2>
-                <button class="modal-close" onclick="closeLinkGroupModal()">
+    <!-- Link Lobby: Add/Edit Group Modal - Unified Style -->
+    <div class="unified-modal" id="linkGroupModal">
+        <div class="unified-modal-container modal-sm">
+            <div class="unified-modal-header">
+                <div class="unified-modal-title">
+                    <h2 id="linkGroupModalTitle"><i class="fas fa-folder-plus"></i> Create Group</h2>
+                    <p class="subtitle">Organize your links into groups</p>
+                </div>
+                <button class="unified-modal-close" onclick="closeLinkGroupModal()">
                     <i class="fas fa-times"></i>
                 </button>
             </div>
-            <div class="modal-body">
-                <form id="linkGroupForm" onsubmit="saveLinkGroup(event)">
+            <form id="linkGroupForm" onsubmit="saveLinkGroup(event)">
+                <div class="unified-modal-body">
                     <input type="hidden" id="linkGroupId" value="">
-                    <div class="form-group">
-                        <label for="linkGroupName">Group Name</label>
-                        <input type="text" id="linkGroupName" placeholder="e.g. Design Resources, Documentation" required maxlength="50">
+                    <div class="unified-form-grid single-col">
+                        <div class="unified-form-field">
+                            <label class="unified-form-label">
+                                Group Name <span class="required">*</span>
+                            </label>
+                            <input type="text" class="unified-input" id="linkGroupName" placeholder="e.g. Design Resources, Documentation" required maxlength="50">
+                        </div>
+                        <div class="unified-form-field">
+                            <label class="unified-checkbox-label">
+                                <input type="checkbox" id="linkGroupAutoDomain">
+                                <div class="unified-checkbox-content">
+                                    <span class="unified-checkbox-title">Auto-group links by domain</span>
+                                    <span class="unified-checkbox-desc">Links will be automatically organized into subgroups by website domain</span>
+                                </div>
+                            </label>
+                        </div>
                     </div>
-                    <div class="form-group">
-                        <label class="checkbox-label">
-                            <input type="checkbox" id="linkGroupAutoDomain">
-                            <span>Auto-group links by domain</span>
-                        </label>
-                        <small class="form-hint">Links will be automatically organized into subgroups by website domain</small>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn-secondary" onclick="closeLinkGroupModal()">Cancel</button>
-                        <button type="submit" class="btn-primary" id="linkGroupSubmitBtn">
-                            <i class="fas fa-plus"></i> Create Group
-                        </button>
-                    </div>
-                </form>
-            </div>
+                </div>
+                <div class="unified-modal-footer">
+                    <button type="button" class="unified-btn unified-btn-secondary" onclick="closeLinkGroupModal()">Cancel</button>
+                    <button type="submit" class="unified-btn unified-btn-primary" id="linkGroupSubmitBtn">
+                        <i class="fas fa-plus"></i> Create Group
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
 
-    <!-- Link Lobby: Add/Edit Link Modal -->
-    <div class="modal" id="linkModal">
-        <div class="modal-content modal-sm">
-            <div class="modal-header">
-                <h2 id="linkModalTitle"><i class="fas fa-link"></i> Add Link</h2>
-                <button class="modal-close" onclick="closeLinkModal()">
+    <!-- Link Lobby: Add/Edit Link Modal - Unified Style -->
+    <div class="unified-modal" id="linkModal">
+        <div class="unified-modal-container modal-sm">
+            <div class="unified-modal-header">
+                <div class="unified-modal-title">
+                    <h2 id="linkModalTitle"><i class="fas fa-link"></i> Add Link</h2>
+                    <p class="subtitle">Save a link to your group</p>
+                </div>
+                <button class="unified-modal-close" onclick="closeLinkModal()">
                     <i class="fas fa-times"></i>
                 </button>
             </div>
-            <div class="modal-body">
-                <form id="linkForm" onsubmit="saveLink(event)">
+            <form id="linkForm" onsubmit="saveLink(event)">
+                <div class="unified-modal-body">
                     <input type="hidden" id="linkId" value="">
                     <input type="hidden" id="linkGroupIdForLink" value="">
                     <input type="hidden" id="linkDomainGroupId" value="">
-                    <div class="form-group">
-                        <label for="linkUrl">URL</label>
-                        <input type="url" id="linkUrl" placeholder="https://example.com" required>
+                    <div class="unified-form-grid single-col">
+                        <div class="unified-form-field">
+                            <label class="unified-form-label">
+                                <i class="fas fa-globe"></i> URL <span class="required">*</span>
+                            </label>
+                            <input type="url" class="unified-input" id="linkUrl" placeholder="https://example.com" required>
+                        </div>
+                        <div class="unified-form-field">
+                            <label class="unified-form-label">
+                                <i class="fas fa-tag"></i> Label <span class="required">*</span>
+                            </label>
+                            <input type="text" class="unified-input" id="linkLabel" placeholder="e.g. Design System Docs" required maxlength="100">
+                        </div>
+                        <div class="link-preview" id="linkPreview" style="display: none; padding: 12px; background: var(--bg-surface); border-radius: 10px; display: flex; align-items: center; gap: 10px;">
+                            <img id="linkFaviconPreview" src="" alt="" class="link-favicon-preview" style="width: 20px; height: 20px; border-radius: 4px;">
+                            <span id="linkDomainPreview" style="font-size: 13px; color: var(--text-muted);"></span>
+                        </div>
                     </div>
-                    <div class="form-group">
-                        <label for="linkLabel">Label</label>
-                        <input type="text" id="linkLabel" placeholder="e.g. Design System Docs" required maxlength="100">
-                    </div>
-                    <div class="link-preview" id="linkPreview" style="display: none;">
-                        <img id="linkFaviconPreview" src="" alt="" class="link-favicon-preview">
-                        <span id="linkDomainPreview"></span>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn-secondary" onclick="closeLinkModal()">Cancel</button>
-                        <button type="submit" class="btn-primary" id="linkSubmitBtn">
-                            <i class="fas fa-plus"></i> Add Link
-                        </button>
-                    </div>
-                </form>
-            </div>
+                </div>
+                <div class="unified-modal-footer">
+                    <button type="button" class="unified-btn unified-btn-secondary" onclick="closeLinkModal()">Cancel</button>
+                    <button type="submit" class="unified-btn unified-btn-primary" id="linkSubmitBtn">
+                        <i class="fas fa-plus"></i> Add Link
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
 
-    <!-- Link Lobby: Delete Confirmation Modal -->
-    <div class="modal" id="deleteLinkGroupModal">
-        <div class="modal-content modal-sm">
-            <div class="modal-header">
-                <h2><i class="fas fa-exclamation-triangle" style="color: var(--danger);"></i> Delete Group</h2>
-                <button class="modal-close" onclick="closeDeleteLinkGroupModal()">
+    <!-- Link Lobby: Delete Confirmation Modal - Unified Style -->
+    <div class="unified-modal" id="deleteLinkGroupModal">
+        <div class="unified-modal-container modal-sm">
+            <div class="unified-modal-header">
+                <div class="unified-modal-title">
+                    <h2><i class="fas fa-exclamation-triangle"></i> Delete Group</h2>
+                </div>
+                <button class="unified-modal-close" onclick="closeDeleteLinkGroupModal()">
                     <i class="fas fa-times"></i>
                 </button>
             </div>
-            <div class="modal-body">
-                <p>Are you sure you want to delete "<strong id="deleteGroupName"></strong>"?</p>
-                <p style="color: var(--text-muted); font-size: 14px;">This will also delete all links within this group. This action cannot be undone.</p>
+            <div class="unified-modal-body">
+                <div class="unified-confirm-box danger">
+                    <div class="unified-confirm-icon">
+                        <i class="fas fa-trash"></i>
+                    </div>
+                    <div class="unified-confirm-content">
+                        <p class="unified-confirm-title">Delete "<strong id="deleteGroupName"></strong>"?</p>
+                        <p class="unified-confirm-text">This will also delete all links within this group. This action cannot be undone.</p>
+                    </div>
+                </div>
                 <input type="hidden" id="deleteGroupId" value="">
             </div>
-            <div class="modal-footer">
-                <button type="button" class="btn-secondary" onclick="closeDeleteLinkGroupModal()">Cancel</button>
-                <button type="button" class="btn-danger" onclick="confirmDeleteLinkGroup()">
+            <div class="unified-modal-footer">
+                <button type="button" class="unified-btn unified-btn-secondary" onclick="closeDeleteLinkGroupModal()">Cancel</button>
+                <button type="button" class="unified-btn unified-btn-danger" onclick="confirmDeleteLinkGroup()">
                     <i class="fas fa-trash"></i> Delete Group
                 </button>
             </div>
@@ -2152,6 +2273,6 @@
     <div id="toastContainer"></div>
 
     <!-- Main JavaScript -->
-    <script src="main.js?v=15"></script>
+    <script src="main.js?v=16"></script>
 </body>
 </html>

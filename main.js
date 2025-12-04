@@ -5525,22 +5525,21 @@ function initTasks() {
         
         hiddenInput.value = value;
         
-        // Update active state
-        menu.querySelectorAll('.dropdown-menu-option').forEach(opt => {
-            opt.classList.remove('active');
+        // Update active state (support both old and unified classes)
+        menu.querySelectorAll('.dropdown-menu-option, .unified-dropdown-option').forEach(opt => {
+            opt.classList.remove('active', 'selected');
             const check = opt.querySelector('.fa-check');
-            if (check) check.remove();
+            if (check) check.style.opacity = '0';
         });
         
         const selectedOption = menu.querySelector(`[data-value="${value}"]`);
         if (selectedOption) {
-            selectedOption.classList.add('active');
-            if (!selectedOption.querySelector('.fa-check')) {
-                selectedOption.innerHTML += '<i class="fas fa-check"></i>';
-            }
+            selectedOption.classList.add('active', 'selected');
+            const checkIcon = selectedOption.querySelector('.fa-check');
+            if (checkIcon) checkIcon.style.opacity = '1';
             
-            // Update trigger content
-            const triggerContent = trigger.querySelector('.dropdown-trigger-content');
+            // Update trigger content (support both old and unified classes)
+            const triggerContent = trigger.querySelector('.dropdown-trigger-content, .unified-dropdown-value');
             if (getTriggerContent && triggerContent) {
                 triggerContent.innerHTML = getTriggerContent(value, selectedOption);
             }
@@ -5602,99 +5601,117 @@ function initTasks() {
             });
         }
 
-        // Create spreadsheet modal HTML dynamically
+        // Create spreadsheet modal HTML dynamically - Unified Modern Style
         const modalHTML = `
-            <div class="modal" id="spreadsheetModal">
-                <div class="modal-content spreadsheet-modal-content">
-                    <div class="modal-header">
-                        <h2>New Spreadsheet</h2>
-                        <button class="modal-close" onclick="closeModal('spreadsheetModal')">
+            <div class="unified-modal" id="spreadsheetModal">
+                <div class="unified-modal-container">
+                    <div class="unified-modal-header">
+                        <div class="unified-modal-title">
+                            <h2><i class="fas fa-table-cells"></i> New Spreadsheet</h2>
+                            <p class="subtitle">Create a new spreadsheet for your team</p>
+                        </div>
+                        <button class="unified-modal-close" onclick="closeModal('spreadsheetModal')">
                             <i class="fas fa-times"></i>
                         </button>
                     </div>
-                    <div class="modal-body">
-                        <form id="spreadsheetForm">
-                            <div class="form-group">
-                                <label for="spreadsheetName">Name</label>
-                                <input type="text" id="spreadsheetName" placeholder="My Tasks" required>
-                            </div>
-                            
-                            <div class="form-group">
-                                <label>Type</label>
-                                <div class="type-select-row" id="typeSelectRow">
-                                    <button type="button" class="type-option active" data-type="tasks">
-                                        <i class="fas fa-tasks"></i>
-                                        <span>Tasks</span>
-                                    </button>
-                                    <button type="button" class="type-option" data-type="leads">
-                                        <i class="fas fa-user-plus"></i>
-                                        <span>Leads</span>
-                                    </button>
+                    <form id="spreadsheetForm">
+                        <div class="unified-modal-body">
+                            <div class="unified-form-grid">
+                                <!-- Name - Full Width -->
+                                <div class="unified-form-field full-width">
+                                    <label class="unified-form-label">
+                                        Name <span class="required">*</span>
+                                    </label>
+                                    <input type="text" class="unified-input" id="spreadsheetName" placeholder="My Tasks" required>
                                 </div>
-                                <input type="hidden" id="spreadsheetType" value="tasks">
-                            </div>
-                            
-                            <div class="form-row-half">
-                                <div class="form-group">
-                                    <label for="spreadsheetIcon">Icon</label>
-                                    <div class="icon-select-grid" id="iconSelectGrid">
-                                        <button type="button" class="icon-option active" data-icon="fa-table"><i class="fas fa-table"></i></button>
-                                        <button type="button" class="icon-option" data-icon="fa-list-check"><i class="fas fa-list-check"></i></button>
-                                        <button type="button" class="icon-option" data-icon="fa-clipboard-list"><i class="fas fa-clipboard-list"></i></button>
-                                        <button type="button" class="icon-option" data-icon="fa-folder"><i class="fas fa-folder"></i></button>
-                                        <button type="button" class="icon-option" data-icon="fa-calendar"><i class="fas fa-calendar"></i></button>
-                                        <button type="button" class="icon-option" data-icon="fa-star"><i class="fas fa-star"></i></button>
-                                        <button type="button" class="icon-option" data-icon="fa-briefcase"><i class="fas fa-briefcase"></i></button>
-                                        <button type="button" class="icon-option" data-icon="fa-bolt"><i class="fas fa-bolt"></i></button>
+                                
+                                <!-- Type Selector - Full Width -->
+                                <div class="unified-form-field full-width">
+                                    <label class="unified-form-label">
+                                        <i class="fas fa-shapes"></i> Type
+                                    </label>
+                                    <div class="unified-segmented" id="typeSelectRow">
+                                        <button type="button" class="unified-segmented-option active" data-type="tasks">
+                                            <i class="fas fa-tasks"></i>
+                                            <span>Tasks</span>
+                                        </button>
+                                        <button type="button" class="unified-segmented-option" data-type="leads">
+                                            <i class="fas fa-user-plus"></i>
+                                            <span>Leads</span>
+                                        </button>
+                                    </div>
+                                    <input type="hidden" id="spreadsheetType" value="tasks">
+                                </div>
+                                
+                                <!-- Icon -->
+                                <div class="unified-form-field">
+                                    <label class="unified-form-label">
+                                        <i class="fas fa-icons"></i> Icon
+                                    </label>
+                                    <div class="unified-icon-grid" id="iconSelectGrid">
+                                        <button type="button" class="unified-icon-option selected" data-icon="fa-table"><i class="fas fa-table"></i></button>
+                                        <button type="button" class="unified-icon-option" data-icon="fa-list-check"><i class="fas fa-list-check"></i></button>
+                                        <button type="button" class="unified-icon-option" data-icon="fa-clipboard-list"><i class="fas fa-clipboard-list"></i></button>
+                                        <button type="button" class="unified-icon-option" data-icon="fa-folder"><i class="fas fa-folder"></i></button>
+                                        <button type="button" class="unified-icon-option" data-icon="fa-calendar"><i class="fas fa-calendar"></i></button>
+                                        <button type="button" class="unified-icon-option" data-icon="fa-star"><i class="fas fa-star"></i></button>
+                                        <button type="button" class="unified-icon-option" data-icon="fa-briefcase"><i class="fas fa-briefcase"></i></button>
+                                        <button type="button" class="unified-icon-option" data-icon="fa-bolt"><i class="fas fa-bolt"></i></button>
                                     </div>
                                     <input type="hidden" id="spreadsheetIcon" value="fa-table">
                                 </div>
                                 
-                                <div class="form-group">
-                                    <label>Color</label>
-                                    <div class="color-select-grid" id="colorSelectGrid">
-                                        <button type="button" class="color-option active" data-color="#0070f3" style="background: #0070f3;"></button>
-                                        <button type="button" class="color-option" data-color="#34c759" style="background: #34c759;"></button>
-                                        <button type="button" class="color-option" data-color="#ff9500" style="background: #ff9500;"></button>
-                                        <button type="button" class="color-option" data-color="#ff3b30" style="background: #ff3b30;"></button>
-                                        <button type="button" class="color-option" data-color="#af52de" style="background: #af52de;"></button>
-                                        <button type="button" class="color-option" data-color="#5856d6" style="background: #5856d6;"></button>
-                                        <button type="button" class="color-option" data-color="#00c7be" style="background: #00c7be;"></button>
-                                        <button type="button" class="color-option" data-color="#ff2d55" style="background: #ff2d55;"></button>
+                                <!-- Color -->
+                                <div class="unified-form-field">
+                                    <label class="unified-form-label">
+                                        <i class="fas fa-palette"></i> Color
+                                    </label>
+                                    <div class="unified-color-grid" id="colorSelectGrid">
+                                        <button type="button" class="unified-color-option selected" data-color="#0070f3" style="background: #0070f3;"></button>
+                                        <button type="button" class="unified-color-option" data-color="#34c759" style="background: #34c759;"></button>
+                                        <button type="button" class="unified-color-option" data-color="#ff9500" style="background: #ff9500;"></button>
+                                        <button type="button" class="unified-color-option" data-color="#ff3b30" style="background: #ff3b30;"></button>
+                                        <button type="button" class="unified-color-option" data-color="#af52de" style="background: #af52de;"></button>
+                                        <button type="button" class="unified-color-option" data-color="#5856d6" style="background: #5856d6;"></button>
+                                        <button type="button" class="unified-color-option" data-color="#00c7be" style="background: #00c7be;"></button>
+                                        <button type="button" class="unified-color-option" data-color="#ff2d55" style="background: #ff2d55;"></button>
                                     </div>
                                     <input type="hidden" id="spreadsheetColor" value="#0070f3">
                                 </div>
-                            </div>
-                            
-                            <div class="form-group">
-                                <label>Visibility</label>
-                                <div class="visibility-options">
-                                    <label class="visibility-option active" data-visibility="team">
-                                        <input type="radio" name="spreadsheetVisibility" value="team" checked>
-                                        <div class="visibility-icon"><i class="fas fa-users"></i></div>
-                                        <div class="visibility-text">
-                                            <span class="visibility-title">Team</span>
-                                            <span class="visibility-desc">Visible to all team members</span>
-                                        </div>
+                                
+                                <!-- Visibility - Full Width -->
+                                <div class="unified-form-field full-width">
+                                    <label class="unified-form-label">
+                                        <i class="fas fa-eye"></i> Visibility
                                     </label>
-                                    <label class="visibility-option" data-visibility="private">
-                                        <input type="radio" name="spreadsheetVisibility" value="private">
-                                        <div class="visibility-icon"><i class="fas fa-lock"></i></div>
-                                        <div class="visibility-text">
-                                            <span class="visibility-title">Private</span>
-                                            <span class="visibility-desc">Only visible to you</span>
-                                        </div>
-                                    </label>
+                                    <div class="unified-visibility-options">
+                                        <label class="unified-visibility-option selected" data-visibility="team">
+                                            <input type="radio" name="spreadsheetVisibility" value="team" checked>
+                                            <div class="unified-visibility-icon"><i class="fas fa-users"></i></div>
+                                            <div class="unified-visibility-text">
+                                                <span class="unified-visibility-title">Team</span>
+                                                <span class="unified-visibility-desc">Visible to all team members</span>
+                                            </div>
+                                        </label>
+                                        <label class="unified-visibility-option" data-visibility="private">
+                                            <input type="radio" name="spreadsheetVisibility" value="private">
+                                            <div class="unified-visibility-icon"><i class="fas fa-lock"></i></div>
+                                            <div class="unified-visibility-text">
+                                                <span class="unified-visibility-title">Private</span>
+                                                <span class="unified-visibility-desc">Only visible to you</span>
+                                            </div>
+                                        </label>
+                                    </div>
                                 </div>
                             </div>
-                        </form>
-                    </div>
-                    <div class="modal-footer">
-                        <button class="btn-secondary" onclick="closeModal('spreadsheetModal')">Cancel</button>
-                        <button class="btn-primary" type="submit" form="spreadsheetForm">
-                            <i class="fas fa-plus"></i> Create
-                        </button>
-                    </div>
+                        </div>
+                        <div class="unified-modal-footer">
+                            <button type="button" class="unified-btn unified-btn-secondary" onclick="closeModal('spreadsheetModal')">Cancel</button>
+                            <button type="submit" class="unified-btn unified-btn-primary">
+                                <i class="fas fa-plus"></i> Create Spreadsheet
+                            </button>
+                        </div>
+                    </form>
                 </div>
             </div>
         `;
@@ -5709,10 +5726,10 @@ function initTasks() {
         const iconInput = document.getElementById('spreadsheetIcon');
         if (iconGrid && iconInput) {
             iconGrid.addEventListener('click', (e) => {
-                const btn = e.target.closest('.icon-option');
+                const btn = e.target.closest('.unified-icon-option');
                 if (btn) {
-                    iconGrid.querySelectorAll('.icon-option').forEach(b => b.classList.remove('active'));
-                    btn.classList.add('active');
+                    iconGrid.querySelectorAll('.unified-icon-option').forEach(b => b.classList.remove('selected'));
+                    btn.classList.add('selected');
                     iconInput.value = btn.dataset.icon;
                 }
             });
@@ -5723,10 +5740,10 @@ function initTasks() {
         const colorInput = document.getElementById('spreadsheetColor');
         if (colorGrid && colorInput) {
             colorGrid.addEventListener('click', (e) => {
-                const btn = e.target.closest('.color-option');
+                const btn = e.target.closest('.unified-color-option');
                 if (btn) {
-                    colorGrid.querySelectorAll('.color-option').forEach(b => b.classList.remove('active'));
-                    btn.classList.add('active');
+                    colorGrid.querySelectorAll('.unified-color-option').forEach(b => b.classList.remove('selected'));
+                    btn.classList.add('selected');
                     colorInput.value = btn.dataset.color;
                 }
             });
@@ -5737,9 +5754,9 @@ function initTasks() {
         const typeInput = document.getElementById('spreadsheetType');
         if (typeSelectRow && typeInput) {
             typeSelectRow.addEventListener('click', (e) => {
-                const btn = e.target.closest('.type-option');
+                const btn = e.target.closest('.unified-segmented-option');
                 if (btn) {
-                    typeSelectRow.querySelectorAll('.type-option').forEach(b => b.classList.remove('active'));
+                    typeSelectRow.querySelectorAll('.unified-segmented-option').forEach(b => b.classList.remove('active'));
                     btn.classList.add('active');
                     typeInput.value = btn.dataset.type;
                     // Update placeholder based on type
@@ -5752,11 +5769,11 @@ function initTasks() {
         }
 
         // Handle visibility selection
-        const visibilityOptions = document.querySelectorAll('.visibility-option');
+        const visibilityOptions = document.querySelectorAll('.unified-visibility-option');
         visibilityOptions.forEach(opt => {
             opt.addEventListener('click', () => {
-                visibilityOptions.forEach(o => o.classList.remove('active'));
-                opt.classList.add('active');
+                visibilityOptions.forEach(o => o.classList.remove('selected'));
+                opt.classList.add('selected');
             });
         });
 
@@ -6410,30 +6427,30 @@ function populateTaskSpreadsheetDropdown(defaultSpreadsheetId = null) {
 function initTaskModalDropdowns() {
     // Priority dropdown
     setupCustomDropdown('taskPriority', (value, option) => {
-        const dot = option.querySelector('.priority-dot');
-        const label = option.querySelector('span:not(.priority-dot)').textContent;
+        const dot = option.querySelector('.priority-dot, .unified-priority-dot');
+        const label = option.querySelector('span:not(.priority-dot):not(.unified-priority-dot)').textContent;
         return `
-            <span class="priority-dot ${value}"></span>
+            <span class="unified-priority-dot ${value}"></span>
             <span>${label}</span>
         `;
     });
     
     // Status dropdown
     setupCustomDropdown('taskStatus', (value, option) => {
-        const label = option.querySelector('span:not(.status-dot)').textContent;
+        const label = option.querySelector('span:not(.status-dot):not(.unified-status-dot)').textContent;
         return `
-            <span class="status-dot ${value}"></span>
+            <span class="unified-status-dot ${value}"></span>
             <span>${label}</span>
         `;
     });
     
     // Assignee dropdown
     setupCustomDropdown('taskAssignee', (value, option) => {
-        const avatar = option.querySelector('.dropdown-assignee-avatar');
+        const avatar = option.querySelector('.dropdown-assignee-avatar, .unified-assignee-avatar');
         const name = option.dataset.name || option.querySelector('span').textContent;
         if (avatar) {
             return `
-                <div class="dropdown-assignee-avatar" style="${avatar.getAttribute('style')}">${avatar.textContent}</div>
+                <div class="unified-assignee-avatar" style="${avatar.getAttribute('style')}">${avatar.textContent}</div>
                 <span>${name}</span>
             `;
         }
@@ -6442,10 +6459,10 @@ function initTaskModalDropdowns() {
     
     // Spreadsheet dropdown
     setupCustomDropdown('taskSpreadsheet', (value, option) => {
-        const icon = option.querySelector('.dropdown-icon');
+        const icon = option.querySelector('.dropdown-icon, .unified-dropdown-icon');
         const text = option.querySelector('span').textContent;
         return `
-            <i class="fas ${icon ? icon.classList[1] : 'fa-table'} dropdown-icon"></i>
+            <i class="fas ${icon ? icon.classList[1] : 'fa-table'} unified-dropdown-icon"></i>
             <span>${text}</span>
         `;
     });
@@ -6463,11 +6480,13 @@ function setupCustomDropdown(inputId, getTriggerContent) {
     trigger.addEventListener('click', (e) => {
         e.stopPropagation();
         
-        // Close other dropdowns first
-        document.querySelectorAll('.custom-dropdown-menu.visible').forEach(m => {
+        // Close other dropdowns first (support both old and unified classes)
+        document.querySelectorAll('.custom-dropdown-menu.visible, .unified-dropdown-menu.visible').forEach(m => {
             if (m !== menu) {
                 m.classList.remove('visible');
-                m.closest('.custom-dropdown-container')?.querySelector('.custom-dropdown-trigger')?.classList.remove('active');
+                const parentContainer = m.closest('.custom-dropdown-container') || m.closest('.unified-dropdown');
+                const parentTrigger = parentContainer?.querySelector('.custom-dropdown-trigger, .unified-dropdown-trigger');
+                parentTrigger?.classList.remove('active');
             }
         });
         
@@ -6476,9 +6495,9 @@ function setupCustomDropdown(inputId, getTriggerContent) {
         trigger.classList.toggle('active');
     });
     
-    // Handle option selection
+    // Handle option selection (support both old and unified classes)
     menu.addEventListener('click', (e) => {
-        const option = e.target.closest('.dropdown-menu-option');
+        const option = e.target.closest('.dropdown-menu-option, .unified-dropdown-option');
         if (!option || option.style.cursor === 'default') return;
         
         const value = option.dataset.value;
@@ -6486,20 +6505,19 @@ function setupCustomDropdown(inputId, getTriggerContent) {
         // Update hidden input
         hiddenInput.value = value;
         
-        // Update active state
-        menu.querySelectorAll('.dropdown-menu-option').forEach(opt => {
-            opt.classList.remove('active');
+        // Update active state (support both old and unified classes)
+        menu.querySelectorAll('.dropdown-menu-option, .unified-dropdown-option').forEach(opt => {
+            opt.classList.remove('active', 'selected');
             const check = opt.querySelector('.fa-check');
-            if (check) check.remove();
+            if (check) check.style.opacity = '0';
         });
-        option.classList.add('active');
-        if (!option.querySelector('.fa-check')) {
-            option.innerHTML += '<i class="fas fa-check"></i>';
-        }
+        option.classList.add('active', 'selected');
+        const checkIcon = option.querySelector('.fa-check');
+        if (checkIcon) checkIcon.style.opacity = '1';
         
-        // Update trigger content
-        const triggerContent = trigger.querySelector('.dropdown-trigger-content');
-        if (getTriggerContent) {
+        // Update trigger content (support both old and unified classes)
+        const triggerContent = trigger.querySelector('.dropdown-trigger-content, .unified-dropdown-value');
+        if (getTriggerContent && triggerContent) {
             triggerContent.innerHTML = getTriggerContent(value, option);
         }
         
@@ -10824,8 +10842,8 @@ function initModals() {
     const durationText = document.getElementById('durationText');
     const eventColorInput = document.getElementById('eventColor');
     
-    // Event color option buttons - only update hidden input, no need to sync back
-    const eventColorOptions = document.querySelectorAll('.event-color-option');
+    // Event color option buttons - updated for unified color picker
+    const eventColorOptions = document.querySelectorAll('#eventModal .unified-color-option');
     eventColorOptions.forEach(option => {
         option.addEventListener('click', () => {
             const color = option.getAttribute('data-color');
@@ -11409,10 +11427,20 @@ function initModals() {
             }
         });
     });
+    
+    // Also handle unified modals (new system)
+    document.querySelectorAll('.unified-modal').forEach(modal => {
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                closeModal(modal.id);
+            }
+        });
+    });
 }
 
 function openModal(modalId) {
     const modal = document.getElementById(modalId);
+    if (!modal) return;
     modal.classList.add('active');
     
     // Bug fix 2: Reset event form duration display when opening event modal
@@ -11423,22 +11451,29 @@ function openModal(modalId) {
         if (!eventForm.dataset.editingEventId) {
             const durationDisplay = document.getElementById('eventDuration');
             if (durationDisplay) {
-                durationDisplay.style.display = 'none';
+                durationDisplay.style.display = 'block';
             }
             const durationText = document.getElementById('durationText');
             if (durationText) {
                 durationText.textContent = '0 minutes';
             }
             
-            // Reset modal title and button text
-            document.querySelector('#eventModal .modal-header h2').textContent = 'Add New Event';
-            document.querySelector('#eventModal .btn-primary').textContent = 'Add Event';
+            // Reset modal title and button text for unified modal
+            const titleEl = document.querySelector('#eventModal .unified-modal-title h2');
+            if (titleEl) {
+                titleEl.innerHTML = '<i class="fas fa-calendar-plus"></i> New Event';
+            }
+            const btnEl = document.querySelector('#eventModal .unified-btn-primary');
+            if (btnEl) {
+                btnEl.innerHTML = '<i class="fas fa-check"></i> Add Event';
+            }
         }
     }
 }
 
 function closeModal(modalId) {
     const modal = document.getElementById(modalId);
+    if (!modal) return;
     modal.classList.remove('active');
 }
 
@@ -11468,8 +11503,8 @@ function openEditEventModal(event) {
     const colorInput = document.getElementById('eventColor');
     colorInput.value = event.color || '#007AFF';
     
-    // Update event color option selection
-    document.querySelectorAll('.event-color-option').forEach(btn => {
+    // Update event color option selection (unified style)
+    document.querySelectorAll('.unified-color-option').forEach(btn => {
         if (btn.dataset.color === colorInput.value) {
             btn.classList.add('selected');
         } else {
@@ -11477,9 +11512,14 @@ function openEditEventModal(event) {
         }
     });
     
-    // Change modal title and button text
-    document.querySelector('#eventModal .modal-header h2').textContent = 'Edit Event';
-    document.querySelector('#eventModal .btn-primary').textContent = 'Update Event';
+    // Change modal title and button text (unified style)
+    const titleEl = document.querySelector('#eventModal .unified-modal-title h2');
+    if (titleEl) {
+        titleEl.innerHTML = '<i class="fas fa-calendar-plus"></i> Edit Event';
+    }
+    const btnEl = document.querySelector('#eventModal .unified-btn-primary');
+    if (btnEl) {
+        btnEl.innerHTML = '<i class="fas fa-check"></i> Update Event';
     
     // Store event ID for update
     document.getElementById('eventForm').dataset.editingEventId = event.id;

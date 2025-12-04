@@ -15750,3 +15750,1127 @@ body.dark-mode .task-progress-value input {
     background: #1c1c1e;
     border-color: rgba(255, 255, 255, 0.1);
 }
+
+/* ===================================
+   UNIFIED MODAL SYSTEM v2.0
+   Modern, consistent, wide modals with 2-column layouts
+   =================================== */
+
+/* Base Modal Overlay */
+.unified-modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    z-index: 100000;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+    box-sizing: border-box;
+}
+
+.unified-modal.active {
+    display: flex;
+    animation: modalFadeIn 0.25s ease;
+}
+
+@keyframes modalFadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+/* Modal Container */
+.unified-modal-container {
+    background: var(--bg-card);
+    border-radius: 20px;
+    width: 100%;
+    max-width: 700px;
+    max-height: calc(100vh - 40px);
+    display: flex;
+    flex-direction: column;
+    box-shadow: 
+        0 25px 80px rgba(0, 0, 0, 0.25),
+        0 10px 40px rgba(0, 0, 0, 0.15),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    animation: modalSlideUp 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    overflow: hidden;
+}
+
+.unified-modal-container.modal-sm {
+    max-width: 480px;
+}
+
+.unified-modal-container.modal-lg {
+    max-width: 800px;
+}
+
+@keyframes modalSlideUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px) scale(0.97);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+body.dark-mode .unified-modal-container {
+    background: #1c1c1e;
+    box-shadow: 
+        0 25px 80px rgba(0, 0, 0, 0.5),
+        0 10px 40px rgba(0, 0, 0, 0.3),
+        inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+/* Modal Header */
+.unified-modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 24px 28px 20px;
+    border-bottom: 1px solid var(--border-subtle);
+    flex-shrink: 0;
+}
+
+.unified-modal-title {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.unified-modal-title h2 {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--text-main);
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    letter-spacing: -0.02em;
+}
+
+.unified-modal-title h2 i {
+    font-size: 20px;
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--accent-soft);
+    color: var(--accent);
+    border-radius: 10px;
+}
+
+.unified-modal-title .subtitle {
+    font-size: 14px;
+    color: var(--text-muted);
+    margin: 0;
+    padding-left: 48px;
+}
+
+.unified-modal-close {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    border: none;
+    background: var(--bg-surface);
+    color: var(--text-muted);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    transition: all 0.15s ease;
+    flex-shrink: 0;
+}
+
+.unified-modal-close:hover {
+    background: var(--danger-soft, rgba(255, 59, 48, 0.1));
+    color: var(--danger, #ff3b30);
+    transform: rotate(90deg);
+}
+
+/* Modal Body */
+.unified-modal-body {
+    padding: 28px;
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+.unified-modal-body::-webkit-scrollbar {
+    width: 8px;
+}
+
+.unified-modal-body::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.unified-modal-body::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.15);
+    border-radius: 10px;
+}
+
+body.dark-mode .unified-modal-body::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.15);
+}
+
+/* Modal Footer */
+.unified-modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 12px;
+    padding: 20px 28px;
+    border-top: 1px solid var(--border-subtle);
+    background: var(--bg-surface);
+    flex-shrink: 0;
+}
+
+body.dark-mode .unified-modal-footer {
+    background: rgba(255, 255, 255, 0.02);
+}
+
+/* ===================================
+   UNIFIED FORM SYSTEM
+   =================================== */
+
+/* Form Grid - 2 Column Layout */
+.unified-form-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+}
+
+.unified-form-grid.single-col {
+    grid-template-columns: 1fr;
+}
+
+/* Full width field spans both columns */
+.unified-form-field.full-width {
+    grid-column: 1 / -1;
+}
+
+/* Form Field */
+.unified-form-field {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.unified-form-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-main);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.unified-form-label i {
+    color: var(--text-muted);
+    font-size: 12px;
+}
+
+.unified-form-label .required {
+    color: var(--danger, #ff3b30);
+    font-weight: 500;
+}
+
+.unified-form-label .optional {
+    color: var(--text-muted);
+    font-weight: 400;
+    font-size: 12px;
+}
+
+.unified-form-hint {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin: 0;
+    margin-top: -4px;
+}
+
+/* Unified Input Styles */
+.unified-input,
+.unified-select,
+.unified-textarea {
+    width: 100%;
+    padding: 12px 14px;
+    font-size: 14px;
+    font-family: inherit;
+    color: var(--text-main);
+    background: var(--bg-surface);
+    border: 1.5px solid var(--border-subtle);
+    border-radius: 10px;
+    transition: all 0.15s ease;
+    box-sizing: border-box;
+}
+
+.unified-input:hover,
+.unified-select:hover,
+.unified-textarea:hover {
+    border-color: rgba(0, 112, 243, 0.3);
+}
+
+.unified-input:focus,
+.unified-select:focus,
+.unified-textarea:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 4px var(--accent-soft);
+}
+
+.unified-input::placeholder,
+.unified-textarea::placeholder {
+    color: var(--text-muted);
+    opacity: 0.7;
+}
+
+body.dark-mode .unified-input,
+body.dark-mode .unified-select,
+body.dark-mode .unified-textarea {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(255, 255, 255, 0.1);
+}
+
+body.dark-mode .unified-input:hover,
+body.dark-mode .unified-select:hover,
+body.dark-mode .unified-textarea:hover {
+    border-color: rgba(0, 112, 243, 0.5);
+}
+
+/* Textarea */
+.unified-textarea {
+    resize: vertical;
+    min-height: 80px;
+}
+
+/* Select */
+.unified-select {
+    cursor: pointer;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238e8e93' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 14px center;
+    padding-right: 40px;
+}
+
+/* Input with Icon */
+.unified-input-wrapper {
+    position: relative;
+}
+
+.unified-input-wrapper .input-icon {
+    position: absolute;
+    left: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-muted);
+    font-size: 14px;
+    pointer-events: none;
+}
+
+.unified-input-wrapper .unified-input {
+    padding-left: 42px;
+}
+
+/* Input Group (for currency, time, etc) */
+.unified-input-group {
+    display: flex;
+    align-items: stretch;
+}
+
+.unified-input-group .input-addon {
+    display: flex;
+    align-items: center;
+    padding: 0 14px;
+    background: var(--bg-surface-soft);
+    border: 1.5px solid var(--border-subtle);
+    color: var(--text-muted);
+    font-size: 14px;
+    font-weight: 500;
+}
+
+.unified-input-group .input-addon:first-child {
+    border-radius: 10px 0 0 10px;
+    border-right: none;
+}
+
+.unified-input-group .input-addon:last-child {
+    border-radius: 0 10px 10px 0;
+    border-left: none;
+}
+
+.unified-input-group .unified-input {
+    border-radius: 0;
+    flex: 1;
+}
+
+.unified-input-group .unified-input:first-child {
+    border-radius: 10px 0 0 10px;
+}
+
+.unified-input-group .unified-input:last-child {
+    border-radius: 0 10px 10px 0;
+}
+
+.unified-input-group .unified-input:only-child {
+    border-radius: 10px;
+}
+
+/* ===================================
+   UNIFIED CUSTOM DROPDOWN
+   =================================== */
+
+.unified-dropdown {
+    position: relative;
+}
+
+.unified-dropdown-trigger {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 14px;
+    background: var(--bg-surface);
+    border: 1.5px solid var(--border-subtle);
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    min-height: 46px;
+}
+
+.unified-dropdown-trigger:hover {
+    border-color: rgba(0, 112, 243, 0.3);
+}
+
+.unified-dropdown.open .unified-dropdown-trigger {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 4px var(--accent-soft);
+}
+
+.unified-dropdown-value {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 14px;
+    color: var(--text-main);
+}
+
+.unified-dropdown-arrow {
+    color: var(--text-muted);
+    font-size: 12px;
+    transition: transform 0.2s ease;
+}
+
+.unified-dropdown.open .unified-dropdown-arrow {
+    transform: rotate(180deg);
+}
+
+.unified-dropdown-menu {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    right: 0;
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: 12px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+    z-index: 1000;
+    max-height: 240px;
+    overflow-y: auto;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-10px);
+    transition: all 0.2s ease;
+}
+
+.unified-dropdown.open .unified-dropdown-menu {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+}
+
+body.dark-mode .unified-dropdown-menu {
+    background: #2c2c2e;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
+}
+
+.unified-dropdown-option {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 14px;
+    cursor: pointer;
+    transition: background 0.1s ease;
+    font-size: 14px;
+    color: var(--text-main);
+}
+
+.unified-dropdown-option:first-child {
+    border-radius: 11px 11px 0 0;
+}
+
+.unified-dropdown-option:last-child {
+    border-radius: 0 0 11px 11px;
+}
+
+.unified-dropdown-option:hover {
+    background: var(--accent-soft);
+}
+
+.unified-dropdown-option.selected {
+    background: var(--accent-soft);
+    color: var(--accent);
+}
+
+.unified-dropdown-option .check-icon {
+    margin-left: auto;
+    color: var(--accent);
+    opacity: 0;
+}
+
+.unified-dropdown-option.selected .check-icon {
+    opacity: 1;
+}
+
+/* Status/Priority Dots */
+.unified-status-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.unified-status-dot.todo { background: #8e8e93; }
+.unified-status-dot.inprogress { background: #ff9500; }
+.unified-status-dot.done { background: #34c759; }
+.unified-status-dot.new { background: #007aff; }
+.unified-status-dot.contacted { background: #5856d6; }
+.unified-status-dot.qualified { background: #ff9500; }
+.unified-status-dot.won { background: #34c759; }
+.unified-status-dot.lost { background: #ff3b30; }
+
+.unified-priority-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.unified-priority-dot.low { background: #34c759; }
+.unified-priority-dot.medium { background: #ff9500; }
+.unified-priority-dot.high { background: #ff3b30; }
+
+/* Unified Assignee Avatar */
+.unified-assignee-avatar {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: var(--accent);
+    color: white;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 600;
+    flex-shrink: 0;
+}
+
+/* Unified Dropdown Icon */
+.unified-dropdown-icon {
+    font-size: 14px;
+    color: var(--text-muted);
+    flex-shrink: 0;
+}
+
+/* ===================================
+   UNIFIED BUTTONS
+   =================================== */
+
+.unified-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 12px 24px;
+    font-size: 14px;
+    font-weight: 600;
+    font-family: inherit;
+    border-radius: 10px;
+    border: none;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    white-space: nowrap;
+}
+
+.unified-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.unified-btn-primary {
+    background: var(--accent);
+    color: white;
+}
+
+.unified-btn-primary:hover:not(:disabled) {
+    background: var(--accent-hover);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 112, 243, 0.3);
+}
+
+.unified-btn-secondary {
+    background: var(--bg-surface);
+    color: var(--text-main);
+    border: 1.5px solid var(--border-subtle);
+}
+
+.unified-btn-secondary:hover:not(:disabled) {
+    background: var(--bg-surface-soft);
+    border-color: var(--accent);
+}
+
+.unified-btn-danger {
+    background: var(--danger, #ff3b30);
+    color: white;
+}
+
+.unified-btn-danger:hover:not(:disabled) {
+    background: #e6342a;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(255, 59, 48, 0.3);
+}
+
+.unified-btn-warning {
+    background: rgba(255, 193, 7, 0.15);
+    color: #d68200;
+    border: 1.5px solid rgba(255, 193, 7, 0.5);
+}
+
+.unified-btn-warning:hover:not(:disabled) {
+    background: rgba(255, 193, 7, 0.25);
+}
+
+/* ===================================
+   UNIFIED SEGMENTED CONTROL
+   =================================== */
+
+.unified-segmented {
+    display: flex;
+    background: var(--bg-surface);
+    border-radius: 12px;
+    padding: 4px;
+    gap: 4px;
+}
+
+.unified-segmented-option {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 10px 16px;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-muted);
+    background: transparent;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.unified-segmented-option:hover {
+    color: var(--text-main);
+}
+
+.unified-segmented-option.active {
+    background: var(--bg-card);
+    color: var(--accent);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+body.dark-mode .unified-segmented {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+body.dark-mode .unified-segmented-option.active {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+/* ===================================
+   UNIFIED COLOR/ICON PICKERS
+   =================================== */
+
+.unified-color-grid {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.unified-color-option {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    border: 3px solid transparent;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    position: relative;
+}
+
+.unified-color-option:hover {
+    transform: scale(1.1);
+}
+
+.unified-color-option.selected {
+    border-color: var(--text-main);
+    box-shadow: 0 0 0 2px var(--bg-card);
+}
+
+.unified-color-option.selected::after {
+    content: '✓';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: white;
+    font-size: 14px;
+    font-weight: bold;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.unified-icon-grid {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.unified-icon-option {
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 10px;
+    border: 2px solid var(--border-subtle);
+    background: var(--bg-surface);
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all 0.15s ease;
+    font-size: 16px;
+}
+
+.unified-icon-option:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+.unified-icon-option.selected {
+    border-color: var(--accent);
+    background: var(--accent-soft);
+    color: var(--accent);
+}
+
+/* ===================================
+   UNIFIED CHECKBOX / TOGGLE
+   =================================== */
+
+.unified-checkbox-label {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    cursor: pointer;
+    padding: 14px 16px;
+    background: var(--bg-surface);
+    border-radius: 12px;
+    transition: background 0.15s ease;
+}
+
+.unified-checkbox-label:hover {
+    background: var(--bg-surface-soft);
+}
+
+.unified-checkbox-label input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
+    border-radius: 6px;
+    border: 2px solid var(--border-subtle);
+    appearance: none;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+
+.unified-checkbox-label input[type="checkbox"]:checked {
+    background: var(--accent);
+    border-color: var(--accent);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'%3E%3C/polyline%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: center;
+}
+
+.unified-checkbox-content {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.unified-checkbox-title {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-main);
+}
+
+.unified-checkbox-desc {
+    font-size: 12px;
+    color: var(--text-muted);
+}
+
+/* ===================================
+   UNIFIED VISIBILITY SELECTOR
+   =================================== */
+
+.unified-visibility-options {
+    display: flex;
+    gap: 12px;
+}
+
+.unified-visibility-option {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 16px;
+    background: var(--bg-surface);
+    border: 2px solid var(--border-subtle);
+    border-radius: 14px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.unified-visibility-option:hover {
+    border-color: rgba(0, 112, 243, 0.3);
+}
+
+.unified-visibility-option.selected {
+    border-color: var(--accent);
+    background: var(--accent-soft);
+}
+
+.unified-visibility-option input[type="radio"] {
+    display: none;
+}
+
+.unified-visibility-icon {
+    width: 44px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.05);
+    border-radius: 12px;
+    font-size: 18px;
+    color: var(--text-muted);
+    flex-shrink: 0;
+}
+
+.unified-visibility-option.selected .unified-visibility-icon {
+    background: var(--accent);
+    color: white;
+}
+
+body.dark-mode .unified-visibility-icon {
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.unified-visibility-text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.unified-visibility-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-main);
+}
+
+.unified-visibility-desc {
+    font-size: 12px;
+    color: var(--text-muted);
+}
+
+/* ===================================
+   UNIFIED PROGRESS CONTROL
+   =================================== */
+
+.unified-progress-control {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.unified-progress-track {
+    flex: 1;
+    height: 8px;
+    background: var(--bg-surface-soft);
+    border-radius: 4px;
+    overflow: hidden;
+    position: relative;
+}
+
+.unified-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent), #00c7be);
+    border-radius: 4px;
+    transition: width 0.2s ease;
+}
+
+.unified-progress-value {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    min-width: 70px;
+}
+
+.unified-progress-value input {
+    width: 48px;
+    padding: 8px 10px;
+    font-size: 14px;
+    font-weight: 600;
+    text-align: right;
+    border: 1.5px solid var(--border-subtle);
+    border-radius: 8px;
+    background: var(--bg-surface);
+    color: var(--text-main);
+    -moz-appearance: textfield;
+}
+
+.unified-progress-value input::-webkit-inner-spin-button,
+.unified-progress-value input::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+}
+
+.unified-progress-value input:focus {
+    outline: none;
+    border-color: var(--accent);
+}
+
+.unified-progress-value span {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-muted);
+}
+
+/* ===================================
+   UNIFIED TIME INPUT
+   =================================== */
+
+.unified-time-input {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    background: var(--bg-surface);
+    border: 1.5px solid var(--border-subtle);
+    border-radius: 10px;
+    padding: 4px;
+}
+
+.unified-time-input input {
+    width: 44px;
+    padding: 8px 4px;
+    font-size: 14px;
+    font-weight: 500;
+    text-align: center;
+    border: none;
+    background: transparent;
+    color: var(--text-main);
+    -moz-appearance: textfield;
+}
+
+.unified-time-input input::-webkit-inner-spin-button,
+.unified-time-input input::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+}
+
+.unified-time-input input:focus {
+    outline: none;
+    background: var(--accent-soft);
+    border-radius: 6px;
+}
+
+.unified-time-input span {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text-muted);
+}
+
+/* ===================================
+   CONFIRMATION MODAL STYLES
+   =================================== */
+
+.unified-confirm-box {
+    display: flex;
+    gap: 20px;
+    padding: 24px;
+    background: var(--bg-surface);
+    border-radius: 16px;
+    align-items: flex-start;
+}
+
+.unified-confirm-box.danger {
+    background: rgba(255, 59, 48, 0.05);
+    border: 1px solid rgba(255, 59, 48, 0.15);
+}
+
+.unified-confirm-box.warning {
+    background: rgba(255, 149, 0, 0.05);
+    border: 1px solid rgba(255, 149, 0, 0.15);
+}
+
+.unified-confirm-box.info {
+    background: rgba(0, 122, 255, 0.05);
+    border: 1px solid rgba(0, 122, 255, 0.15);
+}
+
+.unified-confirm-icon {
+    width: 48px;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 14px;
+    font-size: 22px;
+    flex-shrink: 0;
+}
+
+.unified-confirm-box.danger .unified-confirm-icon {
+    background: rgba(255, 59, 48, 0.1);
+    color: #ff3b30;
+}
+
+.unified-confirm-box.warning .unified-confirm-icon {
+    background: rgba(255, 149, 0, 0.1);
+    color: #ff9500;
+}
+
+.unified-confirm-box.info .unified-confirm-icon {
+    background: rgba(0, 122, 255, 0.1);
+    color: #007aff;
+}
+
+.unified-confirm-content {
+    flex: 1;
+}
+
+.unified-confirm-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text-main);
+    margin: 0 0 8px 0;
+}
+
+.unified-confirm-text {
+    font-size: 14px;
+    color: var(--text-muted);
+    margin: 0;
+    line-height: 1.5;
+}
+
+.unified-confirm-text strong {
+    color: var(--text-main);
+}
+
+/* Feature List in Confirmation */
+.unified-feature-list {
+    list-style: none;
+    padding: 0;
+    margin: 16px 0 0 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.unified-feature-list li {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 14px;
+    color: var(--text-main);
+}
+
+.unified-feature-list li i {
+    font-size: 12px;
+    width: 16px;
+    text-align: center;
+}
+
+.unified-feature-list li i.fa-check {
+    color: var(--accent);
+}
+
+.unified-feature-list li i.fa-times {
+    color: var(--text-muted);
+}
+
+.unified-feature-list li.muted {
+    color: var(--text-muted);
+}
+
+/* ===================================
+   RESPONSIVE - Mobile Adjustments
+   =================================== */
+
+@media (max-width: 700px) {
+    .unified-modal-container {
+        max-width: 100%;
+        max-height: calc(100vh - 20px);
+        border-radius: 16px 16px 0 0;
+        margin-top: auto;
+    }
+    
+    .unified-modal {
+        align-items: flex-end;
+        padding: 0;
+    }
+    
+    .unified-form-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .unified-form-field.full-width {
+        grid-column: 1;
+    }
+    
+    .unified-visibility-options {
+        flex-direction: column;
+    }
+    
+    .unified-modal-header {
+        padding: 20px;
+    }
+    
+    .unified-modal-body {
+        padding: 20px;
+    }
+    
+    .unified-modal-footer {
+        padding: 16px 20px;
+    }
+    
+    .unified-modal-title h2 {
+        font-size: 18px;
+    }
+    
+    .unified-modal-title .subtitle {
+        padding-left: 0;
+        margin-top: 4px;
+    }
+}
