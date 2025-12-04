@@ -5525,21 +5525,22 @@ function initTasks() {
         
         hiddenInput.value = value;
         
-        // Update active state (support both old and unified classes)
-        menu.querySelectorAll('.dropdown-menu-option, .unified-dropdown-option').forEach(opt => {
-            opt.classList.remove('active', 'selected');
+        // Update active state
+        menu.querySelectorAll('.dropdown-menu-option').forEach(opt => {
+            opt.classList.remove('active');
             const check = opt.querySelector('.fa-check');
-            if (check) check.style.opacity = '0';
+            if (check) check.remove();
         });
         
         const selectedOption = menu.querySelector(`[data-value="${value}"]`);
         if (selectedOption) {
-            selectedOption.classList.add('active', 'selected');
-            const checkIcon = selectedOption.querySelector('.fa-check');
-            if (checkIcon) checkIcon.style.opacity = '1';
+            selectedOption.classList.add('active');
+            if (!selectedOption.querySelector('.fa-check')) {
+                selectedOption.innerHTML += '<i class="fas fa-check"></i>';
+            }
             
-            // Update trigger content (support both old and unified classes)
-            const triggerContent = trigger.querySelector('.dropdown-trigger-content, .unified-dropdown-value');
+            // Update trigger content
+            const triggerContent = trigger.querySelector('.dropdown-trigger-content');
             if (getTriggerContent && triggerContent) {
                 triggerContent.innerHTML = getTriggerContent(value, selectedOption);
             }
@@ -11520,6 +11521,7 @@ function openEditEventModal(event) {
     const btnEl = document.querySelector('#eventModal .unified-btn-primary');
     if (btnEl) {
         btnEl.innerHTML = '<i class="fas fa-check"></i> Update Event';
+    }
     
     // Store event ID for update
     document.getElementById('eventForm').dataset.editingEventId = event.id;
