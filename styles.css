@@ -3532,26 +3532,10 @@ body.dark-mode .message.reply-highlight {
     overflow: hidden;
 }
 
-.spreadsheet-card::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 4px;
-    background: var(--accent);
-    opacity: 0;
-    transition: opacity 0.2s ease;
-}
-
 .spreadsheet-card:hover {
     transform: translateY(-4px);
     box-shadow: 0 12px 40px rgba(0, 0, 0, 0.12);
-    border-color: transparent;
-}
-
-.spreadsheet-card:hover::before {
-    opacity: 1;
+    border-color: var(--border-medium);
 }
 
 .spreadsheet-card.create-new {
@@ -3573,6 +3557,36 @@ body.dark-mode .message.reply-highlight {
     background: var(--accent-soft);
     transform: translateY(-2px);
     box-shadow: 0 8px 24px rgba(0, 112, 243, 0.15);
+}
+
+/* 3-dot menu button on spreadsheet cards */
+.spreadsheet-card-menu-btn {
+    width: 28px;
+    height: 28px;
+    border: none;
+    background: transparent;
+    color: var(--text-muted);
+    border-radius: 6px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    opacity: 0;
+    transition: all 0.15s ease;
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    z-index: 5;
+}
+
+.spreadsheet-card:hover .spreadsheet-card-menu-btn {
+    opacity: 1;
+}
+
+.spreadsheet-card-menu-btn:hover {
+    background: var(--bg-body);
+    color: var(--text-main);
 }
 
 .spreadsheet-card-icon {

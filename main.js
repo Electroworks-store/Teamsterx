@@ -2289,6 +2289,9 @@ function initTasks() {
         const privateTag = isPrivate ? '<span class="spreadsheet-private-tag"><i class="fas fa-lock"></i> Private</span>' : '';
 
         card.innerHTML = `
+            <button class="spreadsheet-card-menu-btn" title="More options">
+                <i class="fas fa-ellipsis-v"></i>
+            </button>
             <div class="spreadsheet-card-header-row">
                 <div class="spreadsheet-card-icon" style="background: ${spreadsheet.color}15; color: ${spreadsheet.color};">
                     <i class="fas ${spreadsheet.icon || 'fa-table'}"></i>
@@ -2307,7 +2310,22 @@ function initTasks() {
             </div>
         `;
 
-        card.addEventListener('click', () => openSpreadsheetPanel(spreadsheet));
+        // Click handler for the card (open spreadsheet)
+        card.addEventListener('click', (e) => {
+            // Don't open if clicking the menu button
+            if (e.target.closest('.spreadsheet-card-menu-btn')) return;
+            openSpreadsheetPanel(spreadsheet);
+        });
+        
+        // 3-dot menu button click
+        const menuBtn = card.querySelector('.spreadsheet-card-menu-btn');
+        if (menuBtn) {
+            menuBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                showSpreadsheetContextMenu(e, spreadsheet);
+            });
+        }
         
         // Right-click context menu
         card.addEventListener('contextmenu', (e) => {
