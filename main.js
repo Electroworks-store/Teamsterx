@@ -11767,6 +11767,34 @@ async function initializeUserTeam() {
             return;
         }
 
+        // No teams in user document - but check if user is a member of any team
+        // This handles the case where user was approved but their teams array wasn't updated
+        debugLog('🔍 No teams in user doc - scanning for team membership...');
+        
+        const teamsRef = collection(db, 'teams');
+        const teamsSnapshot = await getDocs(teamsRef);
+        
+        for (const teamDoc of teamsSnapshot.docs) {
+            const teamData = teamDoc.data();
+            const members = teamData.members || {};
+            
+            if (members[currentAuthUser.uid]) {
+                debugLog(`✅ Found team membership: ${teamDoc.id}`);
+                
+                // Update user's teams array
+                await setDoc(userRef, {
+                    teams: [teamDoc.id]
+                }, { merge: true });
+                
+                appState.currentTeamId = teamDoc.id;
+                appState.userTeams = [teamDoc.id];
+                
+                // Load team data
+                await loadTeamData();
+                return;
+            }
+        }
+
         // No teams found - don't auto-create, just log and return
         debugLog('ℹ️ User has no teams. Waiting for user to create or join a team...');
         appState.currentTeamId = null;
@@ -12790,9 +12818,32 @@ window.approveJoinRequest = async function(userId) {
             [`pendingRequests.${userId}`]: deleteField()
         });
 
-        // NOTE: User will see team immediately since rules check team.members map
-        // User's teams list will be synced on their next login
-        debugLog('✅ User added to team members - access granted via team.members map');
+        // CRITICAL: Also add team to user's teams array so they can see it
+        const userRef = doc(db, 'users', userId);
+        const userDoc = await getDoc(userRef);
+        
+        if (userDoc.exists()) {
+            const userData = userDoc.data();
+            const userTeams = userData.teams || [];
+            
+            // Only add if not already in the list
+            if (!userTeams.includes(appState.currentTeamId)) {
+                await updateDoc(userRef, {
+                    teams: [...userTeams, appState.currentTeamId]
+                });
+                debugLog('✅ Added team to user\'s teams array');
+            }
+        } else {
+            // Create user document with team
+            const { setDoc } = await import('https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js');
+            await setDoc(userRef, {
+                teams: [appState.currentTeamId],
+                createdAt: serverTimestamp()
+            });
+            debugLog('✅ Created user document with team');
+        }
+
+        debugLog('✅ Approved join request - user now has full access');
 
         debugLog('✅ Approved join request');
         
@@ -17336,7 +17387,7 @@ async function subscribeLinkLobbyGroups() {
         const q = query(groupsRef, orderBy('sortOrder', 'asc'));
         
         linkLobbyUnsubscribe = onSnapshot(q, async (snapshot) => {
-            linkLobbyGroups = [];
+            const rawGroups = [];
             
             for (const docSnapshot of snapshot.docs) {
                 const groupData = { id: docSnapshot.id, ...docSnapshot.data(), links: [], domainGroups: {} };
@@ -17377,7 +17428,32 @@ async function subscribeLinkLobbyGroups() {
                     });
                 });
                 
-                linkLobbyGroups.push(groupData);
+                rawGroups.push(groupData);
+            }
+            
+            // Deduplicate groups by normalized title (keep the one with lowest sortOrder or earliest creation)
+            const seenTitles = new Map();
+            linkLobbyGroups = [];
+            
+            for (const group of rawGroups) {
+                const normalizedTitle = normalizeGroupTitle(group.title);
+                
+                if (!seenTitles.has(normalizedTitle)) {
+                    seenTitles.set(normalizedTitle, group);
+                    linkLobbyGroups.push(group);
+                } else {
+                    // Keep the group with lower sortOrder (earlier in list)
+                    const existing = seenTitles.get(normalizedTitle);
+                    if ((group.sortOrder ?? Infinity) < (existing.sortOrder ?? Infinity)) {
+                        // Replace with newer group that has lower sort order
+                        const idx = linkLobbyGroups.indexOf(existing);
+                        if (idx !== -1) {
+                            linkLobbyGroups[idx] = group;
+                            seenTitles.set(normalizedTitle, group);
+                        }
+                    }
+                    console.warn(`Duplicate group detected: "${group.title}" (id: ${group.id}) - using existing`);
+                }
             }
             
             renderLinkLobby();
@@ -17715,6 +17791,19 @@ function closeLinkGroupModal() {
     document.getElementById('linkGroupModal').classList.remove('active');
 }
 
+// Normalize group title for comparison (lowercase, trim whitespace)
+function normalizeGroupTitle(title) {
+    return title.toLowerCase().trim().replace(/\s+/g, ' ');
+}
+
+// Check if a group with the same title already exists
+function groupTitleExists(title, excludeGroupId = null) {
+    const normalizedTitle = normalizeGroupTitle(title);
+    return linkLobbyGroups.some(g => 
+        normalizeGroupTitle(g.title) === normalizedTitle && g.id !== excludeGroupId
+    );
+}
+
 // Save group (create or update)
 async function saveLinkGroup(event) {
     event.preventDefault();
@@ -17725,6 +17814,12 @@ async function saveLinkGroup(event) {
     
     if (!title) {
         showToast('Please enter a group name', 'error');
+        return;
+    }
+    
+    // Check for duplicate group name
+    if (groupTitleExists(title, groupId || null)) {
+        showToast('A group with this name already exists', 'warning');
         return;
     }
     

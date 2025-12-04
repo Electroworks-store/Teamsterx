@@ -9830,27 +9830,27 @@ body.dark-mode .notification-prefs-toggles .toggle-label:hover {
 .link-group-actions {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 4px;
 }
 
 .link-group-btn {
-    width: 32px;
-    height: 32px;
+    width: 28px;
+    height: 28px;
     border: none;
     background: transparent;
     color: var(--text-muted);
-    border-radius: 8px;
+    border-radius: 6px;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
     transition: all 0.15s ease;
-    font-size: 14px;
+    font-size: 13px;
 }
 
 .link-group-btn:hover {
     background: var(--bg-body);
-    color: var(--accent);
+    color: var(--text-main);
 }
 
 .link-group-btn.add-link-btn {
@@ -10036,11 +10036,11 @@ body.dark-mode .notification-prefs-toggles .toggle-label:hover {
 }
 
 .link-item.favorite {
-    background: rgba(255, 204, 0, 0.06);
+    background: transparent;
 }
 
 .link-item.favorite:hover {
-    background: rgba(255, 204, 0, 0.1);
+    background: var(--bg-body);
 }
 
 .link-favicon {
@@ -10091,7 +10091,7 @@ body.dark-mode .notification-prefs-toggles .toggle-label:hover {
     background: rgba(0, 0, 0, 0.05);
 }
 
-/* Inline edit input for link name */
+/* Inline edit input for link name - compact size */
 .link-label-input {
     font-size: 0.875rem;
     font-weight: 500;
@@ -10099,13 +10099,14 @@ body.dark-mode .notification-prefs-toggles .toggle-label:hover {
     line-height: 1.3;
     padding: 2px 6px;
     margin: -2px -4px;
-    border: 1px solid var(--accent);
-    border-radius: 4px;
-    background: var(--bg-surface);
+    border: none;
+    border-bottom: 1.5px solid var(--accent);
+    border-radius: 2px;
+    background: transparent;
     outline: none;
-    width: 100%;
-    max-width: 200px;
-    box-shadow: 0 0 0 3px var(--accent-soft);
+    width: auto;
+    min-width: 60px;
+    max-width: 160px;
 }
 
 .link-domain {
@@ -10121,9 +10122,9 @@ body.dark-mode .notification-prefs-toggles .toggle-label:hover {
 .link-actions {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 4px;
     flex-shrink: 0;
-    opacity: 0.6;
+    opacity: 0.5;
     transition: opacity 0.15s ease;
 }
 
@@ -10131,50 +10132,51 @@ body.dark-mode .notification-prefs-toggles .toggle-label:hover {
     opacity: 1;
 }
 
-/* Star Button - Minimal outline/filled style */
+/* Star Button - Minimal, icon-only */
 .link-star-btn {
-    width: 28px;
-    height: 28px;
+    width: 24px;
+    height: 24px;
     border: none;
     background: transparent;
-    color: var(--text-light);
-    border-radius: 6px;
+    color: var(--text-muted);
+    border-radius: 4px;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: all 0.15s ease;
-    font-size: 14px;
+    transition: color 0.15s ease;
+    font-size: 13px;
     padding: 0;
 }
 
 .link-star-btn:hover {
-    color: #F5A623;
+    color: #E8A500;
 }
 
 .link-star-btn.active {
-    color: #F5A623;
+    color: #E8A500;
 }
 
+/* Use outline star for inactive, solid for active */
 .link-star-btn .fa-star {
-    font-weight: 400; /* Regular (outline) */
+    font-weight: 400;
 }
 
 .link-star-btn.active .fa-star {
-    font-weight: 900; /* Solid (filled) */
+    font-weight: 900;
 }
 
-/* Open Button - Clean pill style */
+/* Open Button - Minimal outline style */
 .link-open-btn {
     display: inline-flex;
     align-items: center;
-    gap: 5px;
-    padding: 6px 12px;
-    background: var(--accent);
-    color: white;
-    border: none;
-    border-radius: 6px;
-    font-size: 12px;
+    gap: 4px;
+    padding: 4px 10px;
+    background: transparent;
+    color: var(--accent);
+    border: 1px solid var(--border-subtle);
+    border-radius: 5px;
+    font-size: 11px;
     font-weight: 500;
     cursor: pointer;
     transition: all 0.15s ease;
@@ -10183,21 +10185,22 @@ body.dark-mode .notification-prefs-toggles .toggle-label:hover {
 }
 
 .link-open-btn:hover {
-    background: var(--accent-hover);
-    transform: translateY(-1px);
+    background: var(--accent-soft);
+    border-color: var(--accent);
 }
 
 .link-open-btn i {
-    font-size: 10px;
+    font-size: 9px;
+    opacity: 0.7;
 }
 
-/* Delete Button - Subtle, appears on hover */
+/* Delete Button - Minimal, appears on hover */
 .link-delete-btn {
-    width: 28px;
-    height: 28px;
+    width: 24px;
+    height: 24px;
     border: none;
     background: transparent;
-    color: var(--text-light);
+    color: var(--text-muted);
     border-radius: 6px;
     cursor: pointer;
     display: flex;
@@ -10311,11 +10314,11 @@ body.dark-mode .link-item:hover {
 }
 
 body.dark-mode .link-item.favorite {
-    background: rgba(255, 204, 0, 0.08);
+    background: transparent;
 }
 
 body.dark-mode .link-item.favorite:hover {
-    background: rgba(255, 204, 0, 0.12);
+    background: rgba(255, 255, 255, 0.05);
 }
 
 body.dark-mode .link-label:hover {
