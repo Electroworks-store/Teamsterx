@@ -17511,18 +17511,18 @@ function renderGroupContent(group) {
     return html;
 }
 
-// Render individual link item
+// Render individual link item - Simplified flat structure with clickable row
 function renderLinkItem(link, groupId) {
     const faviconUrl = link.iconUrl || `https://www.google.com/s2/favicons?domain=${link.domain}&sz=32`;
     
     return `
-        <div class="link-item ${link.favorite ? 'favorite' : ''}" data-link-id="${link.id}">
+        <div class="link-item ${link.favorite ? 'favorite' : ''}" data-link-id="${link.id}" data-group-id="${groupId}" data-url="${escapeHtml(link.url)}" onclick="handleLinkRowClick(event, '${escapeHtml(link.url)}')">
             <img class="link-favicon" src="${faviconUrl}" alt="" onerror="this.outerHTML='<div class=\\'link-favicon-fallback\\'><i class=\\'fas fa-link\\'></i></div>'">
             <div class="link-content">
-                <div class="link-label">${escapeHtml(link.label)}</div>
-                <div class="link-domain">${escapeHtml(link.domain || '')}</div>
+                <span class="link-label" data-link-id="${link.id}" data-group-id="${groupId}" onclick="startEditLinkName(event, '${groupId}', '${link.id}')">${escapeHtml(link.label)}</span>
+                <span class="link-domain">${escapeHtml(link.domain || '')}</span>
             </div>
-            <div class="link-actions">
+            <div class="link-actions" onclick="event.stopPropagation()">
                 <button class="link-star-btn ${link.favorite ? 'active' : ''}" onclick="toggleLinkFavorite('${groupId}', '${link.id}', ${!link.favorite})" title="${link.favorite ? 'Remove from favorites' : 'Add to favorites'}">
                     <i class="fas fa-star"></i>
                 </button>
@@ -17535,6 +17535,119 @@ function renderLinkItem(link, groupId) {
             </div>
         </div>
     `;
+}
+
+// Handle click on link row (opens link unless clicking on controls)
+function handleLinkRowClick(event, url) {
+    // Don't open if clicking on actions, editable label, or inputs
+    if (event.target.closest('.link-actions') || 
+        event.target.closest('.link-label-input') ||
+        event.target.classList.contains('link-label')) {
+        return;
+    }
+    openLink(url);
+}
+
+// Start inline editing of link name
+function startEditLinkName(event, groupId, linkId) {
+    event.stopPropagation();
+    
+    const labelEl = event.target;
+    if (labelEl.classList.contains('link-label-input')) return; // Already editing
+    
+    const currentName = labelEl.textContent;
+    const originalHTML = labelEl.outerHTML;
+    
+    // Create inline input
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'link-label-input';
+    input.value = currentName;
+    input.dataset.groupId = groupId;
+    input.dataset.linkId = linkId;
+    input.dataset.originalName = currentName;
+    
+    // Replace label with input
+    labelEl.replaceWith(input);
+    input.focus();
+    input.select();
+    
+    // Handle blur - save changes
+    input.addEventListener('blur', () => saveLinkName(input));
+    
+    // Handle keyboard
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            input.blur();
+        } else if (e.key === 'Escape') {
+            e.preventDefault();
+            cancelEditLinkName(input);
+        }
+    });
+    
+    // Prevent row click when clicking input
+    input.addEventListener('click', (e) => e.stopPropagation());
+}
+
+// Save edited link name to Firestore
+async function saveLinkName(input) {
+    const groupId = input.dataset.groupId;
+    const linkId = input.dataset.linkId;
+    const originalName = input.dataset.originalName;
+    const newName = input.value.trim();
+    
+    // If empty or unchanged, revert
+    if (!newName || newName === originalName) {
+        revertLinkName(input, originalName);
+        return;
+    }
+    
+    // Create new label span
+    const newLabel = document.createElement('span');
+    newLabel.className = 'link-label';
+    newLabel.dataset.linkId = linkId;
+    newLabel.dataset.groupId = groupId;
+    newLabel.textContent = newName;
+    newLabel.onclick = (e) => startEditLinkName(e, groupId, linkId);
+    
+    // Replace input with label
+    input.replaceWith(newLabel);
+    
+    // Save to Firestore
+    if (!db || !appState.currentTeamId) return;
+    
+    try {
+        const { doc, updateDoc } = await import('https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js');
+        const linkRef = doc(db, 'teams', appState.currentTeamId, 'linkLobbyGroups', groupId, 'links', linkId);
+        await updateDoc(linkRef, { label: newName });
+        showToast('Link renamed!', 'success');
+    } catch (error) {
+        console.error('Error renaming link:', error);
+        showToast('Error renaming link', 'error');
+        // Revert on error
+        newLabel.textContent = originalName;
+    }
+}
+
+// Cancel editing and revert to original name
+function cancelEditLinkName(input) {
+    revertLinkName(input, input.dataset.originalName);
+}
+
+// Revert link name input back to span
+function revertLinkName(input, name) {
+    const groupId = input.dataset.groupId;
+    const linkId = input.dataset.linkId;
+    
+    const newLabel = document.createElement('span');
+    newLabel.className = 'link-label';
+    newLabel.dataset.linkId = linkId;
+    newLabel.dataset.groupId = groupId;
+    newLabel.textContent = name;
+    newLabel.onclick = (e) => startEditLinkName(e, groupId, linkId);
+    
+    input.replaceWith(newLabel);
 }
 
 // Toggle domain subgroup collapse
@@ -17974,6 +18087,8 @@ window.deleteLink = deleteLink;
 window.openLink = openLink;
 window.toggleGroupMenu = toggleGroupMenu;
 window.toggleDomainSubgroup = toggleDomainSubgroup;
+window.handleLinkRowClick = handleLinkRowClick;
+window.startEditLinkName = startEditLinkName;
 
 // ===================================
 // INITIALIZATION
