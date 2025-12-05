@@ -15752,11 +15752,11 @@ body.dark-mode .task-progress-value input {
 }
 
 /* ===================================
-   UNIFIED MODAL SYSTEM v2.0
-   Modern, consistent, wide modals with 2-column layouts
+   APPLE-MINIMAL MODAL SYSTEM
+   Ultra-clean, calm, simple
    =================================== */
 
-/* Base Modal Overlay */
+/* Base Modal Overlay - Simple dim layer */
 .unified-modal {
     display: none;
     position: fixed;
@@ -15764,9 +15764,7 @@ body.dark-mode .task-progress-value input {
     left: 0;
     width: 100%;
     height: 100%;
-    background: rgba(0, 0, 0, 0.6);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
+    background: rgba(0, 0, 0, 0.4);
     z-index: 100000;
     justify-content: center;
     align-items: center;
@@ -15776,136 +15774,113 @@ body.dark-mode .task-progress-value input {
 
 .unified-modal.active {
     display: flex;
-    animation: modalFadeIn 0.25s ease;
 }
 
-@keyframes modalFadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
-}
-
-/* Modal Container */
+/* Modal Container - Clean, solid background */
 .unified-modal-container {
-    background: var(--bg-card);
-    border-radius: 20px;
+    background: #ffffff;
+    border-radius: 14px;
     width: 100%;
-    max-width: 700px;
+    max-width: 540px;
     max-height: calc(100vh - 40px);
     display: flex;
     flex-direction: column;
-    box-shadow: 
-        0 25px 80px rgba(0, 0, 0, 0.25),
-        0 10px 40px rgba(0, 0, 0, 0.15),
-        inset 0 1px 0 rgba(255, 255, 255, 0.1);
-    animation: modalSlideUp 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.12);
     overflow: hidden;
 }
 
 .unified-modal-container.modal-sm {
-    max-width: 480px;
+    max-width: 420px;
 }
 
 .unified-modal-container.modal-lg {
-    max-width: 800px;
-}
-
-@keyframes modalSlideUp {
-    from {
-        opacity: 0;
-        transform: translateY(30px) scale(0.97);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0) scale(1);
-    }
+    max-width: 640px;
 }
 
 body.dark-mode .unified-modal-container {
     background: #1c1c1e;
-    box-shadow: 
-        0 25px 80px rgba(0, 0, 0, 0.5),
-        0 10px 40px rgba(0, 0, 0, 0.3),
-        inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
 }
 
-/* Modal Header */
+/* Modal Header - Minimal */
 .unified-modal-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 24px 28px 20px;
-    border-bottom: 1px solid var(--border-subtle);
+    padding: 20px 24px 16px;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
     flex-shrink: 0;
+}
+
+body.dark-mode .unified-modal-header {
+    border-bottom-color: rgba(255, 255, 255, 0.08);
 }
 
 .unified-modal-title {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 2px;
 }
 
 .unified-modal-title h2 {
-    font-size: 22px;
-    font-weight: 700;
-    color: var(--text-main);
+    font-size: 17px;
+    font-weight: 600;
+    color: #000000;
     margin: 0;
     display: flex;
     align-items: center;
-    gap: 12px;
-    letter-spacing: -0.02em;
+    gap: 10px;
+    letter-spacing: -0.01em;
+}
+
+body.dark-mode .unified-modal-title h2 {
+    color: #ffffff;
 }
 
 .unified-modal-title h2 i {
-    font-size: 20px;
-    width: 36px;
-    height: 36px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: var(--accent-soft);
-    color: var(--accent);
-    border-radius: 10px;
+    display: none; /* Hide icons in titles for minimal look */
 }
 
 .unified-modal-title .subtitle {
-    font-size: 14px;
-    color: var(--text-muted);
-    margin: 0;
-    padding-left: 48px;
+    display: none; /* Hide subtitles for minimal look */
 }
 
+/* Close Button - Small, simple × */
 .unified-modal-close {
-    width: 36px;
-    height: 36px;
-    border-radius: 10px;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
     border: none;
-    background: var(--bg-surface);
-    color: var(--text-muted);
+    background: rgba(0, 0, 0, 0.05);
+    color: rgba(0, 0, 0, 0.5);
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 16px;
-    transition: all 0.15s ease;
+    font-size: 13px;
+    transition: opacity 0.15s ease;
     flex-shrink: 0;
 }
 
 .unified-modal-close:hover {
-    background: var(--danger-soft, rgba(255, 59, 48, 0.1));
-    color: var(--danger, #ff3b30);
-    transform: rotate(90deg);
+    opacity: 0.7;
+}
+
+body.dark-mode .unified-modal-close {
+    background: rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.6);
 }
 
 /* Modal Body */
 .unified-modal-body {
-    padding: 28px;
+    padding: 20px 24px;
     flex: 1;
     overflow-y: auto;
     overflow-x: hidden;
 }
 
 .unified-modal-body::-webkit-scrollbar {
-    width: 8px;
+    width: 6px;
 }
 
 .unified-modal-body::-webkit-scrollbar-track {
@@ -15913,12 +15888,12 @@ body.dark-mode .unified-modal-container {
 }
 
 .unified-modal-body::-webkit-scrollbar-thumb {
-    background: rgba(0, 0, 0, 0.15);
-    border-radius: 10px;
+    background: rgba(0, 0, 0, 0.1);
+    border-radius: 3px;
 }
 
 body.dark-mode .unified-modal-body::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.15);
+    background: rgba(255, 255, 255, 0.1);
 }
 
 /* Modal Footer */
@@ -15926,161 +15901,147 @@ body.dark-mode .unified-modal-body::-webkit-scrollbar-thumb {
     display: flex;
     justify-content: flex-end;
     align-items: center;
-    gap: 12px;
-    padding: 20px 28px;
-    border-top: 1px solid var(--border-subtle);
-    background: var(--bg-surface);
+    gap: 10px;
+    padding: 16px 24px;
+    border-top: 1px solid rgba(0, 0, 0, 0.06);
     flex-shrink: 0;
 }
 
 body.dark-mode .unified-modal-footer {
-    background: rgba(255, 255, 255, 0.02);
+    border-top-color: rgba(255, 255, 255, 0.08);
 }
 
 /* ===================================
-   UNIFIED FORM SYSTEM
+   MINIMAL FORM SYSTEM
    =================================== */
 
-/* Form Grid - 2 Column Layout */
 .unified-form-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.unified-form-grid.two-col {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
-    gap: 20px;
+    gap: 16px;
 }
 
-.unified-form-grid.single-col {
-    grid-template-columns: 1fr;
-}
-
-/* Full width field spans both columns */
 .unified-form-field.full-width {
     grid-column: 1 / -1;
 }
 
-/* Form Field */
 .unified-form-field {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 6px;
 }
 
 .unified-form-label {
     font-size: 13px;
-    font-weight: 600;
-    color: var(--text-main);
+    font-weight: 500;
+    color: rgba(0, 0, 0, 0.5);
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 4px;
+}
+
+body.dark-mode .unified-form-label {
+    color: rgba(255, 255, 255, 0.5);
 }
 
 .unified-form-label i {
-    color: var(--text-muted);
-    font-size: 12px;
+    display: none; /* Hide label icons for minimal look */
 }
 
 .unified-form-label .required {
-    color: var(--danger, #ff3b30);
+    color: #ff3b30;
     font-weight: 500;
 }
 
 .unified-form-label .optional {
-    color: var(--text-muted);
+    color: rgba(0, 0, 0, 0.3);
     font-weight: 400;
     font-size: 12px;
 }
 
-.unified-form-hint {
-    font-size: 12px;
-    color: var(--text-muted);
-    margin: 0;
-    margin-top: -4px;
+body.dark-mode .unified-form-label .optional {
+    color: rgba(255, 255, 255, 0.3);
 }
 
-/* Unified Input Styles */
+/* Minimal Input Styles */
 .unified-input,
 .unified-select,
 .unified-textarea {
     width: 100%;
-    padding: 12px 14px;
-    font-size: 14px;
+    padding: 10px 12px;
+    font-size: 15px;
     font-family: inherit;
-    color: var(--text-main);
-    background: var(--bg-surface);
-    border: 1.5px solid var(--border-subtle);
-    border-radius: 10px;
-    transition: all 0.15s ease;
+    color: #000000;
+    background: #f5f5f7;
+    border: none;
+    border-radius: 8px;
+    transition: background 0.15s ease;
     box-sizing: border-box;
 }
 
 .unified-input:hover,
 .unified-select:hover,
 .unified-textarea:hover {
-    border-color: rgba(0, 112, 243, 0.3);
+    background: #ebebed;
 }
 
 .unified-input:focus,
 .unified-select:focus,
 .unified-textarea:focus {
     outline: none;
-    border-color: var(--accent);
-    box-shadow: 0 0 0 4px var(--accent-soft);
+    background: #e8e8ea;
 }
 
 .unified-input::placeholder,
 .unified-textarea::placeholder {
-    color: var(--text-muted);
-    opacity: 0.7;
+    color: rgba(0, 0, 0, 0.3);
 }
 
 body.dark-mode .unified-input,
 body.dark-mode .unified-select,
 body.dark-mode .unified-textarea {
-    background: rgba(255, 255, 255, 0.05);
-    border-color: rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.08);
+    color: #ffffff;
 }
 
 body.dark-mode .unified-input:hover,
 body.dark-mode .unified-select:hover,
 body.dark-mode .unified-textarea:hover {
-    border-color: rgba(0, 112, 243, 0.5);
+    background: rgba(255, 255, 255, 0.12);
 }
 
-/* Textarea */
+body.dark-mode .unified-input:focus,
+body.dark-mode .unified-select:focus,
+body.dark-mode .unified-textarea:focus {
+    background: rgba(255, 255, 255, 0.15);
+}
+
+body.dark-mode .unified-input::placeholder,
+body.dark-mode .unified-textarea::placeholder {
+    color: rgba(255, 255, 255, 0.3);
+}
+
 .unified-textarea {
     resize: vertical;
-    min-height: 80px;
+    min-height: 72px;
 }
 
-/* Select */
 .unified-select {
     cursor: pointer;
     appearance: none;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238e8e93' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%23999' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
     background-repeat: no-repeat;
-    background-position: right 14px center;
-    padding-right: 40px;
+    background-position: right 12px center;
+    padding-right: 32px;
 }
 
-/* Input with Icon */
-.unified-input-wrapper {
-    position: relative;
-}
-
-.unified-input-wrapper .input-icon {
-    position: absolute;
-    left: 14px;
-    top: 50%;
-    transform: translateY(-50%);
-    color: var(--text-muted);
-    font-size: 14px;
-    pointer-events: none;
-}
-
-.unified-input-wrapper .unified-input {
-    padding-left: 42px;
-}
-
-/* Input Group (for currency, time, etc) */
+/* Input Group */
 .unified-input-group {
     display: flex;
     align-items: stretch;
@@ -16089,22 +16050,24 @@ body.dark-mode .unified-textarea:hover {
 .unified-input-group .input-addon {
     display: flex;
     align-items: center;
-    padding: 0 14px;
-    background: var(--bg-surface-soft);
-    border: 1.5px solid var(--border-subtle);
-    color: var(--text-muted);
+    padding: 0 12px;
+    background: #ebebed;
+    color: rgba(0, 0, 0, 0.4);
     font-size: 14px;
     font-weight: 500;
 }
 
+body.dark-mode .unified-input-group .input-addon {
+    background: rgba(255, 255, 255, 0.06);
+    color: rgba(255, 255, 255, 0.4);
+}
+
 .unified-input-group .input-addon:first-child {
-    border-radius: 10px 0 0 10px;
-    border-right: none;
+    border-radius: 8px 0 0 8px;
 }
 
 .unified-input-group .input-addon:last-child {
-    border-radius: 0 10px 10px 0;
-    border-left: none;
+    border-radius: 0 8px 8px 0;
 }
 
 .unified-input-group .unified-input {
@@ -16113,19 +16076,15 @@ body.dark-mode .unified-textarea:hover {
 }
 
 .unified-input-group .unified-input:first-child {
-    border-radius: 10px 0 0 10px;
+    border-radius: 8px 0 0 8px;
 }
 
 .unified-input-group .unified-input:last-child {
-    border-radius: 0 10px 10px 0;
-}
-
-.unified-input-group .unified-input:only-child {
-    border-radius: 10px;
+    border-radius: 0 8px 8px 0;
 }
 
 /* ===================================
-   UNIFIED CUSTOM DROPDOWN
+   MINIMAL DROPDOWN
    =================================== */
 
 .unified-dropdown {
@@ -16136,60 +16095,66 @@ body.dark-mode .unified-textarea:hover {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 12px 14px;
-    background: var(--bg-surface);
-    border: 1.5px solid var(--border-subtle);
-    border-radius: 10px;
+    padding: 10px 12px;
+    background: #f5f5f7;
+    border: none;
+    border-radius: 8px;
     cursor: pointer;
-    transition: all 0.15s ease;
-    min-height: 46px;
+    transition: background 0.15s ease;
+    min-height: 42px;
 }
 
 .unified-dropdown-trigger:hover {
-    border-color: rgba(0, 112, 243, 0.3);
+    background: #ebebed;
 }
 
-.unified-dropdown.open .unified-dropdown-trigger {
-    border-color: var(--accent);
-    box-shadow: 0 0 0 4px var(--accent-soft);
+body.dark-mode .unified-dropdown-trigger {
+    background: rgba(255, 255, 255, 0.08);
+}
+
+body.dark-mode .unified-dropdown-trigger:hover {
+    background: rgba(255, 255, 255, 0.12);
 }
 
 .unified-dropdown-value {
     display: flex;
     align-items: center;
-    gap: 10px;
-    font-size: 14px;
-    color: var(--text-main);
+    gap: 8px;
+    font-size: 15px;
+    color: #000000;
+}
+
+body.dark-mode .unified-dropdown-value {
+    color: #ffffff;
 }
 
 .unified-dropdown-arrow {
-    color: var(--text-muted);
-    font-size: 12px;
-    transition: transform 0.2s ease;
+    color: rgba(0, 0, 0, 0.3);
+    font-size: 10px;
 }
 
-.unified-dropdown.open .unified-dropdown-arrow {
-    transform: rotate(180deg);
+body.dark-mode .unified-dropdown-arrow {
+    color: rgba(255, 255, 255, 0.3);
 }
 
 .unified-dropdown-menu {
     position: absolute;
-    top: calc(100% + 6px);
+    top: calc(100% + 4px);
     left: 0;
     right: 0;
-    background: var(--bg-card);
-    border: 1px solid var(--border-subtle);
-    border-radius: 12px;
-    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+    background: #ffffff;
+    border-radius: 10px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
     z-index: 1000;
-    max-height: 240px;
+    max-height: 200px;
     overflow-y: auto;
     opacity: 0;
     visibility: hidden;
-    transform: translateY(-10px);
-    transition: all 0.2s ease;
+    transform: translateY(-4px);
+    transition: all 0.15s ease;
 }
 
+.unified-dropdown-menu.visible,
 .unified-dropdown.open .unified-dropdown-menu {
     opacity: 1;
     visibility: visible;
@@ -16198,51 +16163,64 @@ body.dark-mode .unified-textarea:hover {
 
 body.dark-mode .unified-dropdown-menu {
     background: #2c2c2e;
-    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
 }
 
 .unified-dropdown-option {
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 12px 14px;
+    gap: 8px;
+    padding: 10px 12px;
     cursor: pointer;
     transition: background 0.1s ease;
-    font-size: 14px;
-    color: var(--text-main);
+    font-size: 15px;
+    color: #000000;
+}
+
+body.dark-mode .unified-dropdown-option {
+    color: #ffffff;
 }
 
 .unified-dropdown-option:first-child {
-    border-radius: 11px 11px 0 0;
+    border-radius: 9px 9px 0 0;
 }
 
 .unified-dropdown-option:last-child {
-    border-radius: 0 0 11px 11px;
+    border-radius: 0 0 9px 9px;
 }
 
 .unified-dropdown-option:hover {
-    background: var(--accent-soft);
+    background: rgba(0, 0, 0, 0.04);
+}
+
+body.dark-mode .unified-dropdown-option:hover {
+    background: rgba(255, 255, 255, 0.08);
 }
 
 .unified-dropdown-option.selected {
-    background: var(--accent-soft);
-    color: var(--accent);
+    background: rgba(0, 122, 255, 0.08);
+}
+
+body.dark-mode .unified-dropdown-option.selected {
+    background: rgba(0, 122, 255, 0.2);
 }
 
 .unified-dropdown-option .check-icon {
     margin-left: auto;
-    color: var(--accent);
+    color: #007aff;
     opacity: 0;
+    font-size: 12px;
 }
 
 .unified-dropdown-option.selected .check-icon {
     opacity: 1;
 }
 
-/* Status/Priority Dots */
-.unified-status-dot {
-    width: 10px;
-    height: 10px;
+/* Status/Priority Dots - Small, flat */
+.unified-status-dot,
+.unified-priority-dot {
+    width: 8px;
+    height: 8px;
     border-radius: 50%;
     flex-shrink: 0;
 }
@@ -16256,401 +16234,244 @@ body.dark-mode .unified-dropdown-menu {
 .unified-status-dot.won { background: #34c759; }
 .unified-status-dot.lost { background: #ff3b30; }
 
-.unified-priority-dot {
-    width: 10px;
-    height: 10px;
-    border-radius: 50%;
-    flex-shrink: 0;
-}
-
 .unified-priority-dot.low { background: #34c759; }
 .unified-priority-dot.medium { background: #ff9500; }
 .unified-priority-dot.high { background: #ff3b30; }
 
-/* Unified Assignee Avatar */
+/* Assignee Avatar - Simple */
 .unified-assignee-avatar {
-    width: 24px;
-    height: 24px;
+    width: 22px;
+    height: 22px;
     border-radius: 50%;
-    background: var(--accent);
+    background: #007aff;
     color: white;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    font-size: 11px;
+    font-size: 10px;
     font-weight: 600;
     flex-shrink: 0;
 }
 
-/* Unified Dropdown Icon */
-.unified-dropdown-icon {
-    font-size: 14px;
-    color: var(--text-muted);
-    flex-shrink: 0;
-}
-
 /* ===================================
-   UNIFIED BUTTONS
+   MINIMAL BUTTONS
    =================================== */
 
 .unified-btn {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 8px;
-    padding: 12px 24px;
+    gap: 6px;
+    padding: 10px 18px;
     font-size: 14px;
-    font-weight: 600;
+    font-weight: 500;
     font-family: inherit;
-    border-radius: 10px;
+    border-radius: 8px;
     border: none;
     cursor: pointer;
-    transition: all 0.15s ease;
+    transition: opacity 0.15s ease;
     white-space: nowrap;
 }
 
 .unified-btn:disabled {
-    opacity: 0.5;
+    opacity: 0.4;
     cursor: not-allowed;
 }
 
 .unified-btn-primary {
-    background: var(--accent);
+    background: #007aff;
     color: white;
 }
 
 .unified-btn-primary:hover:not(:disabled) {
-    background: var(--accent-hover);
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(0, 112, 243, 0.3);
+    opacity: 0.85;
 }
 
 .unified-btn-secondary {
-    background: var(--bg-surface);
-    color: var(--text-main);
-    border: 1.5px solid var(--border-subtle);
+    background: rgba(0, 0, 0, 0.05);
+    color: #000000;
+}
+
+body.dark-mode .unified-btn-secondary {
+    background: rgba(255, 255, 255, 0.1);
+    color: #ffffff;
 }
 
 .unified-btn-secondary:hover:not(:disabled) {
-    background: var(--bg-surface-soft);
-    border-color: var(--accent);
+    opacity: 0.7;
 }
 
 .unified-btn-danger {
-    background: var(--danger, #ff3b30);
+    background: #ff3b30;
     color: white;
 }
 
 .unified-btn-danger:hover:not(:disabled) {
-    background: #e6342a;
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(255, 59, 48, 0.3);
+    opacity: 0.85;
 }
 
 .unified-btn-warning {
-    background: rgba(255, 193, 7, 0.15);
-    color: #d68200;
-    border: 1.5px solid rgba(255, 193, 7, 0.5);
+    background: rgba(255, 149, 0, 0.12);
+    color: #c77800;
+}
+
+body.dark-mode .unified-btn-warning {
+    color: #ffb340;
 }
 
 .unified-btn-warning:hover:not(:disabled) {
-    background: rgba(255, 193, 7, 0.25);
+    opacity: 0.7;
 }
 
 /* ===================================
-   UNIFIED SEGMENTED CONTROL
-   =================================== */
-
-.unified-segmented {
-    display: flex;
-    background: var(--bg-surface);
-    border-radius: 12px;
-    padding: 4px;
-    gap: 4px;
-}
-
-.unified-segmented-option {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    padding: 10px 16px;
-    font-size: 14px;
-    font-weight: 500;
-    color: var(--text-muted);
-    background: transparent;
-    border: none;
-    border-radius: 8px;
-    cursor: pointer;
-    transition: all 0.15s ease;
-}
-
-.unified-segmented-option:hover {
-    color: var(--text-main);
-}
-
-.unified-segmented-option.active {
-    background: var(--bg-card);
-    color: var(--accent);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-}
-
-body.dark-mode .unified-segmented {
-    background: rgba(255, 255, 255, 0.05);
-}
-
-body.dark-mode .unified-segmented-option.active {
-    background: rgba(255, 255, 255, 0.1);
-}
-
-/* ===================================
-   UNIFIED COLOR/ICON PICKERS
+   MINIMAL COLOR PICKER
+   Flat circles, grey border on selection
    =================================== */
 
 .unified-color-grid {
     display: flex;
-    gap: 10px;
-    flex-wrap: wrap;
-}
-
-.unified-color-option {
-    width: 36px;
-    height: 36px;
-    border-radius: 10px;
-    border: 3px solid transparent;
-    cursor: pointer;
-    transition: all 0.15s ease;
-    position: relative;
-}
-
-.unified-color-option:hover {
-    transform: scale(1.1);
-}
-
-.unified-color-option.selected {
-    border-color: var(--text-main);
-    box-shadow: 0 0 0 2px var(--bg-card);
-}
-
-.unified-color-option.selected::after {
-    content: '✓';
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    color: white;
-    font-size: 14px;
-    font-weight: bold;
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
-}
-
-.unified-icon-grid {
-    display: flex;
     gap: 8px;
     flex-wrap: wrap;
 }
 
-.unified-icon-option {
-    width: 40px;
-    height: 40px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 10px;
-    border: 2px solid var(--border-subtle);
-    background: var(--bg-surface);
-    color: var(--text-muted);
+.unified-color-option {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: 2px solid transparent;
     cursor: pointer;
-    transition: all 0.15s ease;
-    font-size: 16px;
+    transition: border-color 0.15s ease;
+    position: relative;
+    box-sizing: border-box;
 }
 
-.unified-icon-option:hover {
-    border-color: var(--accent);
-    color: var(--accent);
+.unified-color-option:hover {
+    border-color: rgba(0, 0, 0, 0.15);
 }
 
-.unified-icon-option.selected {
-    border-color: var(--accent);
-    background: var(--accent-soft);
-    color: var(--accent);
+body.dark-mode .unified-color-option:hover {
+    border-color: rgba(255, 255, 255, 0.2);
 }
 
-/* ===================================
-   UNIFIED CHECKBOX / TOGGLE
-   =================================== */
-
-.unified-checkbox-label {
-    display: flex;
-    align-items: flex-start;
-    gap: 12px;
-    cursor: pointer;
-    padding: 14px 16px;
-    background: var(--bg-surface);
-    border-radius: 12px;
-    transition: background 0.15s ease;
+.unified-color-option.selected {
+    border-color: rgba(0, 0, 0, 0.4);
 }
 
-.unified-checkbox-label:hover {
-    background: var(--bg-surface-soft);
+body.dark-mode .unified-color-option.selected {
+    border-color: rgba(255, 255, 255, 0.5);
 }
 
-.unified-checkbox-label input[type="checkbox"] {
-    width: 20px;
-    height: 20px;
-    border-radius: 6px;
-    border: 2px solid var(--border-subtle);
-    appearance: none;
-    cursor: pointer;
-    transition: all 0.15s ease;
-    flex-shrink: 0;
-    margin-top: 2px;
-}
-
-.unified-checkbox-label input[type="checkbox"]:checked {
-    background: var(--accent);
-    border-color: var(--accent);
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'%3E%3C/polyline%3E%3C/svg%3E");
-    background-repeat: no-repeat;
-    background-position: center;
-}
-
-.unified-checkbox-content {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-}
-
-.unified-checkbox-title {
-    font-size: 14px;
-    font-weight: 500;
-    color: var(--text-main);
-}
-
-.unified-checkbox-desc {
-    font-size: 12px;
-    color: var(--text-muted);
-}
-
-/* ===================================
-   UNIFIED VISIBILITY SELECTOR
-   =================================== */
-
-.unified-visibility-options {
-    display: flex;
-    gap: 12px;
-}
-
-.unified-visibility-option {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    padding: 16px;
-    background: var(--bg-surface);
-    border: 2px solid var(--border-subtle);
-    border-radius: 14px;
-    cursor: pointer;
-    transition: all 0.15s ease;
-}
-
-.unified-visibility-option:hover {
-    border-color: rgba(0, 112, 243, 0.3);
-}
-
-.unified-visibility-option.selected {
-    border-color: var(--accent);
-    background: var(--accent-soft);
-}
-
-.unified-visibility-option input[type="radio"] {
+/* No checkmark on selection - just border */
+.unified-color-option.selected::after {
     display: none;
 }
 
-.unified-visibility-icon {
-    width: 44px;
-    height: 44px;
+/* ===================================
+   MINIMAL ICON PICKER
+   Simple flat grid
+   =================================== */
+
+.unified-icon-grid {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.unified-icon-option {
+    width: 36px;
+    height: 36px;
     display: flex;
     align-items: center;
     justify-content: center;
-    background: rgba(0, 0, 0, 0.05);
-    border-radius: 12px;
-    font-size: 18px;
-    color: var(--text-muted);
-    flex-shrink: 0;
-}
-
-.unified-visibility-option.selected .unified-visibility-icon {
-    background: var(--accent);
-    color: white;
-}
-
-body.dark-mode .unified-visibility-icon {
-    background: rgba(255, 255, 255, 0.08);
-}
-
-.unified-visibility-text {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-}
-
-.unified-visibility-title {
+    border-radius: 8px;
+    border: none;
+    background: #f5f5f7;
+    color: rgba(0, 0, 0, 0.5);
+    cursor: pointer;
+    transition: all 0.15s ease;
     font-size: 14px;
-    font-weight: 600;
-    color: var(--text-main);
 }
 
-.unified-visibility-desc {
-    font-size: 12px;
-    color: var(--text-muted);
+body.dark-mode .unified-icon-option {
+    background: rgba(255, 255, 255, 0.08);
+    color: rgba(255, 255, 255, 0.5);
+}
+
+.unified-icon-option:hover {
+    background: #ebebed;
+    color: rgba(0, 0, 0, 0.7);
+}
+
+body.dark-mode .unified-icon-option:hover {
+    background: rgba(255, 255, 255, 0.12);
+    color: rgba(255, 255, 255, 0.7);
+}
+
+.unified-icon-option.selected {
+    background: rgba(0, 0, 0, 0.08);
+    border: 1.5px solid rgba(0, 0, 0, 0.2);
+    color: #000000;
+}
+
+body.dark-mode .unified-icon-option.selected {
+    background: rgba(255, 255, 255, 0.12);
+    border: 1.5px solid rgba(255, 255, 255, 0.3);
+    color: #ffffff;
 }
 
 /* ===================================
-   UNIFIED PROGRESS CONTROL
+   MINIMAL PROGRESS BAR
+   Thin, flat, single color
    =================================== */
 
 .unified-progress-control {
     display: flex;
     align-items: center;
-    gap: 16px;
+    gap: 12px;
 }
 
 .unified-progress-track {
     flex: 1;
-    height: 8px;
-    background: var(--bg-surface-soft);
-    border-radius: 4px;
+    height: 4px;
+    background: rgba(0, 0, 0, 0.08);
+    border-radius: 2px;
     overflow: hidden;
-    position: relative;
+}
+
+body.dark-mode .unified-progress-track {
+    background: rgba(255, 255, 255, 0.1);
 }
 
 .unified-progress-fill {
     height: 100%;
-    background: linear-gradient(90deg, var(--accent), #00c7be);
-    border-radius: 4px;
+    background: #007aff;
+    border-radius: 2px;
     transition: width 0.2s ease;
 }
 
 .unified-progress-value {
     display: flex;
     align-items: center;
-    gap: 4px;
-    min-width: 70px;
+    gap: 2px;
+    min-width: 50px;
 }
 
 .unified-progress-value input {
-    width: 48px;
-    padding: 8px 10px;
-    font-size: 14px;
-    font-weight: 600;
+    width: 36px;
+    padding: 6px 4px;
+    font-size: 13px;
+    font-weight: 500;
     text-align: right;
-    border: 1.5px solid var(--border-subtle);
-    border-radius: 8px;
-    background: var(--bg-surface);
-    color: var(--text-main);
+    border: none;
+    border-radius: 6px;
+    background: #f5f5f7;
+    color: #000000;
     -moz-appearance: textfield;
+}
+
+body.dark-mode .unified-progress-value input {
+    background: rgba(255, 255, 255, 0.08);
+    color: #ffffff;
 }
 
 .unified-progress-value input::-webkit-inner-spin-button,
@@ -16660,39 +16481,54 @@ body.dark-mode .unified-visibility-icon {
 
 .unified-progress-value input:focus {
     outline: none;
-    border-color: var(--accent);
+    background: #ebebed;
+}
+
+body.dark-mode .unified-progress-value input:focus {
+    background: rgba(255, 255, 255, 0.12);
 }
 
 .unified-progress-value span {
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 500;
-    color: var(--text-muted);
+    color: rgba(0, 0, 0, 0.4);
+}
+
+body.dark-mode .unified-progress-value span {
+    color: rgba(255, 255, 255, 0.4);
 }
 
 /* ===================================
-   UNIFIED TIME INPUT
+   MINIMAL TIME INPUT
    =================================== */
 
 .unified-time-input {
     display: flex;
     align-items: center;
-    gap: 4px;
-    background: var(--bg-surface);
-    border: 1.5px solid var(--border-subtle);
-    border-radius: 10px;
+    gap: 2px;
+    background: #f5f5f7;
+    border-radius: 8px;
     padding: 4px;
 }
 
+body.dark-mode .unified-time-input {
+    background: rgba(255, 255, 255, 0.08);
+}
+
 .unified-time-input input {
-    width: 44px;
-    padding: 8px 4px;
+    width: 36px;
+    padding: 6px 2px;
     font-size: 14px;
     font-weight: 500;
     text-align: center;
     border: none;
     background: transparent;
-    color: var(--text-main);
+    color: #000000;
     -moz-appearance: textfield;
+}
+
+body.dark-mode .unified-time-input input {
+    color: #ffffff;
 }
 
 .unified-time-input input::-webkit-inner-spin-button,
@@ -16702,52 +16538,290 @@ body.dark-mode .unified-visibility-icon {
 
 .unified-time-input input:focus {
     outline: none;
-    background: var(--accent-soft);
-    border-radius: 6px;
+    background: rgba(0, 0, 0, 0.04);
+    border-radius: 4px;
+}
+
+body.dark-mode .unified-time-input input:focus {
+    background: rgba(255, 255, 255, 0.08);
 }
 
 .unified-time-input span {
-    font-size: 16px;
+    font-size: 14px;
     font-weight: 600;
-    color: var(--text-muted);
+    color: rgba(0, 0, 0, 0.3);
+}
+
+body.dark-mode .unified-time-input span {
+    color: rgba(255, 255, 255, 0.3);
 }
 
 /* ===================================
-   CONFIRMATION MODAL STYLES
+   MINIMAL VISIBILITY SELECTOR
+   =================================== */
+
+.unified-visibility-options {
+    display: flex;
+    gap: 8px;
+}
+
+.unified-visibility-option {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px;
+    background: #f5f5f7;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+body.dark-mode .unified-visibility-option {
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.unified-visibility-option:hover {
+    background: #ebebed;
+}
+
+body.dark-mode .unified-visibility-option:hover {
+    background: rgba(255, 255, 255, 0.12);
+}
+
+.unified-visibility-option.selected {
+    background: rgba(0, 122, 255, 0.1);
+    outline: 1.5px solid rgba(0, 122, 255, 0.4);
+}
+
+body.dark-mode .unified-visibility-option.selected {
+    background: rgba(0, 122, 255, 0.2);
+    outline: 1.5px solid rgba(0, 122, 255, 0.5);
+}
+
+.unified-visibility-option input[type="radio"] {
+    display: none;
+}
+
+.unified-visibility-icon {
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.04);
+    border-radius: 8px;
+    font-size: 14px;
+    color: rgba(0, 0, 0, 0.5);
+    flex-shrink: 0;
+}
+
+body.dark-mode .unified-visibility-icon {
+    background: rgba(255, 255, 255, 0.06);
+    color: rgba(255, 255, 255, 0.5);
+}
+
+.unified-visibility-option.selected .unified-visibility-icon {
+    background: #007aff;
+    color: white;
+}
+
+.unified-visibility-text {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+}
+
+.unified-visibility-title {
+    font-size: 13px;
+    font-weight: 500;
+    color: #000000;
+}
+
+body.dark-mode .unified-visibility-title {
+    color: #ffffff;
+}
+
+.unified-visibility-desc {
+    font-size: 11px;
+    color: rgba(0, 0, 0, 0.4);
+}
+
+body.dark-mode .unified-visibility-desc {
+    color: rgba(255, 255, 255, 0.4);
+}
+
+/* ===================================
+   MINIMAL CHECKBOX / TOGGLE
+   =================================== */
+
+.unified-checkbox-label {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    cursor: pointer;
+    padding: 12px;
+    background: #f5f5f7;
+    border-radius: 10px;
+    transition: background 0.15s ease;
+}
+
+body.dark-mode .unified-checkbox-label {
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.unified-checkbox-label:hover {
+    background: #ebebed;
+}
+
+body.dark-mode .unified-checkbox-label:hover {
+    background: rgba(255, 255, 255, 0.12);
+}
+
+.unified-checkbox-label input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    border-radius: 4px;
+    border: 1.5px solid rgba(0, 0, 0, 0.2);
+    appearance: none;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    flex-shrink: 0;
+    margin-top: 1px;
+    background: transparent;
+}
+
+body.dark-mode .unified-checkbox-label input[type="checkbox"] {
+    border-color: rgba(255, 255, 255, 0.3);
+}
+
+.unified-checkbox-label input[type="checkbox"]:checked {
+    background: #007aff;
+    border-color: #007aff;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'%3E%3C/polyline%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: center;
+}
+
+.unified-checkbox-content {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+}
+
+.unified-checkbox-title {
+    font-size: 13px;
+    font-weight: 500;
+    color: #000000;
+}
+
+body.dark-mode .unified-checkbox-title {
+    color: #ffffff;
+}
+
+.unified-checkbox-desc {
+    font-size: 11px;
+    color: rgba(0, 0, 0, 0.4);
+}
+
+body.dark-mode .unified-checkbox-desc {
+    color: rgba(255, 255, 255, 0.4);
+}
+
+/* ===================================
+   MINIMAL SEGMENTED CONTROL
+   =================================== */
+
+.unified-segmented {
+    display: flex;
+    background: #f5f5f7;
+    border-radius: 8px;
+    padding: 2px;
+    gap: 2px;
+}
+
+body.dark-mode .unified-segmented {
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.unified-segmented-option {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 8px 12px;
+    font-size: 13px;
+    font-weight: 500;
+    color: rgba(0, 0, 0, 0.5);
+    background: transparent;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+body.dark-mode .unified-segmented-option {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+.unified-segmented-option:hover {
+    color: rgba(0, 0, 0, 0.7);
+}
+
+body.dark-mode .unified-segmented-option:hover {
+    color: rgba(255, 255, 255, 0.7);
+}
+
+.unified-segmented-option.active {
+    background: #ffffff;
+    color: #000000;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+body.dark-mode .unified-segmented-option.active {
+    background: rgba(255, 255, 255, 0.15);
+    color: #ffffff;
+}
+
+/* ===================================
+   MINIMAL CONFIRMATION BOXES
    =================================== */
 
 .unified-confirm-box {
     display: flex;
-    gap: 20px;
-    padding: 24px;
-    background: var(--bg-surface);
-    border-radius: 16px;
+    gap: 14px;
+    padding: 16px;
+    background: #f5f5f7;
+    border-radius: 10px;
     align-items: flex-start;
 }
 
+body.dark-mode .unified-confirm-box {
+    background: rgba(255, 255, 255, 0.06);
+}
+
 .unified-confirm-box.danger {
-    background: rgba(255, 59, 48, 0.05);
-    border: 1px solid rgba(255, 59, 48, 0.15);
+    background: rgba(255, 59, 48, 0.06);
 }
 
 .unified-confirm-box.warning {
-    background: rgba(255, 149, 0, 0.05);
-    border: 1px solid rgba(255, 149, 0, 0.15);
+    background: rgba(255, 149, 0, 0.06);
 }
 
 .unified-confirm-box.info {
-    background: rgba(0, 122, 255, 0.05);
-    border: 1px solid rgba(0, 122, 255, 0.15);
+    background: rgba(0, 122, 255, 0.06);
 }
 
 .unified-confirm-icon {
-    width: 48px;
-    height: 48px;
+    width: 36px;
+    height: 36px;
     display: flex;
     align-items: center;
     justify-content: center;
-    border-radius: 14px;
-    font-size: 22px;
+    border-radius: 10px;
+    font-size: 16px;
     flex-shrink: 0;
 }
 
@@ -16770,69 +16844,166 @@ body.dark-mode .unified-visibility-icon {
     flex: 1;
 }
 
-.unified-confirm-title {
-    font-size: 16px;
-    font-weight: 600;
-    color: var(--text-main);
-    margin: 0 0 8px 0;
-}
-
-.unified-confirm-text {
+.unified-confirm-content h3 {
     font-size: 14px;
-    color: var(--text-muted);
+    font-weight: 600;
+    color: #000000;
+    margin: 0 0 4px 0;
+}
+
+body.dark-mode .unified-confirm-content h3 {
+    color: #ffffff;
+}
+
+.unified-confirm-content p {
+    font-size: 13px;
+    color: rgba(0, 0, 0, 0.5);
     margin: 0;
-    line-height: 1.5;
+    line-height: 1.4;
 }
 
-.unified-confirm-text strong {
-    color: var(--text-main);
+body.dark-mode .unified-confirm-content p {
+    color: rgba(255, 255, 255, 0.5);
 }
 
-/* Feature List in Confirmation */
+/* Warning Box */
+.unified-warning-box {
+    display: flex;
+    gap: 14px;
+    padding: 16px;
+    background: rgba(255, 149, 0, 0.06);
+    border-radius: 10px;
+    align-items: flex-start;
+}
+
+body.dark-mode .unified-warning-box {
+    background: rgba(255, 149, 0, 0.1);
+}
+
+.unified-warning-box i {
+    font-size: 18px;
+    color: #ff9500;
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+
+.unified-warning-box p {
+    font-size: 13px;
+    color: rgba(0, 0, 0, 0.6);
+    margin: 0;
+    line-height: 1.4;
+}
+
+body.dark-mode .unified-warning-box p {
+    color: rgba(255, 255, 255, 0.6);
+}
+
+/* ===================================
+   INFO LISTS IN MODALS
+   =================================== */
+
+.unified-info-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.unified-info-list li {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: rgba(0, 0, 0, 0.6);
+    padding: 8px 12px;
+    background: #f5f5f7;
+    border-radius: 8px;
+}
+
+body.dark-mode .unified-info-list li {
+    background: rgba(255, 255, 255, 0.06);
+    color: rgba(255, 255, 255, 0.6);
+}
+
+.unified-info-list li i {
+    font-size: 12px;
+    color: rgba(0, 0, 0, 0.3);
+    width: 16px;
+    text-align: center;
+}
+
+body.dark-mode .unified-info-list li i {
+    color: rgba(255, 255, 255, 0.3);
+}
+
+.unified-info-list li strong {
+    font-weight: 500;
+    color: #000000;
+}
+
+body.dark-mode .unified-info-list li strong {
+    color: #ffffff;
+}
+
+/* Feature list */
 .unified-feature-list {
     list-style: none;
     padding: 0;
-    margin: 16px 0 0 0;
+    margin: 0;
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 6px;
 }
 
 .unified-feature-list li {
     display: flex;
     align-items: center;
-    gap: 10px;
-    font-size: 14px;
-    color: var(--text-main);
+    gap: 8px;
+    font-size: 13px;
+    color: #000000;
+}
+
+body.dark-mode .unified-feature-list li {
+    color: #ffffff;
 }
 
 .unified-feature-list li i {
-    font-size: 12px;
-    width: 16px;
+    font-size: 11px;
+    width: 14px;
     text-align: center;
 }
 
 .unified-feature-list li i.fa-check {
-    color: var(--accent);
+    color: #34c759;
 }
 
 .unified-feature-list li i.fa-times {
-    color: var(--text-muted);
+    color: rgba(0, 0, 0, 0.3);
+}
+
+body.dark-mode .unified-feature-list li i.fa-times {
+    color: rgba(255, 255, 255, 0.3);
 }
 
 .unified-feature-list li.muted {
-    color: var(--text-muted);
+    color: rgba(0, 0, 0, 0.4);
+}
+
+body.dark-mode .unified-feature-list li.muted {
+    color: rgba(255, 255, 255, 0.4);
 }
 
 /* ===================================
-   RESPONSIVE - Mobile Adjustments
+   RESPONSIVE - Mobile
    =================================== */
 
-@media (max-width: 700px) {
+@media (max-width: 600px) {
     .unified-modal-container {
         max-width: 100%;
         max-height: calc(100vh - 20px);
-        border-radius: 16px 16px 0 0;
+        border-radius: 14px 14px 0 0;
         margin-top: auto;
     }
     
@@ -16841,7 +17012,7 @@ body.dark-mode .unified-visibility-icon {
         padding: 0;
     }
     
-    .unified-form-grid {
+    .unified-form-grid.two-col {
         grid-template-columns: 1fr;
     }
     
@@ -16854,23 +17025,18 @@ body.dark-mode .unified-visibility-icon {
     }
     
     .unified-modal-header {
-        padding: 20px;
-    }
-    
-    .unified-modal-body {
-        padding: 20px;
-    }
-    
-    .unified-modal-footer {
         padding: 16px 20px;
     }
     
-    .unified-modal-title h2 {
-        font-size: 18px;
+    .unified-modal-body {
+        padding: 16px 20px;
     }
     
-    .unified-modal-title .subtitle {
-        padding-left: 0;
-        margin-top: 4px;
+    .unified-modal-footer {
+        padding: 14px 20px;
+    }
+    
+    .unified-modal-title h2 {
+        font-size: 16px;
     }
 }
