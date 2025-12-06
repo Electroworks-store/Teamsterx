@@ -1900,93 +1900,99 @@ body.dark-mode .chat-filter-toggle .filter-btn.active {
    =================================== */
 
 /* 
- * Reply Preview Bar - appears above input when replying
- * Structured as: [icon] [name + preview] [cancel button]
- * Uses accent color border and subtle background
+ * Reply Preview - Clean, compact pill above input
+ * Modern design with accent indicator bar
  */
-.reply-preview-bar {
+.reply-preview {
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    gap: 12px;
     padding: 10px 14px;
     background: var(--bg-surface);
+    border-radius: 16px;
+    margin: 0 12px 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
     border: 1px solid var(--border-subtle);
-    border-bottom: none;
-    border-radius: 12px 12px 0 0;
-    margin: 0 12px;
-    gap: 10px;
-    box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.04);
+    animation: replySlideIn 0.2s ease-out;
 }
 
-.reply-preview-content {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    flex: 1;
-    min-width: 0;
+@keyframes replySlideIn {
+    from {
+        opacity: 0;
+        transform: translateY(8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
-/* Reply icon with accent pill background */
-.reply-preview-bar .reply-icon {
-    width: 28px;
-    height: 28px;
-    background: rgba(0, 122, 255, 0.1);
-    color: var(--accent);
-    font-size: 12px;
+.reply-preview-indicator {
+    width: 3px;
+    height: 32px;
+    background: var(--accent);
+    border-radius: 2px;
     flex-shrink: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 8px;
 }
 
-/* Text container: name on top, preview below */
-.reply-preview-text {
+.reply-preview-info {
     display: flex;
     flex-direction: column;
     gap: 2px;
-    min-width: 0;
     flex: 1;
-    border-left: 2px solid var(--accent);
-    padding-left: 10px;
+    min-width: 0;
 }
 
-.reply-to-name {
-    font-size: 12px;
+.reply-preview-label {
+    font-size: 11px;
+    color: var(--text-muted);
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+.reply-preview-name {
+    font-size: 13px;
     font-weight: 600;
     color: var(--accent);
-    line-height: 1.3;
+    line-height: 1.2;
 }
 
-.reply-to-preview {
+.reply-preview-text {
     font-size: 12px;
     color: var(--text-secondary);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
     line-height: 1.3;
+    max-width: 300px;
 }
 
-/* Cancel button - matches action button style */
-.reply-cancel-btn {
-    width: 28px;
-    height: 28px;
+.reply-preview-close {
+    width: 26px;
+    height: 26px;
     border: none;
-    background: rgba(0, 0, 0, 0.05);
+    background: var(--bg-surface-soft);
     color: var(--text-secondary);
     cursor: pointer;
-    border-radius: 8px;
+    border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: all var(--transition-fast);
+    transition: all 0.15s ease;
     flex-shrink: 0;
-    font-size: 12px;
+    font-size: 11px;
 }
 
-.reply-cancel-btn:hover {
+.reply-preview-close:hover {
     background: rgba(255, 59, 48, 0.1);
     color: rgb(255, 59, 48);
+    transform: scale(1.1);
+}
+
+/* Legacy class support */
+.reply-preview-bar {
+    display: none;
 }
 
 /*
@@ -2064,6 +2070,103 @@ body.dark-mode .chat-filter-toggle .filter-btn.active {
     background: rgba(255, 59, 48, 0.15);
     border-color: rgba(255, 59, 48, 0.3);
     box-shadow: 0 2px 8px rgba(255, 59, 48, 0.2);
+}
+
+/* ===================================
+   MESSAGE REACTIONS
+   =================================== */
+
+/* Reactions bar - floating above message text */
+.reactions-bar {
+    position: absolute;
+    bottom: calc(100% + 6px);
+    left: 0;
+    display: flex;
+    gap: 2px;
+    padding: 6px 8px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    border-radius: 24px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+    z-index: 100;
+    opacity: 0;
+    transform: translateY(8px) scale(0.95);
+    transition: all 0.15s ease-out;
+}
+
+.reactions-bar.active {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+}
+
+.reaction-emoji-btn {
+    width: 32px;
+    height: 32px;
+    border: none;
+    background: transparent;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s ease;
+}
+
+.reaction-emoji-btn:hover {
+    background: var(--accent-soft);
+    transform: scale(1.15);
+}
+
+.reaction-emoji-btn:active {
+    transform: scale(0.95);
+}
+
+/* Reactions display on messages */
+.message-reactions-display {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 8px;
+    padding-top: 6px;
+}
+
+.reaction-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    background: var(--bg-surface-soft);
+    border: 1px solid var(--border-subtle);
+    border-radius: 16px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    font-size: 13px;
+}
+
+.reaction-chip:hover {
+    background: var(--accent-soft);
+    border-color: var(--accent);
+}
+
+.reaction-chip.user-reacted {
+    background: var(--accent-soft);
+    border-color: var(--accent);
+}
+
+.reaction-emoji {
+    font-size: 14px;
+    line-height: 1;
+}
+
+.reaction-count {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-secondary);
+}
+
+.reaction-chip.user-reacted .reaction-count {
+    color: var(--accent);
 }
 
 /* Make message content relative for positioning action buttons */
@@ -2197,8 +2300,13 @@ body.dark-mode .reply-cancel-btn {
     background: rgba(255, 255, 255, 0.06);
 }
 
-body.dark-mode .reply-cancel-btn:hover {
+body.dark-mode .reply-preview-close:hover {
     background: rgba(255, 59, 48, 0.15);
+}
+
+body.dark-mode .reply-preview {
+    background: var(--bg-elevated);
+    border-color: var(--border-subtle);
 }
 
 body.dark-mode .message-reply-btn {
@@ -2223,6 +2331,23 @@ body.dark-mode .message.reply-highlight {
     animation: replyHighlightPulseDark 2s ease-out;
 }
 
+/* Dark mode reactions */
+body.dark-mode .reactions-bar {
+    background: var(--bg-elevated);
+    border-color: var(--border-subtle);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+}
+
+body.dark-mode .reaction-chip {
+    background: var(--bg-elevated);
+    border-color: var(--border-subtle);
+}
+
+body.dark-mode .reaction-chip:hover,
+body.dark-mode .reaction-chip.user-reacted {
+    background: rgba(0, 122, 255, 0.15);
+}
+
 @keyframes replyHighlightPulseDark {
     0% {
         background: rgba(0, 122, 255, 0.12);
@@ -2237,25 +2362,33 @@ body.dark-mode .message.reply-highlight {
 
 /* Responsive adjustments for reply UI */
 @media (max-width: 768px) {
-    .reply-preview-bar {
-        padding: 8px 10px;
-        margin: 0 8px;
-        gap: 8px;
+    .reply-preview {
+        padding: 8px 12px;
+        margin: 0 8px 6px;
+        gap: 10px;
+        border-radius: 12px;
     }
     
-    .reply-preview-bar .reply-icon {
-        width: 24px;
-        height: 24px;
+    .reply-preview-indicator {
+        height: 28px;
+    }
+    
+    .reply-preview-label {
         font-size: 10px;
     }
     
-    .reply-preview-text {
-        padding-left: 8px;
+    .reply-preview-name {
+        font-size: 12px;
     }
     
-    .reply-to-name,
-    .reply-to-preview {
+    .reply-preview-text {
         font-size: 11px;
+        max-width: 200px;
+    }
+    
+    .reply-preview-close {
+        width: 24px;
+        height: 24px;
     }
     
     .message-actions {
@@ -2282,6 +2415,37 @@ body.dark-mode .message.reply-highlight {
     }
     
     .reply-context-text {
+        font-size: 11px;
+    }
+    
+    /* Reactions mobile */
+    .reactions-bar {
+        padding: 4px 6px;
+        border-radius: 20px;
+    }
+    
+    .reaction-emoji-btn {
+        width: 28px;
+        height: 28px;
+        font-size: 16px;
+    }
+    
+    .message-reactions-display {
+        gap: 4px;
+        margin-top: 6px;
+    }
+    
+    .reaction-chip {
+        padding: 3px 8px;
+        border-radius: 12px;
+        font-size: 12px;
+    }
+    
+    .reaction-emoji {
+        font-size: 12px;
+    }
+    
+    .reaction-count {
         font-size: 11px;
     }
 }

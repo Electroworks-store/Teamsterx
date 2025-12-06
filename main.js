@@ -623,6 +623,13 @@ let replyState = {
     currentReply: null // { messageId, userId, displayName, previewText }
 };
 
+// Reactions system state
+const REACTION_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '✅'];
+let reactionsState = {
+    activeMessageId: null, // ID of message with open reactions bar
+    reactionsBarElement: null // Reference to the floating reactions bar
+};
+
 function initChat() {
     const chatInput = document.getElementById('chatInput');
     const sendBtn = document.getElementById('sendMessageBtn');
@@ -702,6 +709,9 @@ function initChat() {
             });
         }
     });
+
+    // Initialize reactions system listeners
+    initReactionsListeners();
 
     async function sendMessage() {
         const messageText = chatInput.value.trim();
@@ -945,8 +955,20 @@ function initChat() {
             actionsDiv.appendChild(deleteBtn);
         }
         
-        // Toggle action buttons visibility on message click (for mobile)
-        messageEl.onclick = () => {
+        // === REACTIONS DISPLAY ===
+        // Show aggregated reactions below message text
+        const reactionsDisplay = document.createElement('div');
+        reactionsDisplay.className = 'message-reactions-display';
+        reactionsDisplay.dataset.messageId = message.id;
+        renderReactionsDisplay(reactionsDisplay, message.reactions || {});
+        
+        // Toggle reactions bar on message click
+        messageEl.onclick = (e) => {
+            // Don't trigger on action button clicks
+            if (e.target.closest('.message-action-btn') || e.target.closest('.message-reactions-display')) {
+                return;
+            }
+            
             // Hide action buttons on all other messages
             document.querySelectorAll('.message').forEach(msg => {
                 if (msg !== messageEl) {
@@ -955,12 +977,16 @@ function initChat() {
             });
             // Toggle action buttons on clicked message
             messageEl.classList.toggle('show-actions');
+            
+            // Toggle reactions bar
+            toggleReactionsBar(message.id, messageEl);
         };
         
         // Assemble the message
-        // Structure: [header] [text] [actions container]
+        // Structure: [header] [text] [reactions] [actions container]
         contentDiv.appendChild(headerDiv);
         contentDiv.appendChild(textDiv);
+        contentDiv.appendChild(reactionsDisplay);
         contentDiv.appendChild(actionsDiv);
         
         messageEl.appendChild(avatarDiv);
@@ -1533,7 +1559,7 @@ function showReplyPreviewBar(name, preview) {
     const previewEl = document.getElementById('replyToPreview');
     
     if (bar && nameEl && previewEl) {
-        nameEl.textContent = `Replying to ${name}`;
+        nameEl.textContent = name;
         previewEl.textContent = preview;
         bar.style.display = 'flex';
     }
@@ -1651,6 +1677,196 @@ function scrollToOriginalMessage(messageId) {
  */
 function resetReplyState() {
     clearReplyContext();
+}
+
+// ===================================
+// REACTIONS SYSTEM
+// ===================================
+
+/**
+ * Toggle the reactions bar for a message
+ * @param {string} messageId - ID of the message
+ * @param {HTMLElement} messageEl - The message element
+ */
+function toggleReactionsBar(messageId, messageEl) {
+    // If clicking the same message, close the bar
+    if (reactionsState.activeMessageId === messageId && reactionsState.reactionsBarElement) {
+        closeReactionsBar();
+        return;
+    }
+    
+    // Close any existing bar
+    closeReactionsBar();
+    
+    // Create and show new reactions bar
+    showReactionsBar(messageId, messageEl);
+}
+
+/**
+ * Show the reactions bar above a message
+ * @param {string} messageId - ID of the message
+ * @param {HTMLElement} messageEl - The message element
+ */
+function showReactionsBar(messageId, messageEl) {
+    const bar = document.createElement('div');
+    bar.className = 'reactions-bar';
+    bar.dataset.messageId = messageId;
+    
+    // Add emoji buttons
+    REACTION_EMOJIS.forEach(emoji => {
+        const btn = document.createElement('button');
+        btn.className = 'reaction-emoji-btn';
+        btn.textContent = emoji;
+        btn.onclick = (e) => {
+            e.stopPropagation();
+            toggleReaction(messageId, emoji);
+        };
+        bar.appendChild(btn);
+    });
+    
+    // Position the bar above the message text
+    const textDiv = messageEl.querySelector('.message-text');
+    if (textDiv) {
+        textDiv.style.position = 'relative';
+        textDiv.appendChild(bar);
+    }
+    
+    reactionsState.activeMessageId = messageId;
+    reactionsState.reactionsBarElement = bar;
+    
+    // Animate in
+    requestAnimationFrame(() => {
+        bar.classList.add('active');
+    });
+}
+
+/**
+ * Close the reactions bar
+ */
+function closeReactionsBar() {
+    if (reactionsState.reactionsBarElement) {
+        reactionsState.reactionsBarElement.remove();
+        reactionsState.reactionsBarElement = null;
+    }
+    reactionsState.activeMessageId = null;
+}
+
+/**
+ * Toggle a reaction on a message
+ * @param {string} messageId - ID of the message
+ * @param {string} emoji - The emoji to toggle
+ */
+async function toggleReaction(messageId, emoji) {
+    if (!currentAuthUser || !appState.currentTeamId || !db) return;
+    
+    const userId = currentAuthUser.uid;
+    
+    try {
+        const { doc, getDoc, updateDoc, arrayUnion, arrayRemove } = 
+            await import('https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js');
+        
+        const messageRef = doc(db, 'teams', appState.currentTeamId, 'messages', messageId);
+        const messageDoc = await getDoc(messageRef);
+        
+        if (!messageDoc.exists()) {
+            showToast('Message not found', 'error');
+            return;
+        }
+        
+        const messageData = messageDoc.data();
+        const reactions = messageData.reactions || {};
+        const emojiReactions = reactions[emoji] || [];
+        
+        // Check if user already reacted with this emoji
+        const hasReacted = emojiReactions.includes(userId);
+        
+        if (hasReacted) {
+            // Remove reaction
+            await updateDoc(messageRef, {
+                [`reactions.${emoji}`]: arrayRemove(userId)
+            });
+        } else {
+            // Add reaction
+            await updateDoc(messageRef, {
+                [`reactions.${emoji}`]: arrayUnion(userId)
+            });
+        }
+        
+        // Close reactions bar after toggling
+        closeReactionsBar();
+        
+    } catch (error) {
+        console.error('Error toggling reaction:', error);
+        showToast('Failed to update reaction', 'error');
+    }
+}
+
+/**
+ * Render the reactions display for a message
+ * @param {HTMLElement} container - The container element
+ * @param {Object} reactions - Reactions object { emoji: [userIds] }
+ */
+function renderReactionsDisplay(container, reactions) {
+    container.innerHTML = '';
+    
+    if (!reactions || Object.keys(reactions).length === 0) {
+        container.style.display = 'none';
+        return;
+    }
+    
+    let hasReactions = false;
+    
+    Object.entries(reactions).forEach(([emoji, userIds]) => {
+        if (userIds && userIds.length > 0) {
+            hasReactions = true;
+            const chip = document.createElement('button');
+            chip.className = 'reaction-chip';
+            
+            // Highlight if current user reacted
+            if (currentAuthUser && userIds.includes(currentAuthUser.uid)) {
+                chip.classList.add('user-reacted');
+            }
+            
+            chip.innerHTML = `<span class="reaction-emoji">${emoji}</span><span class="reaction-count">${userIds.length}</span>`;
+            chip.onclick = (e) => {
+                e.stopPropagation();
+                const messageId = container.dataset.messageId;
+                toggleReaction(messageId, emoji);
+            };
+            
+            // Tooltip showing who reacted
+            const names = userIds.map(uid => {
+                const teammate = appState.teammates?.find(t => t.id === uid);
+                return teammate?.name || 'Unknown';
+            }).join(', ');
+            chip.title = names;
+            
+            container.appendChild(chip);
+        }
+    });
+    
+    container.style.display = hasReactions ? 'flex' : 'none';
+}
+
+/**
+ * Close reactions bar on scroll or click outside
+ */
+function initReactionsListeners() {
+    const chatMessages = document.getElementById('chatMessages');
+    
+    // Close on scroll
+    if (chatMessages) {
+        chatMessages.addEventListener('scroll', closeReactionsBar);
+    }
+    
+    // Close on click outside
+    document.addEventListener('click', (e) => {
+        if (reactionsState.reactionsBarElement && 
+            !e.target.closest('.reactions-bar') && 
+            !e.target.closest('.message')) {
+            closeReactionsBar();
+        }
+    });
 }
 
 // ===================================
@@ -4929,8 +5145,14 @@ function initTasks() {
     // Helper: get tasks for a specific spreadsheet
     function getTasksForSpreadsheet(spreadsheet) {
         if (!spreadsheet || spreadsheet.id === 'default') {
-            // "All Tasks" shows all tasks
-            return [...appState.tasks];
+            // "All Tasks" shows all tasks EXCEPT leads (leads have different presets)
+            // Get all spreadsheet IDs that are of type 'leads'
+            const leadsSpreadsheetIds = (appState.spreadsheets || [])
+                .filter(s => s.type === 'leads')
+                .map(s => s.id);
+            
+            // Filter out tasks that belong to leads spreadsheets
+            return appState.tasks.filter(t => !leadsSpreadsheetIds.includes(t.spreadsheetId));
         }
         // Other spreadsheets only show tasks assigned to them
         return appState.tasks.filter(t => t.spreadsheetId === spreadsheet.id);

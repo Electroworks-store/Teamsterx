@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Teamster - Internal Collaboration Platform</title>
-    <link rel="stylesheet" href="styles.css?v=23">
+    <link rel="stylesheet" href="styles.css?v=24">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
@@ -430,16 +430,15 @@
                         <div class="mention-dropdown" id="mentionDropdown" style="display: none;">
                             <!-- Mention items will be populated dynamically -->
                         </div>
-                        <!-- Reply preview bar - shown when replying to a message -->
-                        <div class="reply-preview-bar" id="replyPreviewBar" style="display: none;">
-                            <div class="reply-preview-content">
-                                <i class="fas fa-reply reply-icon"></i>
-                                <div class="reply-preview-text">
-                                    <span class="reply-to-name" id="replyToName">Replying to Someone</span>
-                                    <span class="reply-to-preview" id="replyToPreview">Message preview...</span>
-                                </div>
+                        <!-- Reply preview - compact pill above input -->
+                        <div class="reply-preview" id="replyPreviewBar" style="display: none;">
+                            <div class="reply-preview-indicator"></div>
+                            <div class="reply-preview-info">
+                                <span class="reply-preview-label">Replying to</span>
+                                <span class="reply-preview-name" id="replyToName">Someone</span>
+                                <span class="reply-preview-text" id="replyToPreview">Message preview...</span>
                             </div>
-                            <button class="reply-cancel-btn" id="replyCancelBtn" title="Cancel reply">
+                            <button class="reply-preview-close" id="replyCancelBtn" title="Cancel reply">
                                 <i class="fas fa-times"></i>
                             </button>
                         </div>
@@ -2342,6 +2341,6 @@
     <div id="toastContainer"></div>
 
     <!-- Main JavaScript -->
-    <script src="main.js?v=23"></script>
+    <script src="main.js?v=24"></script>
 </body>
 </html>
