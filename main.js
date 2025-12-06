@@ -2352,24 +2352,34 @@ function renderWeekView(titleEl, daysEl) {
     
     titleEl.textContent = `${startOfWeek.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })} - ${endOfWeek.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}`;
     
+    // Constants for positioning
+    const HEADER_HEIGHT = 56;
+    const SLOT_HEIGHT = 48;
+    const START_HOUR = 8;
+    const END_HOUR = 18;
+    
     let html = '<div class="week-view">';
     
-    // Time column
+    // Time column with header
     html += '<div class="week-time-column">';
     html += '<div class="week-time-header"></div>';
-    for (let hour = 8; hour <= 18; hour++) {
-        html += `<div class="week-time-slot">${hour}:00</div>`;
+    for (let hour = START_HOUR; hour <= END_HOUR; hour++) {
+        const hourFormatted = hour === 12 ? '12 PM' : hour > 12 ? `${hour - 12} PM` : `${hour} AM`;
+        html += `<div class="week-time-slot">${hourFormatted}</div>`;
     }
     html += '</div>';
     
     // Day columns
     const today = new Date();
+    const currentHour = today.getHours();
+    const currentMinute = today.getMinutes();
+    
     for (let i = 0; i < 7; i++) {
         const date = new Date(startOfWeek);
         date.setDate(date.getDate() + i);
         const isToday = date.toDateString() === today.toDateString();
         
-        html += `<div class="week-day-column ${isToday ? 'today-column' : ''}" style="position: relative;">`;
+        html += `<div class="week-day-column ${isToday ? 'today-column' : ''}" data-date="${date.toISOString()}" style="position: relative;">`;
         html += `<div class="week-day-header ${isToday ? 'today' : ''}">
             <div class="week-day-name">${date.toLocaleDateString('en-US', { weekday: 'short' })}</div>
             <div class="week-day-number">${date.getDate()}</div>
@@ -2381,51 +2391,80 @@ function renderWeekView(titleEl, daysEl) {
             return eventDate.toDateString() === date.toDateString();
         });
         
-        if (i === 0 || dayEvents.length > 0) {
+        // Get tasks with due dates for this day
+        const dayTasks = appState.tasks.filter(t => {
+            if (!t.dueDate || t.status === 'done') return false;
+            const taskDate = new Date(t.dueDate);
+            return taskDate.toDateString() === date.toDateString();
+        });
+        
+        if (i === 0 || dayEvents.length > 0 || dayTasks.length > 0) {
             if (DEBUG) {
-                console.log(`Day ${i} (${date.toDateString()}): ${dayEvents.length} events found`);
-                if (dayEvents.length > 0) {
-                    dayEvents.forEach(e => console.log(`  - "${e.title}" at ${new Date(e.date).toLocaleTimeString()}`));
-                }
+                console.log(`Day ${i} (${date.toDateString()}): ${dayEvents.length} events, ${dayTasks.length} tasks`);
             }
         }
         
         // Time slots (cells for grid)
-        for (let hour = 8; hour <= 18; hour++) {
-            html += `<div class="week-time-cell ${hour === today.getHours() && isToday ? 'current-hour' : ''}" data-hour="${hour}"></div>`;
+        for (let hour = START_HOUR; hour <= END_HOUR; hour++) {
+            const isCurrent = isToday && hour === currentHour;
+            html += `<div class="week-time-cell ${isCurrent ? 'current-hour' : ''}" data-hour="${hour}" data-date="${date.toISOString()}"></div>`;
+        }
+        
+        // Current time indicator for today's column
+        if (isToday && currentHour >= START_HOUR && currentHour <= END_HOUR) {
+            const minutesSinceStart = (currentHour - START_HOUR) * 60 + currentMinute;
+            const topPosition = HEADER_HEIGHT + (minutesSinceStart * SLOT_HEIGHT / 60);
+            html += `<div class="week-current-time-indicator" style="top: ${topPosition}px;"></div>`;
         }
         
         // Render events as absolutely positioned blocks
         dayEvents.forEach(event => {
             const eventStartDate = new Date(event.date);
-            const eventEndDate = event.endDate ? new Date(event.endDate) : new Date(eventStartDate.getTime() + 60*60*1000); // default 1 hour
+            const eventEndDate = event.endDate ? new Date(event.endDate) : new Date(eventStartDate.getTime() + 60*60*1000);
             
             const startHour = eventStartDate.getHours();
             const startMinute = eventStartDate.getMinutes();
             const endHour = eventEndDate.getHours();
             const endMinute = eventEndDate.getMinutes();
             
-            if (DEBUG) console.log(`🎯 Event "${event.title}": ${startHour}:${String(startMinute).padStart(2,'0')} - ${endHour}:${String(endMinute).padStart(2,'0')}`);
-            
-            // Only show events within our time range (8 AM - 6 PM)
-            if (startHour >= 8 && startHour <= 18) {
-                // Calculate position and height
-                const topPosition = ((startHour - 8) * 60 + startMinute) + 60; // +60 for header
+            // Only show events within our time range
+            if (startHour >= START_HOUR && startHour <= END_HOUR) {
+                const minutesSinceStart = (startHour - START_HOUR) * 60 + startMinute;
+                const topPosition = HEADER_HEIGHT + (minutesSinceStart * SLOT_HEIGHT / 60);
                 const durationMinutes = (endHour - startHour) * 60 + (endMinute - startMinute);
-                const height = durationMinutes;
-                
-                console.log(`  → Rendering: top=${topPosition}px, height=${height}px`);
+                const height = Math.max((durationMinutes * SLOT_HEIGHT / 60), 24); // Minimum 24px height
                 
                 const eventColor = event.color || '#007AFF';
+                const shortEvent = height < 40;
                 
                 html += `
-                    <div class="week-event-block" onclick="event.stopPropagation(); viewEventDetails('${escapeHtml(event.id)}')" 
-                         style="top: ${topPosition}px; height: ${height}px; background: ${escapeHtml(eventColor)}15; border-left: 3px solid ${escapeHtml(eventColor)};">
+                    <div class="week-event-block ${shortEvent ? 'short-event' : ''}" 
+                         draggable="true"
+                         data-event-id="${escapeHtml(event.id)}"
+                         onclick="event.stopPropagation(); viewEventDetails('${escapeHtml(event.id)}')" 
+                         style="top: ${topPosition}px; height: ${height}px; border-left-color: ${escapeHtml(eventColor)};">
                         <div class="week-event-title">${escapeHtml(event.title)}</div>
-                        <div class="week-event-time" style="color: ${escapeHtml(eventColor)};">${eventStartDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }).replace(' ', '')} - ${eventEndDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }).replace(' ', '')}</div>
+                        <div class="week-event-time">
+                            <i class="fas fa-clock"></i>
+                            ${eventStartDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })} - ${eventEndDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+                        </div>
                     </div>
                 `;
             }
+        });
+        
+        // Render tasks with due dates as task blocks
+        dayTasks.forEach((task, idx) => {
+            // Stack tasks at the top of the day, below the header
+            const topPosition = HEADER_HEIGHT + 4 + (idx * 28);
+            
+            html += `
+                <div class="week-task-block" 
+                     onclick="event.stopPropagation(); viewTaskDetails && viewTaskDetails('${escapeHtml(task.id)}')" 
+                     style="top: ${topPosition}px; height: 24px;">
+                    <div class="week-event-title">${escapeHtml(task.title)}</div>
+                </div>
+            `;
         });
         
         html += '</div>';
@@ -2433,6 +2472,9 @@ function renderWeekView(titleEl, daysEl) {
     
     html += '</div>';
     daysEl.innerHTML = html;
+    
+    // Initialize drag-and-drop for events
+    initCalendarDragDrop();
 }
 
 function getStartOfWeek(date) {
@@ -2443,6 +2485,141 @@ function getStartOfWeek(date) {
     const result = new Date(d);
     result.setDate(d.getDate() + diff);
     return result;
+}
+
+// ===================================
+// CALENDAR DRAG AND DROP
+// ===================================
+function initCalendarDragDrop() {
+    const eventBlocks = document.querySelectorAll('.week-event-block[draggable="true"]');
+    const dayColumns = document.querySelectorAll('.week-day-column');
+    const timeCells = document.querySelectorAll('.week-time-cell');
+    
+    eventBlocks.forEach(block => {
+        block.addEventListener('dragstart', handleEventDragStart);
+        block.addEventListener('dragend', handleEventDragEnd);
+    });
+    
+    dayColumns.forEach(column => {
+        column.addEventListener('dragover', handleEventDragOver);
+        column.addEventListener('dragleave', handleEventDragLeave);
+        column.addEventListener('drop', handleEventDrop);
+    });
+    
+    timeCells.forEach(cell => {
+        cell.addEventListener('dragover', handleCellDragOver);
+        cell.addEventListener('dragleave', handleCellDragLeave);
+        cell.addEventListener('drop', handleCellDrop);
+    });
+}
+
+let draggedEventId = null;
+
+function handleEventDragStart(e) {
+    draggedEventId = e.target.dataset.eventId;
+    e.target.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', draggedEventId);
+}
+
+function handleEventDragEnd(e) {
+    e.target.classList.remove('dragging');
+    draggedEventId = null;
+    
+    // Remove all drag-over highlights
+    document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+}
+
+function handleEventDragOver(e) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+}
+
+function handleEventDragLeave(e) {
+    e.target.classList.remove('drag-over');
+}
+
+function handleCellDragOver(e) {
+    e.preventDefault();
+    e.target.classList.add('drag-over');
+    e.dataTransfer.dropEffect = 'move';
+}
+
+function handleCellDragLeave(e) {
+    e.target.classList.remove('drag-over');
+}
+
+async function handleEventDrop(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    const column = e.currentTarget;
+    column.classList.remove('drag-over');
+    
+    if (!draggedEventId) return;
+    
+    const newDateStr = column.dataset.date;
+    if (!newDateStr) return;
+    
+    await rescheduleEvent(draggedEventId, new Date(newDateStr));
+}
+
+async function handleCellDrop(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    const cell = e.target;
+    cell.classList.remove('drag-over');
+    
+    if (!draggedEventId) return;
+    
+    const hour = parseInt(cell.dataset.hour);
+    const dateStr = cell.dataset.date;
+    if (isNaN(hour) || !dateStr) return;
+    
+    const newDate = new Date(dateStr);
+    newDate.setHours(hour, 0, 0, 0);
+    
+    await rescheduleEvent(draggedEventId, newDate, hour);
+}
+
+async function rescheduleEvent(eventId, newDate, newHour = null) {
+    const event = appState.events.find(e => e.id === eventId);
+    if (!event) {
+        showToast('Event not found', 'error');
+        return;
+    }
+    
+    // Calculate the new start time
+    const oldDate = new Date(event.date);
+    const oldEndDate = event.endDate ? new Date(event.endDate) : new Date(oldDate.getTime() + 60*60*1000);
+    const duration = oldEndDate.getTime() - oldDate.getTime();
+    
+    // Create new date preserving original time unless hour is specified
+    const newStartDate = new Date(newDate);
+    if (newHour !== null) {
+        newStartDate.setHours(newHour, 0, 0, 0);
+    } else {
+        newStartDate.setHours(oldDate.getHours(), oldDate.getMinutes(), 0, 0);
+    }
+    
+    const newEndDate = new Date(newStartDate.getTime() + duration);
+    
+    // Update local state
+    event.date = newStartDate;
+    event.endDate = newEndDate;
+    event.time = newStartDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+    event.endTime = newEndDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+    
+    // Update in Firestore
+    try {
+        await updateEventInFirestore(event);
+        showToast('Event rescheduled', 'success');
+        renderCalendar(); // Re-render to show changes
+    } catch (error) {
+        console.error('Error rescheduling event:', error);
+        showToast('Failed to reschedule event', 'error');
+    }
 }
 
 // ===================================
@@ -11358,6 +11535,20 @@ function initModals() {
         });
     });
     
+    // Event visibility option buttons
+    const visibilityOptions = document.querySelectorAll('#eventModal .visibility-option');
+    visibilityOptions.forEach(option => {
+        option.addEventListener('click', () => {
+            // Update selected state
+            visibilityOptions.forEach(o => o.classList.remove('selected'));
+            option.classList.add('selected');
+            
+            // Check the corresponding radio
+            const radio = option.querySelector('input[type="radio"]');
+            if (radio) radio.checked = true;
+        });
+    });
+    
     // Helper function to convert to total minutes from midnight
     function toMinutes(hour, minute) {
         const h = parseInt(hour);
@@ -11444,7 +11635,11 @@ function initModals() {
         const startTimeStr = `${String(startHour).padStart(2, '0')}:${String(startMinute).padStart(2, '0')}`;
         const endTimeStr = `${String(endHour).padStart(2, '0')}:${String(endMinute).padStart(2, '0')}`;
         
-        if (DEBUG) console.log('Form values:', { dateStr, startTimeStr, endTimeStr });
+        // Get visibility setting
+        const visibilityRadio = document.querySelector('input[name="eventVisibility"]:checked');
+        const visibility = visibilityRadio ? visibilityRadio.value : 'team';
+        
+        if (DEBUG) console.log('Form values:', { dateStr, startTimeStr, endTimeStr, visibility });
         
         // Create full datetime objects
         const startDate = new Date(dateStr + 'T' + startTimeStr);
@@ -11468,6 +11663,7 @@ function initModals() {
             endTime: endTimeStr,
             description: document.getElementById('eventDescription').value,
             color: eventColorInput.value,
+            visibility: visibility,
             teamId: appState.currentTeamId
         };
 
@@ -11505,6 +11701,9 @@ function initModals() {
             const submitBtn = document.querySelector('#eventModal .unified-btn-primary');
             if (titleEl) titleEl.innerHTML = '<i class="fas fa-calendar-plus"></i> New Event';
             if (submitBtn) submitBtn.innerHTML = '<i class="fas fa-check"></i> Add Event';
+            
+            // Reset visibility to default
+            resetEventVisibility();
             
             closeModal('eventModal');
         } catch (error) {
@@ -11984,6 +12183,32 @@ function closeModal(modalId) {
     modal.classList.remove('active');
 }
 
+// Reset event visibility selector to default
+function resetEventVisibility() {
+    document.querySelectorAll('.visibility-option').forEach(opt => {
+        opt.classList.remove('selected');
+        if (opt.dataset.visibility === 'team') {
+            opt.classList.add('selected');
+            opt.querySelector('input[type="radio"]').checked = true;
+        } else {
+            opt.querySelector('input[type="radio"]').checked = false;
+        }
+    });
+}
+
+// Set event visibility selector to specific value
+function setEventVisibility(visibility) {
+    document.querySelectorAll('.visibility-option').forEach(opt => {
+        opt.classList.remove('selected');
+        if (opt.dataset.visibility === visibility) {
+            opt.classList.add('selected');
+            opt.querySelector('input[type="radio"]').checked = true;
+        } else {
+            opt.querySelector('input[type="radio"]').checked = false;
+        }
+    });
+}
+
 // Open edit event modal with existing event data
 function openEditEventModal(event) {
     console.log('openEditEventModal called with:', event);
@@ -12018,6 +12243,9 @@ function openEditEventModal(event) {
             btn.classList.remove('selected');
         }
     });
+    
+    // Set visibility
+    setEventVisibility(event.visibility || 'team');
     
     // Change modal title and button text (unified style)
     const titleEl = document.querySelector('#eventModal .unified-modal-title h2');
@@ -12064,33 +12292,54 @@ async function viewEventDetails(eventId) {
         const members = teamData?.members || {};
         const isTeamMember = currentAuthUser.uid in members;
         const isOwner = teamData?.owner === currentAuthUser.uid;
+        const userRole = getCurrentUserRole(teamData);
+        const isAdmin = userRole === 'admin' || userRole === 'owner';
         
         if (DEBUG) {
-            console.log('👥 Team member:', isTeamMember, 'Owner:', isOwner);
+            console.log('👥 Team member:', isTeamMember, 'Owner:', isOwner, 'Admin:', isAdmin);
         }
     
-    // Populate modal
-    document.getElementById('eventDetailsTitle').textContent = event.title;
-    
+    // Populate modal - new modern design
     const eventDate = new Date(event.date);
-    const endDate = new Date(event.endDate);
+    const endDate = event.endDate ? new Date(event.endDate) : new Date(eventDate.getTime() + 60*60*1000);
+    const eventColor = event.color || '#007AFF';
     
-    document.getElementById('detailDate').textContent = eventDate.toLocaleDateString('en-US', {
+    // Title and subtitle
+    document.getElementById('eventDetailsTitle').textContent = event.title;
+    document.getElementById('eventSubtitle').textContent = eventDate.toLocaleDateString('en-US', {
         weekday: 'long',
-        year: 'numeric',
-        month: 'long',
+        month: 'short',
         day: 'numeric'
     });
     
-    document.getElementById('detailTime').textContent = 
-        `${eventDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })} - ${endDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}`;
+    // Color indicator in header
+    const colorIndicator = document.getElementById('detailColorIndicator');
+    colorIndicator.style.backgroundColor = eventColor;
     
+    // Date
+    document.getElementById('detailDate').textContent = eventDate.toLocaleDateString('en-US', {
+        weekday: 'short',
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric'
+    });
+    
+    // Time
+    document.getElementById('detailTime').textContent = 
+        `${eventDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })} - ${endDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`;
+    
+    // Duration
     const diffMs = endDate - eventDate;
     const diffMinutes = Math.floor(diffMs / 60000);
     const hours = Math.floor(diffMinutes / 60);
     const minutes = diffMinutes % 60;
-    document.getElementById('detailDuration').textContent = 
-        hours > 0 ? `${hours} hour${hours > 1 ? 's' : ''} ${minutes > 0 ? minutes + ' min' : ''}` : `${minutes} minute${minutes > 1 ? 's' : ''}`;
+    let durationText = '';
+    if (hours > 0) {
+        durationText = `${hours}h ${minutes > 0 ? minutes + 'm' : ''}`;
+    } else {
+        durationText = `${minutes} min`;
+    }
+    document.getElementById('detailDuration').textContent = durationText;
     
     // Get the creator's username from team members
     let creatorName = event.createdByName || 'Unknown';
@@ -12100,16 +12349,41 @@ async function viewEventDetails(eventId) {
             creatorName = creatorMember.name;
         }
     }
-    
     document.getElementById('detailCreatedBy').textContent = creatorName;
-    document.getElementById('detailDescription').textContent = event.description || 'No description provided';
     
-    const colorDisplay = document.getElementById('detailColor');
-    colorDisplay.style.backgroundColor = event.color || '#007AFF';
+    // Visibility (if set)
+    const visibilityCard = document.getElementById('visibilityCard');
+    const visibilityBadge = document.getElementById('detailVisibility');
+    if (event.visibility && event.visibility !== 'team') {
+        visibilityCard.style.display = 'flex';
+        visibilityBadge.className = 'event-info-value visibility-badge ' + event.visibility;
+        if (event.visibility === 'private') {
+            visibilityBadge.innerHTML = '<i class="fas fa-lock"></i> Only Me';
+        } else if (event.visibility === 'admins') {
+            visibilityBadge.innerHTML = '<i class="fas fa-shield-alt"></i> Admins Only';
+        }
+    } else {
+        visibilityCard.style.display = 'none';
+    }
+    
+    // Description
+    const descriptionEl = document.getElementById('detailDescription');
+    const descriptionSection = document.getElementById('descriptionSection');
+    if (event.description && event.description.trim()) {
+        descriptionEl.textContent = event.description;
+        descriptionSection.style.display = 'block';
+    } else {
+        descriptionEl.textContent = '';
+        descriptionSection.style.display = 'none';
+    }
+    
+    // Hidden color field for backward compatibility
+    document.getElementById('detailColor').style.backgroundColor = eventColor;
     
     // Check if user is a team member (anyone in team can edit)
     const actionsDiv = document.getElementById('eventDetailsActions');
     const editBtnHeader = document.getElementById('editEventBtnHeader');
+    const deleteBtn = document.getElementById('deleteEventBtn');
     
     if (isTeamMember) {
         // All team members can edit
@@ -12126,11 +12400,9 @@ async function viewEventDetails(eventId) {
             }, 100);
         };
         
-        // Only owner can delete
-        if (isOwner) {
-            actionsDiv.style.display = 'flex';
-            
-            const deleteBtn = document.getElementById('deleteEventBtn');
+        // Admin or owner can delete
+        if (isAdmin) {
+            deleteBtn.style.display = 'flex';
             deleteBtn.onclick = async () => {
                 if (confirm(`Are you sure you want to delete "${event.title}"?`)) {
                     await deleteEvent(eventId);
@@ -12138,11 +12410,11 @@ async function viewEventDetails(eventId) {
                 }
             };
         } else {
-            actionsDiv.style.display = 'none';
+            deleteBtn.style.display = 'none';
         }
     } else {
-        actionsDiv.style.display = 'none';
         editBtnHeader.style.display = 'none';
+        deleteBtn.style.display = 'none';
     }
     
     console.log('📂 Opening event details modal...');
@@ -17987,35 +18259,59 @@ async function loadEventsFromFirestore() {
     }
     
     try {
-        const { collection, query, onSnapshot, orderBy, Timestamp } = 
+        const { collection, query, onSnapshot, orderBy, doc, getDoc, Timestamp } = 
             await import('https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js');
         
         const eventsRef = collection(db, 'teams', appState.currentTeamId, 'events');
         const q = query(eventsRef, orderBy('startTime', 'asc'));
         
+        // Get user role for visibility filtering
+        const teamRef = doc(db, 'teams', appState.currentTeamId);
+        const teamSnap = await getDoc(teamRef);
+        const teamData = teamSnap.exists() ? teamSnap.data() : null;
+        const userRole = getCurrentUserRole(teamData);
+        const isAdmin = userRole === 'admin' || userRole === 'owner';
+        
         // Real-time listener
         onSnapshot(q, (querySnapshot) => {
             const events = [];
-            querySnapshot.forEach((doc) => {
-                const data = doc.data();
-                // Convert Firestore Timestamps back to Date objects
-                events.push({
-                    id: doc.id,
-                    title: data.title,
-                    description: data.description,
-                    date: data.startTime?.toDate ? data.startTime.toDate() : new Date(data.startTime),
-                    endDate: data.endTimeStamp?.toDate ? data.endTimeStamp.toDate() : new Date(data.endTimeStamp),
-                    time: data.startTimeStr || '',
-                    endTime: data.endTimeStr || '',
-                    color: data.color || '#0078d4',
-                    teamId: data.teamId,
-                    createdBy: data.createdBy,
-                    createdByName: data.createdByName
-                });
+            querySnapshot.forEach((docSnapshot) => {
+                const data = docSnapshot.data();
+                
+                // Check visibility permissions
+                const visibility = data.visibility || 'team';
+                const isCreator = data.createdBy === currentAuthUser.uid;
+                
+                // Filter based on visibility
+                let canSee = false;
+                if (visibility === 'team') {
+                    canSee = true; // Everyone can see team events
+                } else if (visibility === 'admins') {
+                    canSee = isAdmin || isCreator; // Only admins or creator can see
+                } else if (visibility === 'private') {
+                    canSee = isCreator; // Only creator can see
+                }
+                
+                if (canSee) {
+                    events.push({
+                        id: docSnapshot.id,
+                        title: data.title,
+                        description: data.description,
+                        date: data.startTime?.toDate ? data.startTime.toDate() : new Date(data.startTime),
+                        endDate: data.endTimeStamp?.toDate ? data.endTimeStamp.toDate() : new Date(data.endTimeStamp),
+                        time: data.startTimeStr || '',
+                        endTime: data.endTimeStr || '',
+                        color: data.color || '#0078d4',
+                        visibility: visibility,
+                        teamId: data.teamId,
+                        createdBy: data.createdBy,
+                        createdByName: data.createdByName
+                    });
+                }
             });
             
             appState.events = events;
-            debugLog(`✅ Loaded ${events.length} events`);
+            debugLog(`✅ Loaded ${events.length} events (filtered by visibility)`);
             debugLog('Events:', events);
             
             // Update calendar display if on calendar section
@@ -18073,6 +18369,7 @@ async function saveEventToFirestore(event) {
             startTimeStr: event.time,
             endTimeStr: event.endTime || '',
             color: event.color || '#0078d4',
+            visibility: event.visibility || 'team',
             teamId: appState.currentTeamId,
             createdBy: currentAuthUser.uid,
             createdByName: currentAuthUser.displayName || currentAuthUser.email,
@@ -18114,7 +18411,8 @@ async function updateEventInFirestore(event) {
             endTimeStamp: event.endDate ? Timestamp.fromDate(event.endDate) : Timestamp.fromDate(new Date(event.date.getTime() + 60*60*1000)),
             startTimeStr: event.time,
             endTimeStr: event.endTime || '',
-            color: event.color || '#007AFF'
+            color: event.color || '#007AFF',
+            visibility: event.visibility || 'team'
         };
         
         console.log('Updating event in Firestore:', event.id);
