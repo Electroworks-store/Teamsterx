@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Teamster - Internal Collaboration Platform</title>
-    <link rel="stylesheet" href="styles.css?v=24">
+    <link rel="stylesheet" href="styles.css?v=27">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
@@ -631,99 +631,75 @@
                             <small style="display: block; margin-top: 12px; color: var(--text-muted);">We recommend a square image under 2 MB.</small>
                         </div>
                     </div>
-                <!-- Account Settings Card -->
+                <!-- Account Settings Card - Compact Modern Layout -->
                 <div class="settings-container">
-                    <div class="settings-card">
+                    <div class="settings-card settings-card-compact">
                         <div class="settings-card-header">
                             <h2><i class="fas fa-user-circle"></i> My Account</h2>
-                            <p>Update your personal information and profile settings</p>
+                            <p>Your personal information and profile settings</p>
                         </div>
 
                         <div class="settings-card-body">
-                            <!-- Profile Preview -->
-                            <div class="profile-preview">
-                                <div class="profile-avatar-large" id="profileAvatarPreview">
-                                    <span id="profileAvatarText">JD</span>
-                                </div>
-                                <div class="profile-preview-info">
-                                    <h3 id="profilePreviewName">John Doe</h3>
-                                    <p id="profilePreviewEmail">john@example.com</p>
-                                </div>
-                            </div>
-
-                            <!-- Account Form -->
-                            <form id="accountSettingsForm" class="settings-form">
-                                <div class="form-section">
-                                    <h3 class="form-section-title">Personal Information</h3>
-                                    
-                                    <div class="form-group">
-                                        <label for="settingsDisplayName">
-                                            <i class="fas fa-user"></i> Display Name
-                                        </label>
-                                        <input type="text" id="settingsDisplayName" placeholder="Enter your name" required>
-                                    </div>
-
-                                    <div class="form-group">
-                                        <label for="settingsEmail">
-                                            <i class="fas fa-envelope"></i> Email Address
-                                        </label>
-                                        <input type="email" id="settingsEmail" placeholder="your@email.com" readonly disabled>
-                                        <small>Email cannot be changed</small>
-                                    </div>
-
-                                    <div class="form-group">
-                                        <label for="settingsJobTitle">
-                                            <i class="fas fa-briefcase"></i> Job Title / Position
-                                        </label>
-                                        <input type="text" id="settingsJobTitle" placeholder="e.g. Senior Developer, Project Manager">
-                                    </div>
-                                </div>
-
-                                <div class="form-section">
-                                    <h3 class="form-section-title">Avatar Customization</h3>
-                                    
-                                    <div class="form-group">
-                                        <label>
-                                            <i class="fas fa-palette"></i> Avatar Color
-                                        </label>
-                                        <div class="avatar-color-picker">
-                                            <!-- Red to Pink -->
-                                            <div class="color-option" data-color="#FF3B30" style="background: linear-gradient(135deg, #FF3B30 0%, #d62a21 100%);"></div>
-                                            <div class="color-option" data-color="#FF6B6B" style="background: linear-gradient(135deg, #FF6B6B 0%, #e64545 100%);"></div>
-                                            <div class="color-option" data-color="#FF2D55" style="background: linear-gradient(135deg, #FF2D55 0%, #d9214a 100%);"></div>
-                                            <!-- Orange to Yellow -->
-                                            <div class="color-option" data-color="#FF9500" style="background: linear-gradient(135deg, #FF9500 0%, #e68600 100%);"></div>
-                                            <div class="color-option" data-color="#FFCC00" style="background: linear-gradient(135deg, #FFCC00 0%, #e6b800 100%);"></div>
-                                            <!-- Green -->
-                                            <div class="color-option" data-color="#34C759" style="background: linear-gradient(135deg, #34C759 0%, #2da84d 100%);"></div>
-                                            <div class="color-option" data-color="#00C7BE" style="background: linear-gradient(135deg, #00C7BE 0%, #00a89f 100%);"></div>
-                                            <!-- Blue -->
-                                            <div class="color-option" data-color="#007AFF" style="background: linear-gradient(135deg, #007AFF 0%, #0062cc 100%);"></div>
-                                            <div class="color-option" data-color="#5AC8FA" style="background: linear-gradient(135deg, #5AC8FA 0%, #32b4e8 100%);"></div>
-                                            <!-- Purple to Gray -->
-                                            <div class="color-option" data-color="#AF52DE" style="background: linear-gradient(135deg, #AF52DE 0%, #9742c4 100%);"></div>
-                                            <div class="color-option" data-color="#5856D6" style="background: linear-gradient(135deg, #5856D6 0%, #4644b8 100%);"></div>
-                                            <div class="color-option" data-color="#8E8E93" style="background: linear-gradient(135deg, #8E8E93 0%, #636366 100%);"></div>
+                            <!-- Account Form - Compact Layout -->
+                            <form id="accountSettingsForm" class="settings-form settings-form-compact">
+                                <!-- Profile Card: Avatar + Basic Info -->
+                                <div class="account-profile-card">
+                                    <div class="account-avatar-section">
+                                        <div class="profile-avatar-large" id="profileAvatarPreview">
+                                            <span id="profileAvatarText">JD</span>
                                         </div>
-                                        <input type="hidden" id="settingsAvatarColor" value="#0078D4">
-                                        
-                                        <!-- Avatar Upload Button (moved here from separate card) -->
-                                        <div class="avatar-upload-inline">
-                                            <button type="button" class="btn-secondary" id="uploadAvatarBtnInline">
-                                                <i class="fas fa-camera"></i> Upload Photo
+                                        <div class="avatar-upload-compact">
+                                            <button type="button" class="btn-avatar-upload" id="uploadAvatarBtnInline">
+                                                <i class="fas fa-camera"></i>
                                             </button>
                                             <input type="file" id="avatarFileInputInline" accept="image/*" style="display: none;">
-                                            <small class="avatar-upload-hint">Square image recommended, max 2MB</small>
+                                        </div>
+                                    </div>
+                                    <div class="account-basic-info">
+                                        <div class="form-row">
+                                            <div class="form-group form-group-compact">
+                                                <label for="settingsDisplayName">Display Name</label>
+                                                <input type="text" id="settingsDisplayName" placeholder="Your name" required>
+                                            </div>
+                                            <div class="form-group form-group-compact">
+                                                <label for="settingsJobTitle">Job Title</label>
+                                                <input type="text" id="settingsJobTitle" placeholder="e.g. Developer">
+                                            </div>
+                                        </div>
+                                        <div class="form-group form-group-compact form-group-email">
+                                            <label for="settingsEmail">Email</label>
+                                            <input type="email" id="settingsEmail" placeholder="your@email.com" readonly disabled>
                                         </div>
                                     </div>
                                 </div>
 
-                                <div class="form-actions">
-                                    <button type="button" class="btn-secondary" onclick="cancelSettings()">
-                                        <i class="fas fa-times"></i> Cancel
+                                <!-- Color Picker Card -->
+                                <div class="account-color-card">
+                                    <label class="color-card-label">Avatar Color</label>
+                                    <div class="avatar-color-picker-flat">
+                                        <div class="color-circle" data-color="#FF3B30" style="background: #FF3B30;"></div>
+                                        <div class="color-circle" data-color="#FF6B6B" style="background: #FF6B6B;"></div>
+                                        <div class="color-circle" data-color="#FF2D55" style="background: #FF2D55;"></div>
+                                        <div class="color-circle" data-color="#FF9500" style="background: #FF9500;"></div>
+                                        <div class="color-circle" data-color="#FFCC00" style="background: #FFCC00;"></div>
+                                        <div class="color-circle" data-color="#34C759" style="background: #34C759;"></div>
+                                        <div class="color-circle" data-color="#00C7BE" style="background: #00C7BE;"></div>
+                                        <div class="color-circle" data-color="#007AFF" style="background: #007AFF;"></div>
+                                        <div class="color-circle" data-color="#5AC8FA" style="background: #5AC8FA;"></div>
+                                        <div class="color-circle" data-color="#AF52DE" style="background: #AF52DE;"></div>
+                                        <div class="color-circle" data-color="#5856D6" style="background: #5856D6;"></div>
+                                        <div class="color-circle" data-color="#8E8E93" style="background: #8E8E93;"></div>
+                                    </div>
+                                    <input type="hidden" id="settingsAvatarColor" value="#0078D4">
+                                </div>
+
+                                <!-- Form Actions -->
+                                <div class="form-actions form-actions-compact">
+                                    <button type="button" class="btn-secondary btn-sm" onclick="cancelSettings()">
+                                        Cancel
                                     </button>
-                                    <button type="submit" class="btn-primary">
-                                        <i class="fas fa-save"></i> Save Changes
+                                    <button type="submit" class="btn-primary btn-sm">
+                                        <i class="fas fa-check"></i> Save
                                     </button>
                                 </div>
                             </form>
@@ -1347,7 +1323,7 @@
 
     <!-- Modal for Adding Events - Unified Style -->
     <div class="unified-modal" id="eventModal">
-        <div class="unified-modal-container">
+        <div class="unified-modal-container modal-form-wide">
             <div class="unified-modal-header">
                 <div class="unified-modal-title">
                     <h2><i class="fas fa-calendar-plus"></i> New Event</h2>
@@ -1359,7 +1335,7 @@
             </div>
             <form id="eventForm">
                 <div class="unified-modal-body">
-                    <div class="unified-form-grid">
+                    <div class="unified-form-grid two-col">
                         <!-- Event Title - Full Width -->
                         <div class="unified-form-field full-width">
                             <label class="unified-form-label">
@@ -1371,7 +1347,7 @@
                         <!-- Date -->
                         <div class="unified-form-field">
                             <label class="unified-form-label">
-                                <i class="fas fa-calendar"></i> Date <span class="required">*</span>
+                                Date <span class="required">*</span>
                             </label>
                             <input type="date" class="unified-input" id="eventDate" required>
                         </div>
@@ -1379,9 +1355,9 @@
                         <!-- Duration Display -->
                         <div class="unified-form-field">
                             <label class="unified-form-label">
-                                <i class="fas fa-hourglass-half"></i> Duration
+                                Duration
                             </label>
-                            <div class="unified-input" style="background: var(--bg-surface-soft); color: var(--text-muted);" id="eventDuration">
+                            <div class="unified-input duration-display" id="eventDuration">
                                 <span id="durationText">0 minutes</span>
                             </div>
                         </div>
@@ -1389,7 +1365,7 @@
                         <!-- Start Time -->
                         <div class="unified-form-field">
                             <label class="unified-form-label">
-                                <i class="fas fa-clock"></i> Start Time <span class="required">*</span>
+                                Start Time <span class="required">*</span>
                             </label>
                             <div class="unified-time-input">
                                 <input type="number" id="eventHour" min="0" max="23" placeholder="09" required>
@@ -1401,7 +1377,7 @@
                         <!-- End Time -->
                         <div class="unified-form-field">
                             <label class="unified-form-label">
-                                <i class="fas fa-clock"></i> End Time <span class="required">*</span>
+                                End Time <span class="required">*</span>
                             </label>
                             <div class="unified-time-input">
                                 <input type="number" id="eventEndHour" min="0" max="23" placeholder="17" required>
@@ -1413,7 +1389,7 @@
                         <!-- Color Picker - Full Width -->
                         <div class="unified-form-field full-width">
                             <label class="unified-form-label">
-                                <i class="fas fa-palette"></i> Color
+                                Color
                             </label>
                             <input type="hidden" id="eventColor" value="#007AFF">
                             <div class="unified-color-grid">
@@ -1531,7 +1507,7 @@
          Wide 2-column layout, minimal scrolling
          =================================== -->
     <div class="unified-modal" id="taskModal">
-        <div class="unified-modal-container">
+        <div class="unified-modal-container modal-form-wide">
             <div class="unified-modal-header">
                 <div class="unified-modal-title">
                     <h2><i class="fas fa-plus-circle"></i> New Task</h2>
@@ -1544,7 +1520,7 @@
             
             <form id="taskForm">
                 <div class="unified-modal-body">
-                    <div class="unified-form-grid">
+                    <div class="unified-form-grid two-col">
                         <!-- Task Title - Full Width -->
                         <div class="unified-form-field full-width">
                             <label class="unified-form-label">
@@ -1728,7 +1704,7 @@
          Wide 2-column layout for lead management
          =================================== -->
     <div class="unified-modal" id="leadModal">
-        <div class="unified-modal-container">
+        <div class="unified-modal-container modal-form-wide">
             <div class="unified-modal-header">
                 <div class="unified-modal-title">
                     <h2><i class="fas fa-user-plus"></i> New Lead</h2>
@@ -1741,7 +1717,7 @@
             
             <form id="leadForm">
                 <div class="unified-modal-body">
-                    <div class="unified-form-grid">
+                    <div class="unified-form-grid two-col">
                         <!-- Lead Name - Full Width -->
                         <div class="unified-form-field full-width">
                             <label class="unified-form-label">
@@ -2341,6 +2317,6 @@
     <div id="toastContainer"></div>
 
     <!-- Main JavaScript -->
-    <script src="main.js?v=24"></script>
+    <script src="main.js?v=27"></script>
 </body>
 </html>

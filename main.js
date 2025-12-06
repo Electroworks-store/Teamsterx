@@ -427,6 +427,11 @@ async function signOutUser() {
         // Stop force logout listener
         stopForceLogoutListener();
         
+        // Stop team members listener
+        if (typeof stopTeamMembersListener === 'function') {
+            stopTeamMembersListener();
+        }
+        
         if (auth) {
             const { signOut } = await import('https://www.gstatic.com/firebasejs/10.5.0/firebase-auth.js');
             await signOut(auth);
@@ -535,6 +540,10 @@ window.switchTab = function(sectionName) {
             badge.textContent = '0';
             appState.unreadMessages = 0;
         }
+        // Store last seen timestamp for chat
+        if (appState.currentTeamId) {
+            localStorage.setItem(`chatLastSeen_${appState.currentTeamId}`, Date.now().toString());
+        }
     }
     
     // Render metrics when navigating to metrics tab
@@ -572,6 +581,10 @@ function initNavigation() {
                 if (chatBadge) {
                     chatBadge.style.display = 'none';
                     chatBadge.textContent = '0';
+                }
+                // Store last seen timestamp for chat
+                if (appState.currentTeamId) {
+                    localStorage.setItem(`chatLastSeen_${appState.currentTeamId}`, Date.now().toString());
                 }
                 // Apply chat appearance preferences
                 loadChatAppearanceSettings().then(preferences => {
@@ -627,7 +640,9 @@ let replyState = {
 const REACTION_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '✅'];
 let reactionsState = {
     activeMessageId: null, // ID of message with open reactions bar
-    reactionsBarElement: null // Reference to the floating reactions bar
+    reactionsBarElement: null, // Reference to the floating reactions bar
+    longPressTimer: null, // Timer for mobile long-press detection
+    longPressTriggered: false // Flag to prevent click after long-press
 };
 
 function initChat() {
@@ -962,10 +977,61 @@ function initChat() {
         reactionsDisplay.dataset.messageId = message.id;
         renderReactionsDisplay(reactionsDisplay, message.reactions || {});
         
-        // Toggle reactions bar on message click
-        messageEl.onclick = (e) => {
-            // Don't trigger on action button clicks
+        // === MESSAGE INTERACTION HANDLERS ===
+        // Desktop: click to show reactions
+        // Mobile: long-press to show reactions
+        
+        // Long press detection for mobile
+        let longPressTimer = null;
+        let touchMoved = false;
+        
+        messageEl.addEventListener('touchstart', (e) => {
             if (e.target.closest('.message-action-btn') || e.target.closest('.message-reactions-display')) {
+                return;
+            }
+            touchMoved = false;
+            reactionsState.longPressTriggered = false;
+            longPressTimer = setTimeout(() => {
+                reactionsState.longPressTriggered = true;
+                // Hide actions on other messages
+                document.querySelectorAll('.message').forEach(msg => {
+                    if (msg !== messageEl) msg.classList.remove('show-actions');
+                });
+                messageEl.classList.add('show-actions');
+                toggleReactionsBar(message.id, messageEl);
+            }, 400); // 400ms long press
+        }, { passive: true });
+        
+        messageEl.addEventListener('touchmove', () => {
+            touchMoved = true;
+            if (longPressTimer) {
+                clearTimeout(longPressTimer);
+                longPressTimer = null;
+            }
+        }, { passive: true });
+        
+        messageEl.addEventListener('touchend', (e) => {
+            if (longPressTimer) {
+                clearTimeout(longPressTimer);
+                longPressTimer = null;
+            }
+            // Prevent click event if long press was triggered
+            if (reactionsState.longPressTriggered) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+        });
+        
+        // Desktop click handler
+        messageEl.onclick = (e) => {
+            // Don't trigger on action button clicks or reactions display
+            if (e.target.closest('.message-action-btn') || e.target.closest('.message-reactions-display')) {
+                return;
+            }
+            
+            // Don't trigger if this was a long press on mobile
+            if (reactionsState.longPressTriggered) {
+                reactionsState.longPressTriggered = false;
                 return;
             }
             
@@ -1116,6 +1182,10 @@ function initChat() {
             if (chatBadge) {
                 chatBadge.style.display = 'none';
                 chatBadge.textContent = '0';
+            }
+            // Store last seen timestamp for chat
+            if (appState.currentTeamId) {
+                localStorage.setItem(`chatLastSeen_${appState.currentTeamId}`, Date.now().toString());
             }
             // Scroll to bottom when opening chat
             setTimeout(() => scrollChatToBottom(), 100);
@@ -1703,7 +1773,7 @@ function toggleReactionsBar(messageId, messageEl) {
 }
 
 /**
- * Show the reactions bar above a message
+ * Show the reactions bar above a message (WhatsApp/Instagram style)
  * @param {string} messageId - ID of the message
  * @param {HTMLElement} messageEl - The message element
  */
@@ -1719,17 +1789,55 @@ function showReactionsBar(messageId, messageEl) {
         btn.textContent = emoji;
         btn.onclick = (e) => {
             e.stopPropagation();
+            e.preventDefault();
+            toggleReaction(messageId, emoji);
+        };
+        // Prevent touch events from bubbling
+        btn.ontouchend = (e) => {
+            e.stopPropagation();
+            e.preventDefault();
             toggleReaction(messageId, emoji);
         };
         bar.appendChild(btn);
     });
     
-    // Position the bar above the message text
-    const textDiv = messageEl.querySelector('.message-text');
-    if (textDiv) {
-        textDiv.style.position = 'relative';
-        textDiv.appendChild(bar);
+    // Append to body for proper positioning (fixed)
+    document.body.appendChild(bar);
+    
+    // Position the bar - WhatsApp style (above the message bubble, slightly to the right)
+    const messageContent = messageEl.querySelector('.message-content');
+    const messageBubble = messageEl.querySelector('.message-text');
+    const targetEl = messageBubble || messageContent || messageEl;
+    const rect = targetEl.getBoundingClientRect();
+    const chatContainer = document.getElementById('chatMessages');
+    const chatRect = chatContainer?.getBoundingClientRect() || { left: 0, right: window.innerWidth };
+    
+    // Calculate position
+    const barHeight = 48; // Approximate height of bar
+    const barWidth = 220; // Approximate width of bar
+    const padding = 8;
+    
+    // Vertical position: above the message bubble
+    let top = rect.top - barHeight - padding;
+    
+    // If too close to top of viewport, position below
+    if (top < 60) {
+        top = rect.bottom + padding;
     }
+    
+    // Horizontal position: centered on message, but keep within viewport
+    let left = rect.left + (rect.width / 2) - (barWidth / 2);
+    
+    // Clamp to viewport bounds
+    const minLeft = chatRect.left + 8;
+    const maxLeft = chatRect.right - barWidth - 8;
+    left = Math.max(minLeft, Math.min(maxLeft, left));
+    
+    // Apply position
+    bar.style.position = 'fixed';
+    bar.style.top = `${top}px`;
+    bar.style.left = `${left}px`;
+    bar.style.zIndex = '10001';
     
     reactionsState.activeMessageId = messageId;
     reactionsState.reactionsBarElement = bar;
@@ -1745,10 +1853,22 @@ function showReactionsBar(messageId, messageEl) {
  */
 function closeReactionsBar() {
     if (reactionsState.reactionsBarElement) {
-        reactionsState.reactionsBarElement.remove();
-        reactionsState.reactionsBarElement = null;
+        reactionsState.reactionsBarElement.classList.remove('active');
+        // Remove after animation
+        setTimeout(() => {
+            if (reactionsState.reactionsBarElement) {
+                reactionsState.reactionsBarElement.remove();
+                reactionsState.reactionsBarElement = null;
+            }
+        }, 150);
     }
     reactionsState.activeMessageId = null;
+    // Clear long press state
+    if (reactionsState.longPressTimer) {
+        clearTimeout(reactionsState.longPressTimer);
+        reactionsState.longPressTimer = null;
+    }
+    reactionsState.longPressTriggered = false;
 }
 
 /**
@@ -8915,16 +9035,12 @@ function createProgressRing(percent, size = 72, strokeWidth = 4, color = 'var(--
  * Values are displayed clearly next to each bar
  */
 function createBarChart(data, maxValue = null, options = {}) {
-    // Handle empty or zero-sum data with styled empty state
+    // Handle empty data with styled empty state
     if (!data || data.length === 0) {
         return createChartEmptyState('No data available');
     }
     
-    const totalValue = data.reduce((sum, d) => sum + (d.value || 0), 0);
-    if (totalValue === 0) {
-        return createChartEmptyState('Data coming soon');
-    }
-    
+    // Show chart even if all values are 0 - this lets users see categories
     const {
         primaryColor = 'var(--accent)',
         secondaryColor = '#34C759'
@@ -9006,15 +9122,13 @@ function formatAxisValue(value) {
  * Supports custom Y-axis config via options
  */
 function createTrendChart(data, options = {}) {
-    // Handle empty or zero-sum data
+    // Handle empty data
     if (!data || data.length === 0) {
         return createChartEmptyState('No trend data');
     }
     
-    const totalCount = data.reduce((sum, d) => sum + (d.count || 0), 0);
-    if (totalCount === 0) {
-        return createChartEmptyState('Data coming soon');
-    }
+    // Don't show "Data coming soon" for zero values - show the graph with zeros
+    // This allows users to see the timeline even when no activity occurred
     
     const {
         showSecondaryAxis = false,
@@ -9268,7 +9382,21 @@ function updateGraphMenuIcon(graphId, type) {
         'line': 'fa-chart-line',
         'pie': 'fa-chart-pie'
     };
-    // Menu button keeps the dots icon, but we update the active state in dropdown
+    
+    // Update the button icon to reflect current type
+    const menuBtn = document.querySelector(`.metrics-card[data-graph-id="${graphId}"] .graph-menu-btn`);
+    if (menuBtn) {
+        const icon = menuBtn.querySelector('i');
+        if (icon) {
+            // Remove all chart icons
+            icon.classList.remove('fa-chart-bar', 'fa-chart-line', 'fa-chart-pie');
+            // Add the current type icon
+            icon.classList.add(iconMap[type] || 'fa-chart-bar');
+        }
+        menuBtn.dataset.currentType = type;
+    }
+    
+    // Update the active state in dropdown
     const dropdown = document.querySelector(`.graph-menu-dropdown[data-graph-id="${graphId}"]`);
     if (dropdown) {
         dropdown.querySelectorAll('.graph-menu-option').forEach(opt => {
@@ -9525,11 +9653,7 @@ function createLineChart(data, options = {}) {
         return createChartEmptyState('No data available');
     }
     
-    const totalCount = data.reduce((sum, d) => sum + (d.count || 0), 0);
-    if (totalCount === 0) {
-        return createChartEmptyState('Data coming soon');
-    }
-    
+    // Show the chart even if all values are 0 - flat line at bottom
     const {
         showSecondaryAxis = false,
         secondaryData = null,
@@ -9924,6 +10048,14 @@ function createSwitchableGraphCard(graphId, title, icon, data, dataType = 'trend
         </button>
     ` : '';
     
+    // Get the icon for the current graph type
+    const graphTypeIcons = {
+        'bar': 'fa-chart-bar',
+        'line': 'fa-chart-line',
+        'pie': 'fa-chart-pie'
+    };
+    const currentTypeIcon = graphTypeIcons[currentType] || 'fa-chart-bar';
+    
     return `
         <div class="metrics-card ${showSettings ? 'edit-mode' : ''}" data-graph-id="${graphId}" data-graph-data="${dataJson}" data-graph-data-type="${dataType}">
             <div class="metrics-card-header">
@@ -9931,8 +10063,8 @@ function createSwitchableGraphCard(graphId, title, icon, data, dataType = 'trend
                 <div class="graph-header-actions">
                     ${settingsToggleBtn}
                     <div class="graph-menu-container">
-                        <button class="graph-menu-btn" onclick="toggleGraphMenu(event, '${graphId}')" aria-label="Change graph type">
-                            <i class="fas fa-ellipsis-v"></i>
+                        <button class="graph-menu-btn" onclick="toggleGraphMenu(event, '${graphId}')" aria-label="Change graph type" data-current-type="${currentType}">
+                            <i class="fas ${currentTypeIcon}"></i>
                         </button>
                         <div class="graph-menu-dropdown" data-graph-id="${graphId}">
                             <div class="graph-menu-title">Graph Type</div>
@@ -10293,19 +10425,89 @@ function createMetricsTimeFilter() {
         </button>
     ` : '';
     
+    // Get display text for current filter
+    const filterLabels = {
+        '7days': 'Last 7 Days',
+        '30days': 'Last 30 Days',
+        'all': 'All Time'
+    };
+    const currentLabel = filterLabels[metricsTimeFilter] || 'Last 7 Days';
+    
     return `
         <div class="metrics-controls">
             <div class="metrics-time-filter">
                 <span class="metrics-time-filter-label">Time Range:</span>
-                <select id="metricsTimeFilter" onchange="handleMetricsTimeFilterChange(event)">
-                    <option value="7days" ${metricsTimeFilter === '7days' ? 'selected' : ''}>Last 7 Days</option>
-                    <option value="30days" ${metricsTimeFilter === '30days' ? 'selected' : ''}>Last 30 Days</option>
-                    <option value="all" ${metricsTimeFilter === 'all' ? 'selected' : ''}>All Time</option>
-                </select>
+                <div class="metrics-time-dropdown" id="metricsTimeDropdown">
+                    <button class="metrics-time-dropdown-trigger" id="metricsTimeDropdownTrigger">
+                        <span class="metrics-time-dropdown-value">${currentLabel}</span>
+                        <i class="fas fa-chevron-down metrics-time-dropdown-arrow"></i>
+                    </button>
+                    <div class="metrics-time-dropdown-menu" id="metricsTimeDropdownMenu">
+                        <div class="metrics-time-dropdown-option ${metricsTimeFilter === '7days' ? 'selected' : ''}" data-value="7days">
+                            <i class="fas fa-check"></i>
+                            <span>Last 7 Days</span>
+                        </div>
+                        <div class="metrics-time-dropdown-option ${metricsTimeFilter === '30days' ? 'selected' : ''}" data-value="30days">
+                            <i class="fas fa-check"></i>
+                            <span>Last 30 Days</span>
+                        </div>
+                        <div class="metrics-time-dropdown-option ${metricsTimeFilter === 'all' ? 'selected' : ''}" data-value="all">
+                            <i class="fas fa-check"></i>
+                            <span>All Time</span>
+                        </div>
+                    </div>
+                </div>
             </div>
             ${editButtonHTML}
         </div>
     `;
+}
+
+/**
+ * Initialize the metrics time filter dropdown event handlers
+ */
+function initMetricsTimeDropdown() {
+    const trigger = document.getElementById('metricsTimeDropdownTrigger');
+    const menu = document.getElementById('metricsTimeDropdownMenu');
+    const dropdown = document.getElementById('metricsTimeDropdown');
+    
+    if (!trigger || !menu || !dropdown) return;
+    
+    // Toggle dropdown on trigger click
+    trigger.addEventListener('click', (e) => {
+        e.stopPropagation();
+        dropdown.classList.toggle('open');
+    });
+    
+    // Handle option selection
+    menu.querySelectorAll('.metrics-time-dropdown-option').forEach(option => {
+        option.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const value = option.dataset.value;
+            
+            // Update selection state
+            menu.querySelectorAll('.metrics-time-dropdown-option').forEach(opt => {
+                opt.classList.remove('selected');
+            });
+            option.classList.add('selected');
+            
+            // Update trigger text
+            trigger.querySelector('.metrics-time-dropdown-value').textContent = option.querySelector('span').textContent;
+            
+            // Close dropdown
+            dropdown.classList.remove('open');
+            
+            // Trigger filter change
+            handleMetricsTimeFilterChange({ target: { value } });
+        });
+    });
+    
+    // Close dropdown when clicking outside
+    document.addEventListener('click', (e) => {
+        if (!dropdown.contains(e.target)) {
+            dropdown.classList.remove('open');
+        }
+    });
 }
 
 // Expose time filter handler globally
@@ -10628,6 +10830,9 @@ function renderMetrics() {
     }
     
     container.innerHTML = html;
+    
+    // Initialize custom dropdown after rendering
+    initMetricsTimeDropdown();
 }
 
 // Make renderMetrics available globally for data listener updates
@@ -11009,7 +11214,9 @@ function initModals() {
     const notificationsDropdown = document.getElementById('notificationsDropdown');
     
     if (notificationsBtn && notificationsDropdown) {
-        notificationsBtn.addEventListener('click', (e) => {
+        // Toggle function for notifications dropdown
+        const toggleNotificationsDropdown = (e) => {
+            e.preventDefault();
             e.stopPropagation();
             const isVisible = notificationsDropdown.style.display === 'block';
             
@@ -11020,10 +11227,17 @@ function initModals() {
             if (document.getElementById('settingsDropdown')) {
                 document.getElementById('settingsDropdown').style.display = 'none';
             }
-        });
+        };
         
-        // Prevent dropdown from closing when clicking inside it
+        // Add both click and touchend for mobile compatibility
+        notificationsBtn.addEventListener('click', toggleNotificationsDropdown);
+        notificationsBtn.addEventListener('touchend', toggleNotificationsDropdown);
+        
+        // Prevent dropdown from closing when clicking/touching inside it
         notificationsDropdown.addEventListener('click', (e) => {
+            e.stopPropagation();
+        });
+        notificationsDropdown.addEventListener('touchend', (e) => {
             e.stopPropagation();
         });
     }
@@ -11033,7 +11247,9 @@ function initModals() {
     const settingsDropdown = document.getElementById('settingsDropdown');
     
     if (topBarSettingsBtn && settingsDropdown) {
-        topBarSettingsBtn.addEventListener('click', (e) => {
+        // Toggle function for settings dropdown
+        const toggleSettingsDropdown = (e) => {
+            e.preventDefault();
             e.stopPropagation();
             const isVisible = settingsDropdown.style.display === 'block';
             settingsDropdown.style.display = isVisible ? 'none' : 'block';
@@ -11042,18 +11258,36 @@ function initModals() {
             if (notificationsDropdown) {
                 notificationsDropdown.style.display = 'none';
             }
-        });
+        };
         
-        // Close dropdown when clicking outside
+        // Add both click and touchend for mobile compatibility
+        topBarSettingsBtn.addEventListener('click', toggleSettingsDropdown);
+        topBarSettingsBtn.addEventListener('touchend', toggleSettingsDropdown);
+        
+        // Close dropdown when clicking/touching outside
         document.addEventListener('click', () => {
             settingsDropdown.style.display = 'none';
             if (notificationsDropdown) {
                 notificationsDropdown.style.display = 'none';
             }
         });
+        document.addEventListener('touchend', (e) => {
+            // Only close if not touching the settings or notifications buttons
+            if (!topBarSettingsBtn.contains(e.target) && !settingsDropdown.contains(e.target) &&
+                (!notificationsBtn || !notificationsBtn.contains(e.target)) &&
+                (!notificationsDropdown || !notificationsDropdown.contains(e.target))) {
+                settingsDropdown.style.display = 'none';
+                if (notificationsDropdown) {
+                    notificationsDropdown.style.display = 'none';
+                }
+            }
+        });
         
-        // Prevent dropdown from closing when clicking inside it
+        // Prevent dropdown from closing when clicking/touching inside it
         settingsDropdown.addEventListener('click', (e) => {
+            e.stopPropagation();
+        });
+        settingsDropdown.addEventListener('touchend', (e) => {
             e.stopPropagation();
         });
     }
@@ -12449,6 +12683,9 @@ async function loadTeamData() {
     appState.teammates = [];
     appState.spreadsheets = [];
     
+    // Stop previous team's listeners
+    stopTeamMembersListener();
+    
     // Clear chat display immediately
     const chatMessages = document.getElementById('chatMessages');
     if (chatMessages) chatMessages.innerHTML = '';
@@ -12456,6 +12693,9 @@ async function loadTeamData() {
     try {
         // Load teammates
         await loadTeammatesFromFirestore();
+        
+        // Start real-time listener for team member updates
+        await startTeamMembersListener();
         
         // Populate task assignee dropdown with team members
         populateTaskAssigneeDropdown();
@@ -15041,9 +15281,9 @@ function updateProfilePreview(userData) {
     }
 }
 
-// Setup avatar color picker
+// Setup avatar color picker - supports both old (.color-option) and new (.color-circle) styles
 function setupAvatarColorPicker() {
-    const colorOptions = document.querySelectorAll('.color-option');
+    const colorOptions = document.querySelectorAll('.color-option, .color-circle');
     
     colorOptions.forEach(option => {
         option.addEventListener('click', function() {
@@ -15068,9 +15308,9 @@ function setupAvatarColorPicker() {
     });
 }
 
-// Select color option
+// Select color option - supports both old (.color-option) and new (.color-circle) styles
 function selectColorOption(color) {
-    const colorOptions = document.querySelectorAll('.color-option');
+    const colorOptions = document.querySelectorAll('.color-option, .color-circle');
     colorOptions.forEach(option => {
         if (option.getAttribute('data-color') === color) {
             option.classList.add('selected');
@@ -16064,6 +16304,109 @@ function shouldShowNotification(activityType, activityContext = {}) {
         default:
             return true;
     }
+}
+
+// ===================================
+// TEAM MEMBERS REAL-TIME LISTENER
+// ===================================
+
+let teamMembersUnsubscribe = null;
+let userProfileUnsubscribes = []; // Array of unsubscribe functions for user profile listeners
+
+// Start listening for team member changes (name updates, role changes, etc.)
+async function startTeamMembersListener() {
+    if (!db || !currentAuthUser || !appState.currentTeamId) {
+        return;
+    }
+    
+    // Clean up existing listeners
+    stopTeamMembersListener();
+    
+    try {
+        const { doc, onSnapshot } = await import('https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js');
+        
+        const teamRef = doc(db, 'teams', appState.currentTeamId);
+        
+        // Listen for changes to team document (includes member list and member info)
+        teamMembersUnsubscribe = onSnapshot(teamRef, async (docSnapshot) => {
+            if (!docSnapshot.exists()) return;
+            
+            const teamData = docSnapshot.data();
+            const members = teamData.members || {};
+            
+            // Update team data in appState
+            appState.currentTeamData = teamData;
+            
+            // Set up listeners for each team member's user profile
+            setupUserProfileListeners(Object.keys(members));
+            
+            // Reload teammates with latest data from user profiles
+            await loadTeammatesFromFirestore();
+            
+            // Update UI elements that show team member info
+            populateTaskAssigneeDropdown();
+            
+            debugLog('🔄 Team members updated in real-time');
+        });
+        
+        debugLog('👥 Team members listener started');
+    } catch (error) {
+        console.error('Error setting up team members listener:', error);
+    }
+}
+
+// Set up listeners for individual user profile changes
+async function setupUserProfileListeners(memberUserIds) {
+    if (!db || !memberUserIds || memberUserIds.length === 0) return;
+    
+    try {
+        const { doc, onSnapshot } = await import('https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js');
+        
+        // Clear old user profile listeners
+        userProfileUnsubscribes.forEach(unsub => {
+            if (typeof unsub === 'function') unsub();
+        });
+        userProfileUnsubscribes = [];
+        
+        // Set up listener for each team member's user profile
+        memberUserIds.forEach(userId => {
+            const userRef = doc(db, 'users', userId);
+            
+            const unsubscribe = onSnapshot(userRef, async (userDocSnapshot) => {
+                if (!userDocSnapshot.exists()) return;
+                
+                // User profile changed - reload teammates to get updated names
+                await loadTeammatesFromFirestore();
+                
+                // Update UI elements that show team member info
+                populateTaskAssigneeDropdown();
+                
+                debugLog(`🔄 User profile updated for ${userId}`);
+            });
+            
+            userProfileUnsubscribes.push(unsubscribe);
+        });
+        
+        debugLog(`👤 User profile listeners set up for ${memberUserIds.length} members`);
+    } catch (error) {
+        console.error('Error setting up user profile listeners:', error);
+    }
+}
+
+// Stop team members listener
+function stopTeamMembersListener() {
+    if (teamMembersUnsubscribe) {
+        teamMembersUnsubscribe();
+        teamMembersUnsubscribe = null;
+    }
+    
+    // Clean up user profile listeners
+    userProfileUnsubscribes.forEach(unsub => {
+        if (typeof unsub === 'function') unsub();
+    });
+    userProfileUnsubscribes = [];
+    
+    debugLog('👥 Team members listeners stopped');
 }
 
 // ===================================
@@ -17444,14 +17787,22 @@ async function loadMessagesFromFirestore() {
             const previousMessageCount = appState.messages.length;
             const hasNewMessages = messages.length > previousMessageCount;
             
+            // Get last seen timestamp from localStorage
+            const lastSeenKey = `chatLastSeen_${appState.currentTeamId}`;
+            const lastSeenTimestamp = parseInt(localStorage.getItem(lastSeenKey) || '0');
+            
             // Only show badge if NOT initial load and there are new messages
             if (!isInitialLoad && hasNewMessages && messages.length > 0) {
                 const latestMessage = messages[messages.length - 1];
                 const isFromOtherUser = latestMessage.userId && latestMessage.userId !== currentAuthUser?.uid;
                 const isNotOnChatSection = appState.currentSection !== 'chat';
                 
-                // Show badge if new message from other user and not viewing chat
-                if (isFromOtherUser && isNotOnChatSection) {
+                // Check if message timestamp is after last seen
+                const messageTimestamp = latestMessage.timestamp?.toMillis?.() || Date.now();
+                const isNewSinceLastSeen = messageTimestamp > lastSeenTimestamp;
+                
+                // Show badge if new message from other user, not viewing chat, and after last seen
+                if (isFromOtherUser && isNotOnChatSection && isNewSinceLastSeen) {
                     const chatBadge = document.getElementById('chatNotificationBadge');
                     if (chatBadge) {
                         chatBadge.style.display = 'flex';
@@ -18022,41 +18373,51 @@ function renderGroupContent(group) {
     return html;
 }
 
-// Render individual link item - Simplified flat structure with clickable row
+// Render individual link item - Collapsible tile: small state shows name + star, click opens link; arrow expands details
 function renderLinkItem(link, groupId) {
     const faviconUrl = link.iconUrl || `https://www.google.com/s2/favicons?domain=${link.domain}&sz=32`;
     
     return `
-        <div class="link-item ${link.favorite ? 'favorite' : ''}" data-link-id="${link.id}" data-group-id="${groupId}" data-url="${escapeHtml(link.url)}" onclick="handleLinkRowClick(event, '${escapeHtml(link.url)}')">
-            <img class="link-favicon" src="${faviconUrl}" alt="" onerror="this.outerHTML='<div class=\\'link-favicon-fallback\\'><i class=\\'fas fa-link\\'></i></div>'">
-            <div class="link-content">
-                <span class="link-label" data-link-id="${link.id}" data-group-id="${groupId}" onclick="startEditLinkName(event, '${groupId}', '${link.id}')">${escapeHtml(link.label)}</span>
-                <span class="link-domain">${escapeHtml(link.domain || '')}</span>
+        <div class="link-item ${link.favorite ? 'favorite' : ''}" data-link-id="${link.id}" data-group-id="${groupId}" data-url="${escapeHtml(link.url)}">
+            <div class="link-item-collapsed" onclick="openLink('${escapeHtml(link.url)}')">
+                <img class="link-favicon" src="${faviconUrl}" alt="" onerror="this.outerHTML='<div class=\\'link-favicon-fallback\\'><i class=\\'fas fa-link\\'></i></div>'">
+                <span class="link-name">${escapeHtml(link.label)}</span>
             </div>
-            <div class="link-actions" onclick="event.stopPropagation()">
-                <button class="link-star-btn ${link.favorite ? 'active' : ''}" onclick="toggleLinkFavorite('${groupId}', '${link.id}', ${!link.favorite})" title="${link.favorite ? 'Remove from favorites' : 'Add to favorites'}">
-                    <i class="fas fa-star"></i>
-                </button>
-                <button class="link-open-btn" onclick="openLink('${escapeHtml(link.url)}')" title="Open link">
-                    Open <i class="fas fa-external-link-alt"></i>
-                </button>
-                <button class="link-delete-btn" onclick="deleteLink('${groupId}', '${link.id}')" title="Delete link">
-                    <i class="fas fa-trash"></i>
-                </button>
+            <button class="link-collapsed-star ${link.favorite ? 'active' : ''}" onclick="event.stopPropagation(); toggleLinkFavorite('${groupId}', '${link.id}', ${!link.favorite})" title="${link.favorite ? 'Remove from favorites' : 'Add to favorites'}">
+                <i class="fas fa-star"></i>
+            </button>
+            <button class="link-expand-btn" onclick="toggleLinkExpanded(event, this)" title="Show details">
+                <i class="fas fa-chevron-down"></i>
+            </button>
+            <div class="link-item-expanded">
+                <div class="link-expanded-content">
+                    <div class="link-expanded-info">
+                        <span class="link-label" data-link-id="${link.id}" data-group-id="${groupId}" onclick="startEditLinkName(event, '${groupId}', '${link.id}')">${escapeHtml(link.label)}</span>
+                        <span class="link-domain">${escapeHtml(link.domain || '')}</span>
+                    </div>
+                    <div class="link-actions">
+                        <button class="link-star-btn ${link.favorite ? 'active' : ''}" onclick="toggleLinkFavorite('${groupId}', '${link.id}', ${!link.favorite})" title="${link.favorite ? 'Remove from favorites' : 'Add to favorites'}">
+                            <i class="fas fa-star"></i>
+                        </button>
+                        <button class="link-open-btn" onclick="openLink('${escapeHtml(link.url)}')" title="Open link">
+                            Open <i class="fas fa-external-link-alt"></i>
+                        </button>
+                        <button class="link-delete-btn" onclick="deleteLink('${groupId}', '${link.id}')" title="Delete link">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </div>
             </div>
         </div>
     `;
 }
 
-// Handle click on link row (opens link unless clicking on controls)
-function handleLinkRowClick(event, url) {
-    // Don't open if clicking on actions, editable label, or inputs
-    if (event.target.closest('.link-actions') || 
-        event.target.closest('.link-label-input') ||
-        event.target.classList.contains('link-label')) {
-        return;
-    }
-    openLink(url);
+// Toggle link item expanded/collapsed state
+function toggleLinkExpanded(event, btn) {
+    event.stopPropagation();
+    const linkItem = btn.closest('.link-item');
+    if (!linkItem) return;
+    linkItem.classList.toggle('expanded');
 }
 
 // Start inline editing of link name
@@ -18436,7 +18797,7 @@ async function saveLink(event) {
         
         const linksRef = collection(db, 'teams', appState.currentTeamId, 'linkLobbyGroups', groupId, 'links');
         
-        await addDoc(linksRef, {
+        const newLinkData = {
             url: url.href,
             label,
             domain,
@@ -18444,12 +18805,33 @@ async function saveLink(event) {
             favorite: false,
             createdAt: serverTimestamp(),
             createdBy: currentAuthUser.uid
-        });
+        };
+        
+        const docRef = await addDoc(linksRef, newLinkData);
+        
+        // Immediately add the new link to local state and re-render
+        const newLink = {
+            id: docRef.id,
+            ...newLinkData,
+            createdAt: { toMillis: () => Date.now() } // Fake timestamp for sorting
+        };
+        
+        // Find the group and add the link
+        const group = linkLobbyGroups.find(g => g.id === groupId);
+        if (group) {
+            if (group.autoGroupDomain && domain) {
+                if (!group.domainGroups[domain]) {
+                    group.domainGroups[domain] = [];
+                }
+                group.domainGroups[domain].unshift(newLink);
+            } else {
+                group.links.unshift(newLink);
+            }
+            renderLinkLobby();
+        }
         
         showToast('Link added!', 'success');
         closeLinkModal();
-        
-        // Re-fetch to update the UI (snapshot listener will handle this)
         
     } catch (error) {
         console.error('Error saving link:', error);
@@ -18457,9 +18839,54 @@ async function saveLink(event) {
     }
 }
 
-// Toggle link favorite
+// Toggle link favorite - with instant UI feedback
 async function toggleLinkFavorite(groupId, linkId, favorite) {
     if (!db || !appState.currentTeamId) return;
+    
+    // Immediately update UI for instant feedback
+    const linkItem = document.querySelector(`.link-item[data-link-id="${linkId}"][data-group-id="${groupId}"]`);
+    if (linkItem) {
+        if (favorite) {
+            linkItem.classList.add('favorite');
+        } else {
+            linkItem.classList.remove('favorite');
+        }
+        
+        // Update collapsed state star button
+        const collapsedStar = linkItem.querySelector('.link-collapsed-star');
+        if (collapsedStar) {
+            collapsedStar.classList.toggle('active', favorite);
+            collapsedStar.setAttribute('onclick', `event.stopPropagation(); toggleLinkFavorite('${groupId}', '${linkId}', ${!favorite})`);
+            collapsedStar.title = favorite ? 'Remove from favorites' : 'Add to favorites';
+        }
+        
+        // Update expanded state star button
+        const starBtn = linkItem.querySelector('.link-star-btn');
+        if (starBtn) {
+            starBtn.classList.toggle('active', favorite);
+            starBtn.setAttribute('onclick', `toggleLinkFavorite('${groupId}', '${linkId}', ${!favorite})`);
+            starBtn.title = favorite ? 'Remove from favorites' : 'Add to favorites';
+        }
+    }
+    
+    // Update local state
+    const group = linkLobbyGroups.find(g => g.id === groupId);
+    if (group) {
+        // Check in regular links
+        let link = group.links.find(l => l.id === linkId);
+        if (link) {
+            link.favorite = favorite;
+        } else {
+            // Check in domain groups
+            for (const domain of Object.keys(group.domainGroups)) {
+                link = group.domainGroups[domain].find(l => l.id === linkId);
+                if (link) {
+                    link.favorite = favorite;
+                    break;
+                }
+            }
+        }
+    }
     
     try {
         const { doc, updateDoc } = 
@@ -18468,11 +18895,11 @@ async function toggleLinkFavorite(groupId, linkId, favorite) {
         const linkRef = doc(db, 'teams', appState.currentTeamId, 'linkLobbyGroups', groupId, 'links', linkId);
         await updateDoc(linkRef, { favorite });
         
-        // The snapshot listener will update the UI
-        
     } catch (error) {
         console.error('Error toggling favorite:', error);
         showToast('Error updating favorite', 'error');
+        // Revert UI on error
+        renderLinkLobby();
     }
 }
 
@@ -18617,7 +19044,7 @@ window.deleteLink = deleteLink;
 window.openLink = openLink;
 window.toggleGroupMenu = toggleGroupMenu;
 window.toggleDomainSubgroup = toggleDomainSubgroup;
-window.handleLinkRowClick = handleLinkRowClick;
+window.toggleLinkExpanded = toggleLinkExpanded;
 window.startEditLinkName = startEditLinkName;
 
 // ===================================
