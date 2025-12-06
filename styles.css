@@ -2650,14 +2650,21 @@ body.dark-mode .reaction-chip.user-reacted {
 }
 
 /* ===================================
-   CALENDAR SECTION - Clean Light Mode Design
+   CALENDAR SECTION - Polished Modern Design
+   Apple/Notion-inspired clean aesthetic
    =================================== */
 .calendar-container {
     background: var(--bg-surface);
     border: 1px solid var(--border-subtle);
     border-radius: 12px;
-    padding: 24px;
+    padding: 20px;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+body.dark-mode .calendar-container {
+    background: var(--bg-surface);
+    border-color: var(--border-subtle);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
 }
 
 /* Calendar Header */
@@ -2665,26 +2672,27 @@ body.dark-mode .reaction-chip.user-reacted {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-bottom: 20px;
-    gap: 16px;
+    margin-bottom: 16px;
+    gap: 12px;
 }
 
 .calendar-title {
-    font-size: 1.25rem;
+    font-size: 1.1rem;
     font-weight: 600;
     color: var(--text-main);
-    min-width: 180px;
+    min-width: 160px;
     text-align: center;
+    letter-spacing: -0.01em;
 }
 
-/* Navigation Buttons - Clean Style */
+/* Navigation Buttons - Pill Style */
 .calendar-nav-btn {
     width: 32px;
     height: 32px;
-    border-radius: 8px;
-    border: 1px solid var(--border-subtle);
-    background: var(--bg-surface);
-    color: var(--text-main);
+    border-radius: 50%;
+    border: none;
+    background: var(--light-gray);
+    color: var(--text-secondary);
     cursor: pointer;
     display: flex;
     align-items: center;
@@ -2694,12 +2702,22 @@ body.dark-mode .reaction-chip.user-reacted {
 }
 
 .calendar-nav-btn:hover {
-    background: var(--light-gray);
-    border-color: var(--border-subtle);
+    background: var(--border-subtle);
+    color: var(--text-main);
 }
 
 .calendar-nav-btn:active {
-    transform: scale(0.95);
+    transform: scale(0.92);
+}
+
+body.dark-mode .calendar-nav-btn {
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--text-secondary);
+}
+
+body.dark-mode .calendar-nav-btn:hover {
+    background: rgba(255, 255, 255, 0.12);
+    color: var(--text-main);
 }
 
 /* View Toggle - Segmented Control */
@@ -2711,19 +2729,23 @@ body.dark-mode .reaction-chip.user-reacted {
     margin-left: auto;
 }
 
+body.dark-mode .calendar-view-toggle {
+    background: rgba(255, 255, 255, 0.06);
+}
+
 .view-toggle-btn {
-    padding: 6px 14px;
+    padding: 6px 12px;
     border: none;
     background: transparent;
     border-radius: 6px;
     cursor: pointer;
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 500;
     color: var(--text-muted);
     transition: all 0.15s ease;
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 5px;
 }
 
 .view-toggle-btn:hover {
@@ -2733,22 +2755,35 @@ body.dark-mode .reaction-chip.user-reacted {
 .view-toggle-btn.active {
     background: var(--bg-surface);
     color: var(--text-main);
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+body.dark-mode .view-toggle-btn.active {
+    background: rgba(255, 255, 255, 0.1);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
 }
 
 .view-toggle-btn i {
-    font-size: 11px;
+    font-size: 10px;
+    opacity: 0.8;
 }
 
-/* Calendar Grid - Month View */
+/* ===================================
+   MONTH VIEW - Clean Grid Layout
+   =================================== */
 .calendar-grid {
     display: grid;
     grid-template-columns: repeat(7, 1fr);
     border: 1px solid var(--border-subtle);
-    border-radius: 8px;
+    border-radius: 10px;
     overflow: hidden;
-    background: var(--border-subtle);
+    background: var(--border-light);
     gap: 1px;
+}
+
+body.dark-mode .calendar-grid {
+    background: var(--border-subtle);
+    border-color: var(--border-subtle);
 }
 
 /* Hide default grid when week view is active */
@@ -2761,13 +2796,18 @@ body.dark-mode .reaction-chip.user-reacted {
 
 .calendar-day-header {
     background: var(--bg-surface);
-    padding: 12px 8px;
+    padding: 10px 8px;
     text-align: center;
     font-weight: 600;
     color: var(--text-muted);
-    font-size: 11px;
+    font-size: 10px;
     text-transform: uppercase;
-    letter-spacing: 0.5px;
+    letter-spacing: 0.8px;
+}
+
+body.dark-mode .calendar-day-header {
+    background: var(--bg-body);
+    color: var(--text-muted);
 }
 
 #calendarDays {
@@ -2781,83 +2821,112 @@ body.dark-mode .reaction-chip.user-reacted {
 /* Calendar Day Cell - Month View */
 .calendar-day {
     background: var(--bg-surface);
-    min-height: 100px;
-    padding: 8px;
+    min-height: 90px;
+    padding: 6px;
     cursor: pointer;
-    transition: background 0.15s ease;
+    transition: background 0.12s ease;
     display: flex;
     flex-direction: column;
     align-items: flex-start;
+}
+
+body.dark-mode .calendar-day {
+    background: var(--bg-body);
 }
 
 .calendar-day:hover {
     background: var(--light-gray);
 }
 
+body.dark-mode .calendar-day:hover {
+    background: rgba(255, 255, 255, 0.04);
+}
+
+/* Today - Subtle highlight */
 .calendar-day.today {
-    background: rgba(0, 122, 255, 0.04);
+    background: rgba(0, 122, 255, 0.03);
+}
+
+body.dark-mode .calendar-day.today {
+    background: rgba(10, 132, 255, 0.06);
 }
 
 .calendar-day.today .day-number {
     background: var(--accent);
     color: white;
-    width: 26px;
-    height: 26px;
+    width: 24px;
+    height: 24px;
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
     font-weight: 600;
+    font-size: 12px;
 }
 
 .calendar-day.other-month {
     background: var(--bg-body);
-    opacity: 0.4;
+    opacity: 0.35;
+}
+
+body.dark-mode .calendar-day.other-month {
+    background: var(--bg-surface);
+    opacity: 0.3;
 }
 
 .day-number {
     font-weight: 600;
-    font-size: 13px;
+    font-size: 12px;
     color: var(--text-main);
-    margin-bottom: 4px;
-    width: 26px;
-    height: 26px;
+    margin-bottom: 3px;
+    width: 24px;
+    height: 24px;
     display: flex;
     align-items: center;
     justify-content: center;
+    border-radius: 50%;
 }
 
-/* Month Event Items */
+/* Month Event Pills - Clean Chips */
 .month-events {
     display: flex;
     flex-direction: column;
     gap: 2px;
     width: 100%;
-    margin-top: 2px;
+    margin-top: 1px;
 }
 
 .month-event-item {
     display: flex;
     align-items: center;
     gap: 4px;
-    padding: 3px 6px;
-    background: var(--bg-body);
+    padding: 2px 5px;
+    background: rgba(0, 122, 255, 0.08);
     border-left: 2px solid var(--accent);
     border-radius: 3px;
     font-size: 10px;
     cursor: pointer;
-    transition: background 0.15s ease;
+    transition: all 0.12s ease;
     overflow: hidden;
 }
 
 .month-event-item:hover {
-    background: var(--light-gray);
+    background: rgba(0, 122, 255, 0.12);
+    transform: translateX(1px);
+}
+
+body.dark-mode .month-event-item {
+    background: rgba(10, 132, 255, 0.12);
+}
+
+body.dark-mode .month-event-item:hover {
+    background: rgba(10, 132, 255, 0.18);
 }
 
 .month-event-time {
     font-weight: 600;
     color: var(--accent);
-    font-size: 9px;
+    font-size: 8px;
     flex-shrink: 0;
 }
 
@@ -2867,13 +2936,15 @@ body.dark-mode .reaction-chip.user-reacted {
     text-overflow: ellipsis;
     color: var(--text-main);
     font-weight: 500;
+    font-size: 10px;
 }
 
 .month-event-more {
-    font-size: 10px;
+    font-size: 9px;
     color: var(--text-muted);
-    padding: 2px 6px;
+    padding: 2px 5px;
     cursor: pointer;
+    font-weight: 500;
 }
 
 .month-event-more:hover {
@@ -2901,31 +2972,40 @@ body.dark-mode .reaction-chip.user-reacted {
 .event-item {
     display: flex;
     gap: 12px;
-    padding: 14px 16px;
+    padding: 12px 14px;
     background: var(--bg-body);
     border-radius: 8px;
     border: 1px solid var(--border-subtle);
-    transition: all 0.15s ease;
+    transition: all 0.12s ease;
 }
 
 .event-item:hover {
     background: var(--bg-surface);
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+}
+
+body.dark-mode .event-item {
+    background: rgba(255, 255, 255, 0.03);
+    border-color: var(--border-subtle);
+}
+
+body.dark-mode .event-item:hover {
+    background: rgba(255, 255, 255, 0.06);
 }
 
 .event-date {
     text-align: center;
-    min-width: 45px;
+    min-width: 40px;
 }
 
 .event-day {
-    font-size: 1.35rem;
+    font-size: 1.25rem;
     font-weight: 600;
     color: var(--accent);
 }
 
 .event-month {
-    font-size: 0.75rem;
+    font-size: 0.7rem;
     color: var(--text-muted);
     text-transform: uppercase;
 }
@@ -2936,45 +3016,56 @@ body.dark-mode .reaction-chip.user-reacted {
 
 .event-title {
     font-weight: 600;
-    margin-bottom: 4px;
+    margin-bottom: 3px;
     color: var(--text-main);
+    font-size: 0.9rem;
 }
 
 .event-time {
-    font-size: 0.8rem;
+    font-size: 0.75rem;
     color: var(--text-muted);
 }
 
 /* ===================================
-   WEEK VIEW - Clean Modern Design
-   Fixed grid layout, no axis collision
+   WEEK VIEW - Modern Apple-Style Planner
+   Clean grid, consistent event cards
    =================================== */
 .week-view {
     display: grid;
-    grid-template-columns: 60px repeat(7, 1fr);
+    grid-template-columns: 52px repeat(7, 1fr);
     border: 1px solid var(--border-subtle);
-    border-radius: 8px;
+    border-radius: 10px;
     overflow: hidden;
     background: var(--bg-surface);
-    min-width: 700px;
+    min-width: 680px;
+}
+
+body.dark-mode .week-view {
+    background: var(--bg-body);
+    border-color: var(--border-subtle);
 }
 
 /* Week view scroll wrapper */
 .calendar-scroll-wrapper {
     overflow-x: auto;
     overflow-y: visible;
-    margin: 0 -24px;
-    padding: 0 24px 8px;
+    margin: 0 -20px;
+    padding: 0 20px 8px;
     -webkit-overflow-scrolling: touch;
 }
 
 /* Time column - Y axis */
 .week-time-column {
     background: var(--bg-surface);
-    border-right: 1px solid var(--border-subtle);
+    border-right: 1px solid var(--border-light);
     position: sticky;
     left: 0;
     z-index: 5;
+}
+
+body.dark-mode .week-time-column {
+    background: var(--bg-body);
+    border-right-color: var(--border-subtle);
 }
 
 .week-time-header {
@@ -2983,30 +3074,45 @@ body.dark-mode .reaction-chip.user-reacted {
     background: var(--bg-surface);
 }
 
+body.dark-mode .week-time-header {
+    background: var(--bg-body);
+}
+
 .week-time-header-label {
     display: none;
 }
 
 .week-time-slot {
     height: 48px;
-    padding: 0 8px;
+    padding: 0 6px;
     border-bottom: 1px solid var(--border-light);
-    font-size: 10px;
+    font-size: 9px;
     color: var(--text-muted);
     text-align: right;
     font-weight: 500;
     display: flex;
     align-items: flex-start;
     justify-content: flex-end;
-    padding-top: 2px;
+    padding-top: 0;
+    transform: translateY(-5px);
+}
+
+body.dark-mode .week-time-slot {
+    border-bottom-color: var(--border-subtle);
+    color: var(--text-muted);
 }
 
 /* Day columns */
 .week-day-column {
     border-right: 1px solid var(--border-light);
-    min-width: 100px;
+    min-width: 85px;
     position: relative;
     background: var(--bg-surface);
+}
+
+body.dark-mode .week-day-column {
+    border-right-color: var(--border-subtle);
+    background: var(--bg-body);
 }
 
 .week-day-column:last-child {
@@ -3015,7 +3121,7 @@ body.dark-mode .reaction-chip.user-reacted {
 
 /* Today column - subtle highlight */
 .week-day-column.today-column {
-    background: rgba(0, 122, 255, 0.02);
+    background: rgba(0, 122, 255, 0.015);
 }
 
 body.dark-mode .week-day-column.today-column {
@@ -3026,68 +3132,71 @@ body.dark-mode .week-day-column.today-column {
     background: transparent;
 }
 
-/* Day header - clean and compact */
+/* Day header - clean and consistent */
 .week-day-header {
-    height: 64px;
-    padding: 10px 8px;
+    height: 56px;
+    padding: 8px 4px;
     text-align: center;
     border-bottom: 1px solid var(--border-subtle);
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 4px;
+    gap: 2px;
     background: var(--bg-surface);
     position: sticky;
     top: 0;
     z-index: 4;
 }
 
-/* Today header styling */
-.week-day-header.today {
-    background: var(--bg-surface);
+body.dark-mode .week-day-header {
+    background: var(--bg-body);
+    border-bottom-color: var(--border-subtle);
 }
 
 .week-day-name {
-    font-size: 11px;
+    font-size: 10px;
     color: var(--text-muted);
-    font-weight: 500;
+    font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.5px;
 }
 
 .week-day-header.today .week-day-name {
     color: var(--accent);
-    font-weight: 600;
 }
 
 .week-day-number {
-    font-size: 20px;
+    font-size: 18px;
     font-weight: 600;
     color: var(--text-main);
     line-height: 1;
-    width: 32px;
-    height: 32px;
+    width: 28px;
+    height: 28px;
     display: flex;
     align-items: center;
     justify-content: center;
     border-radius: 50%;
-    transition: all 0.15s ease;
+    transition: all 0.12s ease;
 }
 
 .week-day-header.today .week-day-number {
     background: var(--accent);
     color: white;
-    font-size: 15px;
+    font-size: 14px;
     font-weight: 600;
 }
 
 /* Time cells - clean grid */
 .week-time-cell {
-    height: 52px;
+    height: 48px;
     border-bottom: 1px solid var(--border-light);
     position: relative;
-    transition: background-color 0.15s ease;
+    transition: background-color 0.1s ease;
+}
+
+body.dark-mode .week-time-cell {
+    border-bottom-color: var(--border-subtle);
 }
 
 .week-time-cell:hover {
@@ -3099,7 +3208,11 @@ body.dark-mode .week-time-cell:hover {
 }
 
 .week-time-cell.current-hour {
-    background: rgba(0, 122, 255, 0.03);
+    background: rgba(0, 122, 255, 0.025);
+}
+
+body.dark-mode .week-time-cell.current-hour {
+    background: rgba(10, 132, 255, 0.06);
 }
 
 /* Remove the half-hour line for cleaner look */
@@ -3130,38 +3243,40 @@ body.dark-mode .week-time-cell:hover {
 }
 
 /* ===================================
-   EVENT PILLS - Modern Card Style
+   EVENT CARDS - Unified Modern Style
+   Consistent rounded cards with subtle shadow
    =================================== */
 .week-event-block {
     position: absolute;
-    left: 3px;
-    right: 3px;
+    left: 2px;
+    right: 2px;
     background: var(--bg-surface);
-    border: 1px solid var(--border-subtle);
+    border: none;
     border-left: 3px solid var(--accent);
     color: var(--text-main);
     padding: 4px 6px;
-    border-radius: 6px;
-    font-size: 11px;
+    border-radius: 5px;
+    font-size: 10px;
     cursor: pointer;
     z-index: 10;
-    transition: all 0.15s ease;
+    transition: all 0.12s ease;
     overflow: hidden;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 }
 
 .week-event-block:hover {
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.12);
     transform: translateY(-1px);
     z-index: 20;
 }
 
 body.dark-mode .week-event-block {
-    background: var(--bg-body);
-    border-color: var(--border-subtle);
+    background: rgba(255, 255, 255, 0.08);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
 }
 
 body.dark-mode .week-event-block:hover {
+    background: rgba(255, 255, 255, 0.1);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
@@ -3173,7 +3288,7 @@ body.dark-mode .week-event-block:hover {
     -webkit-line-clamp: 1;
     line-clamp: 1;
     margin-bottom: 0;
-    font-size: 10px;
+    font-size: 9px;
 }
 
 .week-event-block.short-event .week-event-time {
@@ -3182,7 +3297,7 @@ body.dark-mode .week-event-block:hover {
 
 .week-event-title {
     font-weight: 600;
-    margin-bottom: 2px;
+    margin-bottom: 1px;
     overflow: hidden;
     text-overflow: ellipsis;
     display: -webkit-box;
@@ -3190,12 +3305,12 @@ body.dark-mode .week-event-block:hover {
     line-clamp: 2;
     -webkit-box-orient: vertical;
     color: var(--text-main);
-    font-size: 11px;
-    line-height: 1.3;
+    font-size: 10px;
+    line-height: 1.25;
 }
 
 .week-event-time {
-    font-size: 9px;
+    font-size: 8px;
     color: var(--text-muted);
     font-weight: 500;
     display: flex;
@@ -3235,30 +3350,42 @@ body.dark-mode .week-event-block:hover {
 }
 
 /* ===================================
-   TASK BLOCKS - Distinct from Events
+   TASK BLOCKS - Distinct but Consistent
+   Same card style, different accent color
    =================================== */
 .week-task-block {
     position: absolute;
-    left: 3px;
-    right: 3px;
+    left: 2px;
+    right: 2px;
     background: rgba(255, 149, 0, 0.08);
-    border: 1px dashed rgba(255, 149, 0, 0.4);
+    border: none;
     border-left: 3px solid var(--warning);
     color: var(--text-main);
     padding: 4px 6px;
-    border-radius: 6px;
-    font-size: 11px;
+    border-radius: 5px;
+    font-size: 10px;
     cursor: pointer;
     z-index: 10;
-    transition: all 0.15s ease;
+    transition: all 0.12s ease;
     overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
 }
 
 .week-task-block:hover {
     background: rgba(255, 149, 0, 0.12);
-    box-shadow: 0 2px 8px rgba(255, 149, 0, 0.15);
+    box-shadow: 0 3px 10px rgba(255, 149, 0, 0.15);
     transform: translateY(-1px);
     z-index: 20;
+}
+
+body.dark-mode .week-task-block {
+    background: rgba(255, 149, 0, 0.12);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+}
+
+body.dark-mode .week-task-block:hover {
+    background: rgba(255, 149, 0, 0.18);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
 .week-task-block .week-event-title {
@@ -3271,8 +3398,8 @@ body.dark-mode .week-event-block:hover {
     content: '\f00c';
     font-family: 'Font Awesome 6 Free';
     font-weight: 900;
-    font-size: 8px;
-    opacity: 0.7;
+    font-size: 7px;
+    opacity: 0.8;
     color: var(--warning);
 }
 
@@ -3293,6 +3420,147 @@ body.dark-mode .week-event-block:hover {
 
 .week-time-slot.drag-over {
     background: rgba(0, 122, 255, 0.1) !important;
+}
+
+/* ===================================
+   CALENDAR RESPONSIVE STYLES
+   =================================== */
+@media (max-width: 768px) {
+    .calendar-container {
+        padding: 14px;
+        border-radius: 10px;
+    }
+    
+    .calendar-header {
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+    
+    .calendar-title {
+        font-size: 1rem;
+        min-width: auto;
+        order: 1;
+        flex: 1;
+    }
+    
+    .calendar-nav-btn {
+        width: 28px;
+        height: 28px;
+        font-size: 11px;
+    }
+    
+    .calendar-view-toggle {
+        order: 3;
+        width: 100%;
+        justify-content: center;
+    }
+    
+    .view-toggle-btn {
+        flex: 1;
+        justify-content: center;
+        padding: 8px 10px;
+    }
+    
+    .calendar-day {
+        min-height: 70px;
+        padding: 4px;
+    }
+    
+    .day-number {
+        font-size: 11px;
+        width: 20px;
+        height: 20px;
+    }
+    
+    .calendar-day.today .day-number {
+        width: 20px;
+        height: 20px;
+        font-size: 10px;
+    }
+    
+    .month-event-item {
+        padding: 2px 4px;
+        font-size: 9px;
+    }
+    
+    .month-event-time {
+        display: none;
+    }
+    
+    .calendar-day-header {
+        padding: 8px 4px;
+        font-size: 9px;
+    }
+    
+    /* Week view mobile */
+    .week-view {
+        grid-template-columns: 42px repeat(7, 1fr);
+        min-width: 600px;
+    }
+    
+    .week-time-slot {
+        font-size: 8px;
+        padding: 0 4px;
+    }
+    
+    .week-day-header {
+        height: 48px;
+        padding: 6px 2px;
+    }
+    
+    .week-day-name {
+        font-size: 9px;
+    }
+    
+    .week-day-number {
+        font-size: 14px;
+        width: 24px;
+        height: 24px;
+    }
+    
+    .week-day-header.today .week-day-number {
+        font-size: 12px;
+    }
+    
+    .week-time-cell {
+        height: 40px;
+    }
+    
+    .week-event-block {
+        padding: 2px 4px;
+        font-size: 9px;
+    }
+    
+    .week-event-title {
+        font-size: 9px;
+    }
+    
+    .week-event-time {
+        display: none;
+    }
+}
+
+@media (max-width: 480px) {
+    .calendar-container {
+        padding: 12px;
+    }
+    
+    .calendar-day {
+        min-height: 60px;
+    }
+    
+    .month-events {
+        gap: 1px;
+    }
+    
+    .month-event-item {
+        padding: 1px 3px;
+        border-left-width: 2px;
+    }
+    
+    .month-event-title {
+        font-size: 9px;
+    }
 }
 
 /* ===================================

@@ -105,6 +105,19 @@ function debugError(...args) {
 }
 
 // ===================================
+// EARLY DARK MODE SUPPORT
+// Apply dark mode immediately on page load from localStorage
+// ===================================
+function applyDarkModeEarly() {
+    const savedDarkMode = localStorage.getItem('darkMode');
+    if (savedDarkMode === 'true') {
+        document.body.classList.add('dark-mode');
+    }
+}
+// Run immediately
+applyDarkModeEarly();
+
+// ===================================
 // ROLE MANAGEMENT HELPERS
 // ===================================
 function getCurrentUserRole(teamData) {

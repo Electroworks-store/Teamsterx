@@ -4,10 +4,22 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Teamster - Internal Collaboration Platform</title>
-    <link rel="stylesheet" href="styles.css?v=30">
+    <link rel="stylesheet" href="styles.css?v=31">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Apply dark mode immediately to prevent flash -->
+    <script>
+        if (localStorage.getItem('darkMode') === 'true') {
+            document.documentElement.classList.add('dark-mode');
+        }
+    </script>
 </head>
 <body>
+    <!-- Apply dark mode class to body immediately -->
+    <script>
+        if (localStorage.getItem('darkMode') === 'true') {
+            document.body.classList.add('dark-mode');
+        }
+    </script>
     <!-- Main App Container -->
     <div class="app-container">
         
@@ -2372,6 +2384,6 @@
     <div id="toastContainer"></div>
 
     <!-- Main JavaScript -->
-    <script src="main.js?v=30"></script>
+    <script src="main.js?v=31"></script>
 </body>
 </html>
