@@ -628,92 +628,116 @@
                         <h1>Finances</h1>
                         <p class="section-subtitle">Track revenue, expenses, and financial metrics.</p>
                     </div>
-                    <div class="section-header-actions">
-                        <button class="btn-primary" id="addTransactionBtn">
-                            <i class="fas fa-plus"></i> Add Transaction
-                        </button>
-                    </div>
                 </div>
                 
-                <!-- Finances Summary Cards -->
-                <div class="finances-summary" id="financesSummary">
-                    <div class="finance-card summary-card">
-                        <div class="finance-card-icon income">
-                            <i class="fas fa-arrow-up"></i>
-                        </div>
-                        <div class="finance-card-content">
-                            <span class="finance-card-label">Total Income</span>
-                            <span class="finance-card-value" id="totalIncomeValue">$0.00</span>
-                        </div>
-                    </div>
-                    <div class="finance-card summary-card">
-                        <div class="finance-card-icon expense">
-                            <i class="fas fa-arrow-down"></i>
-                        </div>
-                        <div class="finance-card-content">
-                            <span class="finance-card-label">Total Expenses</span>
-                            <span class="finance-card-value" id="totalExpensesValue">$0.00</span>
-                        </div>
-                    </div>
-                    <div class="finance-card summary-card">
-                        <div class="finance-card-icon net">
-                            <i class="fas fa-balance-scale"></i>
-                        </div>
-                        <div class="finance-card-content">
-                            <span class="finance-card-label">Net Balance</span>
-                            <span class="finance-card-value" id="netBalanceValue">$0.00</span>
-                        </div>
-                    </div>
-                    <div class="finance-card summary-card">
-                        <div class="finance-card-icon mrr">
+                <!-- Finances Summary Cards - Top Metrics -->
+                <div class="finances-metrics-row" id="financesSummary">
+                    <div class="finance-metric-card">
+                        <div class="finance-metric-icon mrr">
                             <i class="fas fa-sync-alt"></i>
                         </div>
-                        <div class="finance-card-content">
-                            <span class="finance-card-label">MRR</span>
-                            <span class="finance-card-value" id="mrrValue">$0.00</span>
+                        <div class="finance-metric-content">
+                            <span class="finance-metric-label">MRR</span>
+                            <span class="finance-metric-value" id="mrrValue">$0.00</span>
+                            <span class="finance-metric-sub">Monthly Recurring Revenue</span>
+                        </div>
+                    </div>
+                    <div class="finance-metric-card">
+                        <div class="finance-metric-icon ytd">
+                            <i class="fas fa-chart-line"></i>
+                        </div>
+                        <div class="finance-metric-content">
+                            <span class="finance-metric-label">YTD Revenue</span>
+                            <span class="finance-metric-value income" id="ytdIncomeValue">$0.00</span>
+                            <span class="finance-metric-sub">Year to date</span>
+                        </div>
+                    </div>
+                    <div class="finance-metric-card">
+                        <div class="finance-metric-icon net">
+                            <i class="fas fa-balance-scale"></i>
+                        </div>
+                        <div class="finance-metric-content">
+                            <span class="finance-metric-label">Net Balance</span>
+                            <span class="finance-metric-value" id="netBalanceValue">$0.00</span>
+                            <span class="finance-metric-sub">Income - Expenses</span>
+                        </div>
+                    </div>
+                    <div class="finance-metric-card">
+                        <div class="finance-metric-icon customer">
+                            <i class="fas fa-crown"></i>
+                        </div>
+                        <div class="finance-metric-content">
+                            <span class="finance-metric-label">Main Customer</span>
+                            <span class="finance-metric-value customer-name" id="mainCustomerValue">—</span>
+                            <span class="finance-metric-sub" id="mainCustomerTotal">No data yet</span>
                         </div>
                     </div>
                 </div>
 
-                <!-- Finances Filters -->
-                <div class="finances-filters" id="financesFilters">
-                    <div class="filter-group">
-                        <select id="financesTypeFilter" class="filter-select">
-                            <option value="all">All Types</option>
-                            <option value="income">Income</option>
-                            <option value="expense">Expenses</option>
-                        </select>
-                        <select id="financesCategoryFilter" class="filter-select">
-                            <option value="all">All Categories</option>
-                        </select>
-                        <select id="financesDateFilter" class="filter-select">
-                            <option value="all">All Time</option>
-                            <option value="thisMonth">This Month</option>
-                            <option value="lastMonth">Last Month</option>
-                            <option value="thisQuarter">This Quarter</option>
-                            <option value="thisYear">This Year</option>
-                            <option value="ytd">Year to Date</option>
-                        </select>
+                <!-- Two-Column Layout: Revenue & Expenses -->
+                <div class="finances-columns" id="financesContent">
+                    <!-- Revenue Column (Left) -->
+                    <div class="finance-column revenue-column">
+                        <div class="finance-column-header">
+                            <div class="column-title">
+                                <span class="column-icon income"><i class="fas fa-arrow-up"></i></span>
+                                <h2>Revenue</h2>
+                                <span class="column-total" id="revenueTotalBadge">$0.00</span>
+                            </div>
+                            <button class="btn-add-transaction income" id="addRevenueBtn" title="Add Revenue">
+                                <i class="fas fa-plus"></i>
+                            </button>
+                        </div>
+                        <div class="transactions-column-list" id="revenueList">
+                            <!-- Revenue transactions rendered here -->
+                        </div>
+                        <div class="column-empty-state" id="revenueEmptyState">
+                            <i class="fas fa-coins"></i>
+                            <p>No revenue recorded yet</p>
+                            <button class="btn-text income" id="addFirstRevenueBtn">
+                                <i class="fas fa-plus"></i> Add your first revenue
+                            </button>
+                        </div>
                     </div>
-                    <div class="filter-search">
-                        <i class="fas fa-search"></i>
-                        <input type="text" id="financesSearchInput" placeholder="Search transactions...">
+
+                    <!-- Expenses Column (Right) -->
+                    <div class="finance-column expenses-column">
+                        <div class="finance-column-header">
+                            <div class="column-title">
+                                <span class="column-icon expense"><i class="fas fa-arrow-down"></i></span>
+                                <h2>Expenses</h2>
+                                <span class="column-total expense" id="expensesTotalBadge">$0.00</span>
+                            </div>
+                            <button class="btn-add-transaction expense" id="addExpenseBtn" title="Add Expense">
+                                <i class="fas fa-plus"></i>
+                            </button>
+                        </div>
+                        <div class="transactions-column-list" id="expensesList">
+                            <!-- Expense transactions rendered here -->
+                        </div>
+                        <div class="column-empty-state" id="expensesEmptyState">
+                            <i class="fas fa-receipt"></i>
+                            <p>No expenses recorded yet</p>
+                            <button class="btn-text expense" id="addFirstExpenseBtn">
+                                <i class="fas fa-plus"></i> Add your first expense
+                            </button>
+                        </div>
                     </div>
                 </div>
 
-                <!-- Transactions List -->
-                <div class="finances-content" id="financesContent">
-                    <div class="transactions-list" id="transactionsList">
-                        <!-- Transactions will be rendered here by JS -->
+                <!-- Full-page empty state (when no transactions at all) -->
+                <div class="finances-placeholder-state" id="financesPlaceholder" style="display: none;">
+                    <div class="finances-placeholder-icon">
+                        <i class="fas fa-dollar-sign"></i>
                     </div>
-                    <div class="finances-placeholder-state" id="financesPlaceholder">
-                        <div class="finances-placeholder-icon">
-                            <i class="fas fa-dollar-sign"></i>
-                        </div>
-                        <h3>No Transactions Yet</h3>
-                        <p>Start tracking your finances by adding your first transaction.</p>
-                        <button class="btn-primary" id="addFirstTransactionBtn">
-                            <i class="fas fa-plus"></i> Add First Transaction
+                    <h3>No Transactions Yet</h3>
+                    <p>Start tracking your finances by adding your first transaction.</p>
+                    <div class="placeholder-actions">
+                        <button class="btn-primary income" id="addFirstTransactionBtnRevenue">
+                            <i class="fas fa-plus"></i> Add Revenue
+                        </button>
+                        <button class="btn-secondary expense" id="addFirstTransactionBtnExpense">
+                            <i class="fas fa-plus"></i> Add Expense
                         </button>
                     </div>
                 </div>
@@ -1885,9 +1909,7 @@
                                 <i class="fas fa-tasks"></i> Progress
                             </label>
                             <div class="unified-progress-control">
-                                <div class="unified-progress-track">
-                                    <div class="unified-progress-fill" id="taskProgressFill"></div>
-                                </div>
+                                <input type="range" class="unified-progress-slider" id="taskProgressSlider" min="0" max="100" value="0">
                                 <div class="unified-progress-value">
                                     <input type="number" id="taskProgress" min="0" max="100" value="0">
                                     <span>%</span>

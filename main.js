@@ -135,6 +135,26 @@ function isAdmin(teamData) {
     return role === 'owner' || role === 'admin';
 }
 
+/**
+ * Check if current user has permission for a specific action
+ * Finances editing is allowed for owner and admin roles
+ */
+function hasPermission(action) {
+    if (!appState.currentTeamData) return false;
+    
+    switch (action) {
+        case 'editFinances':
+        case 'editTasks':
+        case 'editCalendar':
+            return isAdmin(appState.currentTeamData);
+        case 'manageTeam':
+        case 'editSettings':
+            return isOwner(appState.currentTeamData);
+        default:
+            return true; // Default to allow
+    }
+}
+
 // ===================================
 // METRICS VISIBILITY HELPERS
 // ===================================
@@ -2819,21 +2839,29 @@ function initTasks() {
     // Initialize spreadsheet context menu
     initSpreadsheetContextMenu();
 
-    // Progress bar update (new gradient design)
+    // Progress bar update (range slider + number input sync)
+    const progressSlider = document.getElementById('taskProgressSlider');
     const progressInput = document.getElementById('taskProgress');
-    const progressFill = document.getElementById('taskProgressFill');
-    if (progressInput && progressFill) {
+    
+    if (progressSlider && progressInput) {
+        // Sync slider to input
+        progressSlider.addEventListener('input', () => {
+            progressInput.value = progressSlider.value;
+        });
+        
+        // Sync input to slider
         progressInput.addEventListener('input', () => {
             let value = parseInt(progressInput.value) || 0;
             value = Math.max(0, Math.min(100, value));
-            progressFill.style.width = `${value}%`;
+            progressSlider.value = value;
         });
-        // Also update on change (when user finishes typing)
+        
+        // On change (when user finishes typing), clamp and sync
         progressInput.addEventListener('change', () => {
             let value = parseInt(progressInput.value) || 0;
             value = Math.max(0, Math.min(100, value));
             progressInput.value = value;
-            progressFill.style.width = `${value}%`;
+            progressSlider.value = value;
         });
     }
 
@@ -6120,14 +6148,14 @@ function initTasks() {
         document.getElementById('taskBudget').value = task.budget || '';
         document.getElementById('taskEstimatedTime').value = task.estimatedTime || '';
         
-        // Update progress bar (new gradient design)
+        // Update progress bar (range slider + number input)
         const progressInput = document.getElementById('taskProgress');
-        const progressFill = document.getElementById('taskProgressFill');
+        const progressSlider = document.getElementById('taskProgressSlider');
         if (progressInput) {
             const progress = task.progress || 0;
             progressInput.value = progress;
-            if (progressFill) {
-                progressFill.style.width = `${progress}%`;
+            if (progressSlider) {
+                progressSlider.value = progress;
             }
         }
 
@@ -6644,13 +6672,13 @@ function initTasks() {
                     taskDueDateInput.setAttribute('min', today);
                 }
                 
-                // Reset progress bar (new design)
+                // Reset progress bar (range slider + number input)
                 const progressInput = document.getElementById('taskProgress');
-                const progressFill = document.getElementById('taskProgressFill');
+                const progressSlider = document.getElementById('taskProgressSlider');
                 if (progressInput) {
                     progressInput.value = 0;
-                    if (progressFill) {
-                        progressFill.style.width = '0%';
+                    if (progressSlider) {
+                        progressSlider.value = 0;
                     }
                 }
                 
@@ -7370,13 +7398,13 @@ function resetTaskModalDropdowns() {
         }
     }
     
-    // Reset Progress (new design)
+    // Reset Progress (range slider + number input)
     const progressInput = document.getElementById('taskProgress');
-    const progressFill = document.getElementById('taskProgressFill');
+    const progressSlider = document.getElementById('taskProgressSlider');
     if (progressInput) {
         progressInput.value = 0;
-        if (progressFill) {
-            progressFill.style.width = '0%';
+        if (progressSlider) {
+            progressSlider.value = 0;
         }
     }
     
@@ -7983,43 +8011,108 @@ window.toggleTaskFromOverview = async function(taskId) {
  * - description: shown in the add modal
  * - icon: FontAwesome icon class
  * - color: CSS color class (success, warning, danger, or empty for default)
- * - getValue: function that returns { value, subtitle, tooltip } with placeholder data
+ * - getValue: function that returns { value, subtitle, tooltip } with real data
  * - hasChart: whether to show a mini trend chart
  */
 const CUSTOM_METRICS_CATALOG = {
-    customers: {
-        id: 'customers',
-        name: 'Number of Customers',
-        description: 'Track your total customer count',
-        icon: 'fa-users',
-        color: '',
-        getValue: () => {
-            const value = Math.floor(Math.random() * 500) + 100;
-            return {
-                value: value.toLocaleString(),
-                subtitle: `+${Math.floor(Math.random() * 20) + 5} this month`,
-                tooltip: 'Total active customers in your database'
-            };
-        },
-        hasChart: true,
-        chartData: () => generatePlaceholderTrendData(7, 80, 150)
-    },
-    revenue: {
-        id: 'revenue',
-        name: 'Average Revenue',
-        description: 'Track average revenue per customer',
+    totalRevenue: {
+        id: 'totalRevenue',
+        name: 'Total Revenue',
+        description: 'Track all-time income from transactions',
         icon: 'fa-dollar-sign',
         color: 'success',
         getValue: () => {
-            const value = Math.floor(Math.random() * 5000) + 1000;
+            const financeData = getFinanceMetricsData();
             return {
-                value: '$' + value.toLocaleString(),
-                subtitle: `${Math.random() > 0.5 ? '+' : '-'}${(Math.random() * 10).toFixed(1)}% vs last month`,
-                tooltip: 'Average revenue per customer'
+                value: formatCurrency(financeData.totalIncome),
+                subtitle: `YTD: ${formatCurrency(financeData.ytdIncome)}`,
+                tooltip: 'Total revenue from all recorded transactions'
             };
         },
         hasChart: true,
-        chartData: () => generatePlaceholderTrendData(7, 1000, 5000)
+        chartData: () => generateFinanceTrendData('income')
+    },
+    totalExpenses: {
+        id: 'totalExpenses',
+        name: 'Total Expenses',
+        description: 'Track all-time expenses',
+        icon: 'fa-receipt',
+        color: 'danger',
+        getValue: () => {
+            const financeData = getFinanceMetricsData();
+            return {
+                value: formatCurrency(financeData.totalExpenses),
+                subtitle: `YTD: ${formatCurrency(financeData.ytdExpenses)}`,
+                tooltip: 'Total expenses from all recorded transactions'
+            };
+        },
+        hasChart: true,
+        chartData: () => generateFinanceTrendData('expense')
+    },
+    netProfit: {
+        id: 'netProfit',
+        name: 'Net Profit',
+        description: 'Revenue minus expenses',
+        icon: 'fa-chart-line',
+        color: '',
+        getValue: () => {
+            const financeData = getFinanceMetricsData();
+            const isPositive = financeData.netBalance >= 0;
+            return {
+                value: formatCurrency(financeData.netBalance),
+                subtitle: isPositive ? 'Profitable' : 'In deficit',
+                tooltip: 'Net balance: Total income minus total expenses'
+            };
+        },
+        hasChart: false
+    },
+    mrr: {
+        id: 'mrr',
+        name: 'Monthly Recurring Revenue',
+        description: 'Track recurring monthly income',
+        icon: 'fa-sync-alt',
+        color: 'success',
+        getValue: () => {
+            const financeData = getFinanceMetricsData();
+            return {
+                value: formatCurrency(financeData.mrr),
+                subtitle: `ARR: ${formatCurrency(financeData.mrr * 12)}`,
+                tooltip: 'Monthly recurring revenue from subscriptions'
+            };
+        },
+        hasChart: false
+    },
+    topCustomer: {
+        id: 'topCustomer',
+        name: 'Top Customer',
+        description: 'Your highest-revenue customer',
+        icon: 'fa-crown',
+        color: 'warning',
+        getValue: () => {
+            const financeData = getFinanceMetricsData();
+            return {
+                value: financeData.mainCustomer || 'N/A',
+                subtitle: financeData.mainCustomer ? formatCurrency(financeData.mainCustomerTotal) : 'No customers yet',
+                tooltip: 'Customer with highest total revenue'
+            };
+        },
+        hasChart: false
+    },
+    customers: {
+        id: 'customers',
+        name: 'Number of Customers',
+        description: 'Track unique customer count from transactions',
+        icon: 'fa-users',
+        color: '',
+        getValue: () => {
+            const uniqueCustomers = getUniqueCustomerCount();
+            return {
+                value: uniqueCustomers.toLocaleString(),
+                subtitle: uniqueCustomers === 1 ? '1 customer' : `${uniqueCustomers} customers`,
+                tooltip: 'Unique customers from revenue transactions'
+            };
+        },
+        hasChart: false
     },
     leads: {
         id: 'leads',
@@ -8028,28 +8121,12 @@ const CUSTOM_METRICS_CATALOG = {
         icon: 'fa-user-plus',
         color: '',
         getValue: () => {
-            const value = Math.floor(Math.random() * 200) + 30;
+            // Use leads from appState if available
+            const leadCount = appState.leads?.length || 0;
             return {
-                value: value.toLocaleString(),
-                subtitle: `${Math.floor(Math.random() * 50) + 10} qualified`,
-                tooltip: 'Total leads generated this period'
-            };
-        },
-        hasChart: true,
-        chartData: () => generatePlaceholderTrendData(7, 10, 50)
-    },
-    emails: {
-        id: 'emails',
-        name: 'Emails Sent',
-        description: 'Track customer email communications',
-        icon: 'fa-envelope',
-        color: '',
-        getValue: () => {
-            const value = Math.floor(Math.random() * 1000) + 200;
-            return {
-                value: value.toLocaleString(),
-                subtitle: `${(Math.random() * 30 + 10).toFixed(1)}% open rate`,
-                tooltip: 'Emails sent to customers this period'
+                value: leadCount.toLocaleString(),
+                subtitle: leadCount === 0 ? 'No leads yet' : `${leadCount} in pipeline`,
+                tooltip: 'Total leads in your pipeline'
             };
         },
         hasChart: false
@@ -8061,15 +8138,16 @@ const CUSTOM_METRICS_CATALOG = {
         icon: 'fa-percentage',
         color: 'success',
         getValue: () => {
-            const value = (Math.random() * 15 + 5).toFixed(1);
+            const leadCount = appState.leads?.length || 0;
+            const customerCount = getUniqueCustomerCount();
+            const rate = leadCount > 0 ? ((customerCount / leadCount) * 100).toFixed(1) : 0;
             return {
-                value: value + '%',
-                subtitle: `${Math.floor(Math.random() * 50) + 20} conversions`,
+                value: rate + '%',
+                subtitle: `${customerCount} customers from ${leadCount} leads`,
                 tooltip: 'Percentage of leads converted to customers'
             };
         },
-        hasChart: true,
-        chartData: () => generatePlaceholderTrendData(7, 5, 20)
+        hasChart: false
     },
     support_tickets: {
         id: 'support_tickets',
@@ -8078,28 +8156,11 @@ const CUSTOM_METRICS_CATALOG = {
         icon: 'fa-ticket-alt',
         color: 'warning',
         getValue: () => {
-            const value = Math.floor(Math.random() * 50) + 5;
+            // Placeholder - could be connected to support system
             return {
-                value: value.toLocaleString(),
-                subtitle: `${Math.floor(Math.random() * 10) + 1} urgent`,
-                tooltip: 'Open support tickets requiring attention'
-            };
-        },
-        hasChart: false
-    },
-    response_time: {
-        id: 'response_time',
-        name: 'Avg Response Time',
-        description: 'Track customer response speed',
-        icon: 'fa-clock',
-        color: '',
-        getValue: () => {
-            const hours = Math.floor(Math.random() * 4) + 1;
-            const minutes = Math.floor(Math.random() * 60);
-            return {
-                value: `${hours}h ${minutes}m`,
-                subtitle: `${Math.random() > 0.5 ? 'Faster' : 'Slower'} than target`,
-                tooltip: 'Average time to first response'
+                value: '—',
+                subtitle: 'Not connected',
+                tooltip: 'Connect a support system to track tickets'
             };
         },
         hasChart: false
@@ -8111,17 +8172,67 @@ const CUSTOM_METRICS_CATALOG = {
         icon: 'fa-smile',
         color: 'success',
         getValue: () => {
-            const value = Math.floor(Math.random() * 40) + 30;
+            // Placeholder - could be connected to survey system
             return {
-                value: value.toString(),
-                subtitle: `${Math.floor(Math.random() * 100) + 50} responses`,
-                tooltip: 'Net Promoter Score (-100 to +100)'
+                value: '—',
+                subtitle: 'Not connected',
+                tooltip: 'Connect a survey system to track NPS'
             };
         },
-        hasChart: true,
-        chartData: () => generatePlaceholderTrendData(7, 20, 70)
+        hasChart: false
     }
 };
+
+/**
+ * Get unique customer count from transactions
+ */
+function getUniqueCustomerCount() {
+    if (!appState.transactions) return 0;
+    const customers = new Set();
+    appState.transactions.forEach(t => {
+        if (t.type === 'income' && t.party) {
+            customers.add(t.party.toLowerCase().trim());
+        }
+    });
+    return customers.size;
+}
+
+/**
+ * Generate trend data from actual finance transactions
+ */
+function generateFinanceTrendData(type = 'income') {
+    if (!appState.transactions || appState.transactions.length === 0) {
+        return generatePlaceholderTrendData(7, 0, 0);
+    }
+    
+    const now = new Date();
+    const data = [];
+    
+    // Get last 7 days of data
+    for (let i = 6; i >= 0; i--) {
+        const date = new Date(now);
+        date.setDate(date.getDate() - i);
+        const dayStart = new Date(date.setHours(0, 0, 0, 0));
+        const dayEnd = new Date(date.setHours(23, 59, 59, 999));
+        
+        let dayTotal = 0;
+        appState.transactions.forEach(t => {
+            if (t.type === type) {
+                const transDate = t.date?.toDate?.() || new Date(t.date);
+                if (transDate >= dayStart && transDate <= dayEnd) {
+                    dayTotal += t.amount || 0;
+                }
+            }
+        });
+        
+        data.push({
+            label: date.toLocaleDateString('en-US', { weekday: 'short' }),
+            value: dayTotal
+        });
+    }
+    
+    return data;
+}
 
 /**
  * Generate placeholder trend data for charts
@@ -12055,13 +12166,13 @@ function initModals() {
         const taskStatus = document.getElementById('taskStatus');
         if (taskStatus) taskStatus.value = 'todo';
 
-        // Reset progress bar (new design)
-        const progressInput = document.getElementById('taskProgress');
-        const progressFill = document.getElementById('taskProgressFill');
-        if (progressInput) {
-            progressInput.value = 0;
-            if (progressFill) {
-                progressFill.style.width = '0%';
+        // Reset progress bar (range slider + number input)
+        const resetProgressInput = document.getElementById('taskProgress');
+        const resetProgressSlider = document.getElementById('taskProgressSlider');
+        if (resetProgressInput) {
+            resetProgressInput.value = 0;
+            if (resetProgressSlider) {
+                resetProgressSlider.value = 0;
             }
         }
         
@@ -19693,15 +19804,37 @@ const FINANCE_CATEGORIES = {
  * Initialize finances tab event listeners
  */
 function initFinances() {
-    // Add Transaction buttons
-    const addTransactionBtn = document.getElementById('addTransactionBtn');
-    const addFirstTransactionBtn = document.getElementById('addFirstTransactionBtn');
+    // Revenue column buttons
+    const addRevenueBtn = document.getElementById('addRevenueBtn');
+    const addFirstRevenueBtn = document.getElementById('addFirstRevenueBtn');
     
-    if (addTransactionBtn) {
-        addTransactionBtn.addEventListener('click', () => openTransactionModal());
+    if (addRevenueBtn) {
+        addRevenueBtn.addEventListener('click', () => openTransactionModal(null, 'income'));
     }
-    if (addFirstTransactionBtn) {
-        addFirstTransactionBtn.addEventListener('click', () => openTransactionModal());
+    if (addFirstRevenueBtn) {
+        addFirstRevenueBtn.addEventListener('click', () => openTransactionModal(null, 'income'));
+    }
+    
+    // Expense column buttons
+    const addExpenseBtn = document.getElementById('addExpenseBtn');
+    const addFirstExpenseBtn = document.getElementById('addFirstExpenseBtn');
+    
+    if (addExpenseBtn) {
+        addExpenseBtn.addEventListener('click', () => openTransactionModal(null, 'expense'));
+    }
+    if (addFirstExpenseBtn) {
+        addFirstExpenseBtn.addEventListener('click', () => openTransactionModal(null, 'expense'));
+    }
+    
+    // Placeholder buttons (when no transactions at all)
+    const addFirstTransactionBtnRevenue = document.getElementById('addFirstTransactionBtnRevenue');
+    const addFirstTransactionBtnExpense = document.getElementById('addFirstTransactionBtnExpense');
+    
+    if (addFirstTransactionBtnRevenue) {
+        addFirstTransactionBtnRevenue.addEventListener('click', () => openTransactionModal(null, 'income'));
+    }
+    if (addFirstTransactionBtnExpense) {
+        addFirstTransactionBtnExpense.addEventListener('click', () => openTransactionModal(null, 'expense'));
     }
     
     // Modal controls
@@ -19765,25 +19898,6 @@ function initFinances() {
         confirmDeleteTransaction.addEventListener('click', handleDeleteTransaction);
     }
     
-    // Filters
-    const typeFilter = document.getElementById('financesTypeFilter');
-    const categoryFilter = document.getElementById('financesCategoryFilter');
-    const dateFilter = document.getElementById('financesDateFilter');
-    const searchInput = document.getElementById('financesSearchInput');
-    
-    if (typeFilter) {
-        typeFilter.addEventListener('change', applyFinancesFilters);
-    }
-    if (categoryFilter) {
-        categoryFilter.addEventListener('change', applyFinancesFilters);
-    }
-    if (dateFilter) {
-        dateFilter.addEventListener('change', applyFinancesFilters);
-    }
-    if (searchInput) {
-        searchInput.addEventListener('input', debounce(applyFinancesFilters, 300));
-    }
-    
     // Close modal on background click
     const transactionModal = document.getElementById('transactionModal');
     if (transactionModal) {
@@ -19797,8 +19911,10 @@ function initFinances() {
 
 /**
  * Open transaction modal for adding or editing
+ * @param {Object|null} transaction - Transaction to edit, or null for new
+ * @param {string} defaultType - Default transaction type ('income' or 'expense')
  */
-function openTransactionModal(transaction = null) {
+function openTransactionModal(transaction = null, defaultType = 'income') {
     const modal = document.getElementById('transactionModal');
     const form = document.getElementById('transactionForm');
     const title = document.getElementById('transactionModalTitle');
@@ -19809,12 +19925,12 @@ function openTransactionModal(transaction = null) {
     // Reset form
     form.reset();
     document.getElementById('transactionId').value = '';
-    document.getElementById('transactionType').value = 'income';
+    document.getElementById('transactionType').value = defaultType;
     
     // Reset type buttons
     const typeButtons = document.querySelectorAll('.transaction-type-toggle .type-btn');
     typeButtons.forEach(btn => {
-        btn.classList.toggle('active', btn.dataset.type === 'income');
+        btn.classList.toggle('active', btn.dataset.type === defaultType);
     });
     
     // Reset recurring field
@@ -19829,10 +19945,12 @@ function openTransactionModal(transaction = null) {
         dateInput.value = new Date().toISOString().split('T')[0];
     }
     
-    // Update party label
+    // Update party label based on default type
     const partyLabel = document.getElementById('transactionPartyLabel');
     if (partyLabel) {
-        partyLabel.innerHTML = '<i class="fas fa-user"></i> Customer';
+        partyLabel.innerHTML = defaultType === 'income'
+            ? '<i class="fas fa-user"></i> Customer'
+            : '<i class="fas fa-building"></i> Vendor';
     }
     
     if (transaction) {
@@ -19869,9 +19987,10 @@ function openTransactionModal(transaction = null) {
                 : '<i class="fas fa-building"></i> Vendor';
         }
     } else {
-        // Add mode
-        title.innerHTML = '<i class="fas fa-plus-circle"></i> New Transaction';
-        subtitle.textContent = 'Record a financial transaction';
+        // Add mode - customize title based on type
+        const typeLabel = defaultType === 'income' ? 'Revenue' : 'Expense';
+        title.innerHTML = `<i class="fas fa-plus-circle"></i> New ${typeLabel}`;
+        subtitle.textContent = `Record a new ${typeLabel.toLowerCase()} transaction`;
     }
     
     modal.classList.add('active');
@@ -20198,82 +20317,228 @@ function getCategoryLabel(value) {
 }
 
 /**
- * Render the finances section
+ * Render the finances section with two-column layout
  */
 function renderFinances() {
-    const filteredTransactions = getFilteredTransactions();
-    const metrics = calculateFinanceMetrics(appState.transactions); // Use all for summary
+    const metrics = calculateFinanceMetrics(appState.transactions);
     
-    // Update summary cards
-    const totalIncomeEl = document.getElementById('totalIncomeValue');
-    const totalExpensesEl = document.getElementById('totalExpensesValue');
-    const netBalanceEl = document.getElementById('netBalanceValue');
+    // Separate transactions by type
+    const revenueTransactions = appState.transactions.filter(t => t.type === 'income');
+    const expenseTransactions = appState.transactions.filter(t => t.type === 'expense');
+    
+    // Sort by date descending
+    revenueTransactions.sort((a, b) => {
+        const dateA = a.date?.toDate?.() || new Date(a.date);
+        const dateB = b.date?.toDate?.() || new Date(b.date);
+        return dateB - dateA;
+    });
+    expenseTransactions.sort((a, b) => {
+        const dateA = a.date?.toDate?.() || new Date(a.date);
+        const dateB = b.date?.toDate?.() || new Date(b.date);
+        return dateB - dateA;
+    });
+    
+    // Update metrics cards
     const mrrEl = document.getElementById('mrrValue');
+    const ytdIncomeEl = document.getElementById('ytdIncomeValue');
+    const netBalanceEl = document.getElementById('netBalanceValue');
+    const mainCustomerEl = document.getElementById('mainCustomerValue');
+    const mainCustomerTotalEl = document.getElementById('mainCustomerTotal');
     
-    if (totalIncomeEl) totalIncomeEl.textContent = formatCurrency(metrics.totalIncome);
-    if (totalExpensesEl) totalExpensesEl.textContent = formatCurrency(metrics.totalExpenses);
+    if (mrrEl) mrrEl.textContent = formatCurrency(metrics.mrr);
+    if (ytdIncomeEl) ytdIncomeEl.textContent = formatCurrency(metrics.ytdIncome);
     if (netBalanceEl) {
         netBalanceEl.textContent = formatCurrency(metrics.netBalance);
-        netBalanceEl.style.color = metrics.netBalance >= 0 ? '#22c55e' : '#ef4444';
+        netBalanceEl.className = 'metric-value ' + (metrics.netBalance >= 0 ? 'positive' : 'negative');
     }
-    if (mrrEl) mrrEl.textContent = formatCurrency(metrics.mrr);
+    if (mainCustomerEl) {
+        mainCustomerEl.textContent = metrics.mainCustomer || 'N/A';
+    }
+    if (mainCustomerTotalEl) {
+        mainCustomerTotalEl.textContent = metrics.mainCustomer ? formatCurrency(metrics.mainCustomerTotal) : '';
+    }
     
-    // Update category filter options
-    updateCategoryFilterOptions();
+    // Update column totals
+    const revenueTotalEl = document.getElementById('revenueTotalBadge');
+    const expensesTotalEl = document.getElementById('expensesTotalBadge');
     
-    // Render transactions list
-    const transactionsList = document.getElementById('transactionsList');
-    const placeholder = document.getElementById('financesPlaceholder');
+    if (revenueTotalEl) revenueTotalEl.textContent = formatCurrency(metrics.totalIncome);
+    if (expensesTotalEl) expensesTotalEl.textContent = formatCurrency(metrics.totalExpenses);
     
-    if (!transactionsList) return;
+    // Check user permissions for add buttons
+    const canEditFinances = hasPermission('editFinances');
     
-    if (filteredTransactions.length === 0) {
-        transactionsList.innerHTML = '';
-        if (placeholder) {
-            placeholder.style.display = 'flex';
-            // Update placeholder message based on whether we have any transactions
-            const hasAnyTransactions = appState.transactions.length > 0;
-            placeholder.querySelector('h3').textContent = hasAnyTransactions ? 'No Matching Transactions' : 'No Transactions Yet';
-            placeholder.querySelector('p').textContent = hasAnyTransactions 
-                ? 'Try adjusting your filters to see more results.'
-                : 'Start tracking your finances by adding your first transaction.';
-            placeholder.querySelector('button').style.display = hasAnyTransactions ? 'none' : 'inline-flex';
+    // Hide/show add buttons based on permissions
+    const addRevenueBtn = document.getElementById('addRevenueBtn');
+    const addExpenseBtn = document.getElementById('addExpenseBtn');
+    if (addRevenueBtn) addRevenueBtn.style.display = canEditFinances ? 'inline-flex' : 'none';
+    if (addExpenseBtn) addExpenseBtn.style.display = canEditFinances ? 'inline-flex' : 'none';
+    
+    // Check if there are any transactions at all
+    const hasAnyTransactions = appState.transactions.length > 0;
+    const financesContent = document.getElementById('financesContent');
+    const financesPlaceholder = document.getElementById('financesPlaceholder');
+    
+    if (!hasAnyTransactions) {
+        // Show the full-page placeholder
+        if (financesContent) financesContent.style.display = 'none';
+        if (financesPlaceholder) {
+            financesPlaceholder.style.display = 'flex';
+            // Show/hide buttons based on permissions
+            const placeholderBtns = financesPlaceholder.querySelectorAll('button');
+            placeholderBtns.forEach(btn => {
+                btn.style.display = canEditFinances ? 'inline-flex' : 'none';
+            });
         }
         return;
     }
     
-    if (placeholder) placeholder.style.display = 'none';
+    // Show the two-column layout
+    if (financesContent) financesContent.style.display = 'flex';
+    if (financesPlaceholder) financesPlaceholder.style.display = 'none';
     
-    transactionsList.innerHTML = filteredTransactions.map(t => {
-        const transactionDate = t.date?.toDate?.() || new Date(t.date);
-        const dateStr = transactionDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-        
-        return `
-            <div class="transaction-item" data-id="${t.id}">
-                <div class="transaction-type-icon ${t.type}">
-                    <i class="fas fa-arrow-${t.type === 'income' ? 'up' : 'down'}"></i>
+    // Render revenue column
+    const revenueList = document.getElementById('revenueList');
+    const revenueEmptyState = document.getElementById('revenueEmptyState');
+    
+    if (revenueList) {
+        if (revenueTransactions.length === 0) {
+            revenueList.innerHTML = '';
+            if (revenueEmptyState) {
+                revenueEmptyState.style.display = 'flex';
+                const addBtn = revenueEmptyState.querySelector('button');
+                if (addBtn) addBtn.style.display = canEditFinances ? 'inline-flex' : 'none';
+            }
+        } else {
+            if (revenueEmptyState) revenueEmptyState.style.display = 'none';
+            revenueList.innerHTML = revenueTransactions.map(t => renderTransactionRow(t, canEditFinances)).join('');
+        }
+    }
+    
+    // Render expenses column
+    const expensesList = document.getElementById('expensesList');
+    const expensesEmptyState = document.getElementById('expensesEmptyState');
+    
+    if (expensesList) {
+        if (expenseTransactions.length === 0) {
+            expensesList.innerHTML = '';
+            if (expensesEmptyState) {
+                expensesEmptyState.style.display = 'flex';
+                const addBtn = expensesEmptyState.querySelector('button');
+                if (addBtn) addBtn.style.display = canEditFinances ? 'inline-flex' : 'none';
+            }
+        } else {
+            if (expensesEmptyState) expensesEmptyState.style.display = 'none';
+            expensesList.innerHTML = expenseTransactions.map(t => renderTransactionRow(t, canEditFinances)).join('');
+        }
+    }
+    
+    // Attach click handlers for expandable rows
+    document.querySelectorAll('.transaction-row-main').forEach(row => {
+        row.addEventListener('click', (e) => {
+            // Don't expand if clicking on action buttons
+            if (e.target.closest('.transaction-actions')) return;
+            const parentRow = row.closest('.transaction-row');
+            if (parentRow) {
+                parentRow.classList.toggle('expanded');
+            }
+        });
+    });
+}
+
+/**
+ * Render a single transaction row with expandable details
+ */
+function renderTransactionRow(transaction, canEdit = true) {
+    const t = transaction;
+    const transactionDate = t.date?.toDate?.() || new Date(t.date);
+    const dateStr = transactionDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    const isIncome = t.type === 'income';
+    
+    // Get creator name from team members
+    let addedBy = 'Unknown';
+    if (t.createdBy && appState.teamMembers) {
+        const creator = appState.teamMembers.find(m => m.id === t.createdBy);
+        if (creator) {
+            addedBy = creator.displayName || creator.email || 'Unknown';
+        }
+    }
+    
+    const createdAtDate = t.createdAt?.toDate?.() || (t.createdAt ? new Date(t.createdAt) : null);
+    const createdAtStr = createdAtDate 
+        ? createdAtDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+        : '';
+    
+    return `
+        <div class="transaction-row" data-id="${t.id}">
+            <div class="transaction-row-main">
+                <div class="transaction-row-left">
+                    <span class="transaction-date">${dateStr}</span>
+                    <span class="transaction-description">${escapeHtml(t.description)}</span>
+                    ${t.party ? `<span class="transaction-party">${escapeHtml(t.party)}</span>` : ''}
                 </div>
-                <div class="transaction-info">
-                    <div class="transaction-description">${escapeHtml(t.description)}</div>
-                    <div class="transaction-meta">
-                        <span><i class="fas fa-calendar"></i> ${dateStr}</span>
-                        ${t.party ? `<span><i class="fas fa-${t.type === 'income' ? 'user' : 'building'}"></i> ${escapeHtml(t.party)}</span>` : ''}
-                        ${t.isRecurring ? `<span class="transaction-recurring-badge"><i class="fas fa-sync-alt"></i> ${t.frequency}</span>` : ''}
+                <div class="transaction-row-right">
+                    <span class="transaction-amount ${t.type}">${isIncome ? '+' : '-'}${formatCurrency(t.amount)}</span>
+                    ${t.isRecurring ? `<span class="transaction-recurring-badge" title="Recurring ${t.frequency}"><i class="fas fa-sync-alt"></i></span>` : ''}
+                    ${canEdit ? `
+                    <div class="transaction-actions">
+                        <button class="transaction-action-btn edit" onclick="event.stopPropagation(); editTransaction('${t.id}')" title="Edit">
+                            <i class="fas fa-pen"></i>
+                        </button>
+                        <button class="transaction-action-btn delete" onclick="event.stopPropagation(); openDeleteTransactionModal('${t.id}')" title="Delete">
+                            <i class="fas fa-trash"></i>
+                        </button>
                     </div>
-                </div>
-                ${t.category ? `<span class="transaction-category">${getCategoryLabel(t.category)}</span>` : ''}
-                <span class="transaction-amount ${t.type}">${t.type === 'income' ? '+' : '-'}${formatCurrency(t.amount)}</span>
-                <div class="transaction-actions">
-                    <button class="transaction-action-btn edit" onclick="editTransaction('${t.id}')" title="Edit">
-                        <i class="fas fa-pen"></i>
-                    </button>
-                    <button class="transaction-action-btn delete" onclick="openDeleteTransactionModal('${t.id}')" title="Delete">
-                        <i class="fas fa-trash"></i>
-                    </button>
+                    ` : ''}
+                    <span class="expand-icon"><i class="fas fa-chevron-down"></i></span>
                 </div>
             </div>
-        `;
-    }).join('');
+            <div class="transaction-row-details">
+                <div class="transaction-detail-grid">
+                    ${t.description ? `
+                    <div class="transaction-detail-item">
+                        <span class="detail-label">Description</span>
+                        <span class="detail-value">${escapeHtml(t.description)}</span>
+                    </div>
+                    ` : ''}
+                    ${t.category ? `
+                    <div class="transaction-detail-item">
+                        <span class="detail-label">Category</span>
+                        <span class="detail-value">${getCategoryLabel(t.category)}</span>
+                    </div>
+                    ` : ''}
+                    ${t.party ? `
+                    <div class="transaction-detail-item">
+                        <span class="detail-label">${isIncome ? 'Customer' : 'Vendor'}</span>
+                        <span class="detail-value">${escapeHtml(t.party)}</span>
+                    </div>
+                    ` : ''}
+                    ${t.isRecurring ? `
+                    <div class="transaction-detail-item">
+                        <span class="detail-label">Recurring</span>
+                        <span class="detail-value">${t.frequency.charAt(0).toUpperCase() + t.frequency.slice(1)}</span>
+                    </div>
+                    ` : ''}
+                    ${t.notes ? `
+                    <div class="transaction-detail-item full-width">
+                        <span class="detail-label">Notes</span>
+                        <span class="detail-value">${escapeHtml(t.notes)}</span>
+                    </div>
+                    ` : ''}
+                    <div class="transaction-detail-item">
+                        <span class="detail-label">Added By</span>
+                        <span class="detail-value">${escapeHtml(addedBy)}</span>
+                    </div>
+                    ${createdAtStr ? `
+                    <div class="transaction-detail-item">
+                        <span class="detail-label">Added On</span>
+                        <span class="detail-value">${createdAtStr}</span>
+                    </div>
+                    ` : ''}
+                </div>
+            </div>
+        </div>
+    `;
 }
 
 /**
