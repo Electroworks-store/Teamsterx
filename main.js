@@ -255,6 +255,95 @@ function updateNavVisibilityForMetrics() {
 }
 
 // ===================================
+// FINANCES TAB VISIBILITY SYSTEM
+// ===================================
+
+/**
+ * Get the finances enabled setting from team data.
+ * @param {Object} teamData - The team document data
+ * @returns {boolean} - Whether finances tab is enabled
+ */
+function getFinancesEnabledSetting(teamData) {
+    return teamData?.settings?.financesEnabled || false;
+}
+
+/**
+ * Get the finances visibility setting from team data.
+ * @param {Object} teamData - The team document data
+ * @returns {string} - 'owner-only' | 'admin-owner' | 'everyone'
+ */
+function getFinancesVisibilitySetting(teamData) {
+    return teamData?.settings?.financesVisibility || 'owner-only';
+}
+
+/**
+ * Determine if the current user can view finances and what mode they have.
+ * 
+ * @param {Object} teamData - The team document data
+ * @param {string} currentUserId - The current user's UID
+ * @returns {{ canAccess: boolean, mode: 'none' | 'full' }}
+ */
+function userCanViewFinances(teamData, currentUserId) {
+    if (!teamData || !currentUserId) {
+        return { canAccess: false, mode: 'none' };
+    }
+    
+    // First check if finances is enabled
+    const isEnabled = getFinancesEnabledSetting(teamData);
+    if (!isEnabled) {
+        return { canAccess: false, mode: 'none' };
+    }
+    
+    const userRole = getCurrentUserRole(teamData);
+    const visibility = getFinancesVisibilitySetting(teamData);
+    
+    switch (visibility) {
+        case 'owner-only':
+            // Only owner can access
+            if (userRole === 'owner') {
+                return { canAccess: true, mode: 'full' };
+            }
+            return { canAccess: false, mode: 'none' };
+            
+        case 'admin-owner':
+            // Owner and admins can access
+            if (userRole === 'owner' || userRole === 'admin') {
+                return { canAccess: true, mode: 'full' };
+            }
+            return { canAccess: false, mode: 'none' };
+            
+        case 'everyone':
+            // Everyone can access
+            return { canAccess: true, mode: 'full' };
+            
+        default:
+            // Default to owner-only for safety
+            if (userRole === 'owner') {
+                return { canAccess: true, mode: 'full' };
+            }
+            return { canAccess: false, mode: 'none' };
+    }
+}
+
+/**
+ * Update the visibility of the finances nav item based on access.
+ * Should be called after team data is loaded.
+ */
+function updateNavVisibilityForFinances() {
+    const financesNavItem = document.getElementById('financesNavItem');
+    if (!financesNavItem) return;
+    
+    const access = appState.financesAccess;
+    if (access?.canAccess) {
+        financesNavItem.classList.remove('hidden');
+        financesNavItem.style.display = '';
+    } else {
+        financesNavItem.classList.add('hidden');
+        financesNavItem.style.display = 'none';
+    }
+}
+
+// ===================================
 // AUTHENTICATION CHECK
 // ===================================
 async function initializeFirebaseAuth() {
@@ -509,7 +598,13 @@ const appState = {
     metricsVisibility: 'owner-only', // Current team's metrics visibility setting
     metricsAccess: { canAccess: false, mode: 'none' }, // Metrics visibility access for current user
     graphTypes: {}, // Stores graph type per chart: { graphId: 'bar' | 'line' | 'pie' }
-    metricsChartConfig: {} // Stores per-chart config: { graphId: { yAxisMin, yAxisMax, primaryColor, ... } }
+    metricsChartConfig: {}, // Stores per-chart config: { graphId: { yAxisMin, yAxisMax, primaryColor, ... } }
+    // Finances state
+    financesEnabled: false, // Whether finances tab is enabled for this team
+    financesVisibility: 'owner-only', // Current team's finances visibility setting
+    financesAccess: { canAccess: false, mode: 'none' }, // Finances visibility access for current user
+    transactions: [], // Cached transactions for current team
+    financesFilters: { type: 'all', category: 'all', date: 'all', search: '' } // Current filter state
 };
 
 // ===================================
@@ -520,6 +615,14 @@ window.switchTab = function(sectionName) {
     // Check metrics access before allowing navigation
     if (sectionName === 'metrics' && !appState.metricsAccess?.canAccess) {
         showToast("You don't have access to metrics yet.", 'info', 3000);
+        // Redirect to overview instead
+        window.switchTab('activity');
+        return;
+    }
+    
+    // Check finances access before allowing navigation
+    if (sectionName === 'finances' && !appState.financesAccess?.canAccess) {
+        showToast("You don't have access to finances yet.", 'info', 3000);
         // Redirect to overview instead
         window.switchTab('activity');
         return;
@@ -562,6 +665,11 @@ window.switchTab = function(sectionName) {
     // Render metrics when navigating to metrics tab
     if (sectionName === 'metrics') {
         renderMetrics();
+    }
+    
+    // Render finances when navigating to finances tab
+    if (sectionName === 'finances') {
+        loadTransactions(); // This will also call renderFinances
     }
 };
 
@@ -626,6 +734,15 @@ function initNavigation() {
                     return;
                 }
                 renderMetrics();
+            } else if (sectionName === 'finances') {
+                // Check access before rendering finances
+                if (!appState.financesAccess?.canAccess) {
+                    showToast("You don't have access to finances yet.", 'info', 3000);
+                    // Redirect to overview
+                    window.switchTab('activity');
+                    return;
+                }
+                loadTransactions(); // This will also call renderFinances
             }
         });
     });
@@ -12946,11 +13063,22 @@ async function loadTeamData() {
         debugLog('📊 Metrics visibility:', appState.metricsVisibility);
         debugLog('📊 Metrics access:', appState.metricsAccess);
         
+        // Compute finances access
+        appState.financesEnabled = getFinancesEnabledSetting(teamData);
+        appState.financesVisibility = getFinancesVisibilitySetting(teamData);
+        appState.financesAccess = userCanViewFinances(teamData, currentAuthUser.uid);
+        debugLog('💰 Finances enabled:', appState.financesEnabled);
+        debugLog('💰 Finances visibility:', appState.financesVisibility);
+        debugLog('💰 Finances access:', appState.financesAccess);
+        
         // Load metrics chart configuration from team settings
         loadMetricsChartConfig(appState.currentTeamId);
         
         // Update nav visibility for metrics
         updateNavVisibilityForMetrics();
+        
+        // Update nav visibility for finances
+        updateNavVisibilityForFinances();
         
         debugLog('✅ Membership verified for team:', appState.currentTeamId);
     } catch (error) {
@@ -16303,6 +16431,16 @@ function updateSettingsVisibility() {
         }
     }
     
+    // Finances settings (owner only)
+    const financesSettingsCard = document.getElementById('financesSettingsCard');
+    if (financesSettingsCard) {
+        financesSettingsCard.style.display = (currentUserRole === 'owner' && hasTeam) ? 'block' : 'none';
+        // Initialize the form with current value
+        if (currentUserRole === 'owner' && hasTeam) {
+            initFinancesVisibilityForm();
+        }
+    }
+    
     // Admin/Owner settings
     const advancedSettingsCard = document.getElementById('settings-chat-appearance-section');
     const animationsSettingsCard = document.getElementById('animationsSettingsCard');
@@ -16433,6 +16571,156 @@ function refreshMetricsAccess() {
     // If user lost access while on metrics tab, redirect them
     if (appState.currentSection === 'metrics' && !appState.metricsAccess.canAccess) {
         showToast("Your access to metrics has been changed.", 'info', 3000);
+        window.switchTab('activity');
+    }
+}
+
+// ===================================
+// FINANCES TAB VISIBILITY SETTINGS
+// ===================================
+
+/**
+ * Initialize the finances visibility form with current settings
+ */
+function initFinancesVisibilityForm() {
+    const form = document.getElementById('financesVisibilityForm');
+    if (!form) return;
+    
+    // Get current settings from appState
+    const isEnabled = appState.financesEnabled || false;
+    const currentVisibility = appState.financesVisibility || 'owner-only';
+    
+    // Set the enabled toggle
+    const enabledToggle = document.getElementById('financesEnabledToggle');
+    if (enabledToggle) {
+        enabledToggle.checked = isEnabled;
+    }
+    
+    // Select the correct radio button
+    const radio = form.querySelector(`input[name="financesVisibility"][value="${currentVisibility}"]`);
+    if (radio) {
+        radio.checked = true;
+    }
+    
+    // Show/hide visibility options based on enabled state
+    const visibilityOptions = document.getElementById('financesVisibilityOptions');
+    if (visibilityOptions) {
+        visibilityOptions.style.display = isEnabled ? 'block' : 'none';
+    }
+    
+    // Add toggle change listener
+    if (enabledToggle) {
+        enabledToggle.removeEventListener('change', handleFinancesEnabledChange);
+        enabledToggle.addEventListener('change', handleFinancesEnabledChange);
+    }
+    
+    // Remove existing listener and add new one
+    form.removeEventListener('submit', handleFinancesVisibilitySave);
+    form.addEventListener('submit', handleFinancesVisibilitySave);
+}
+
+/**
+ * Handle finances enabled toggle change
+ */
+function handleFinancesEnabledChange(event) {
+    const visibilityOptions = document.getElementById('financesVisibilityOptions');
+    if (visibilityOptions) {
+        visibilityOptions.style.display = event.target.checked ? 'block' : 'none';
+    }
+}
+
+/**
+ * Handle finances visibility form submission
+ */
+async function handleFinancesVisibilitySave(event) {
+    event.preventDefault();
+    
+    const form = event.target;
+    const enabledToggle = document.getElementById('financesEnabledToggle');
+    const isEnabled = enabledToggle?.checked || false;
+    const selectedVisibility = form.querySelector('input[name="financesVisibility"]:checked')?.value || 'owner-only';
+    
+    // Check if user is owner
+    const currentUserRole = appState.teammates?.find(t => t.id === currentAuthUser?.uid)?.role;
+    if (currentUserRole !== 'owner') {
+        showToast('Only the team owner can change finances settings', 'error');
+        return;
+    }
+    
+    if (!db || !appState.currentTeamId) {
+        showToast('Unable to save settings. Please try again.', 'error');
+        return;
+    }
+    
+    try {
+        const { doc, updateDoc } = await import('https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js');
+        const teamRef = doc(db, 'teams', appState.currentTeamId);
+        
+        await updateDoc(teamRef, {
+            'settings.financesEnabled': isEnabled,
+            'settings.financesVisibility': selectedVisibility
+        });
+        
+        // Update local state
+        appState.financesEnabled = isEnabled;
+        appState.financesVisibility = selectedVisibility;
+        
+        // Update team data cache
+        if (appState.currentTeamData) {
+            if (!appState.currentTeamData.settings) {
+                appState.currentTeamData.settings = {};
+            }
+            appState.currentTeamData.settings.financesEnabled = isEnabled;
+            appState.currentTeamData.settings.financesVisibility = selectedVisibility;
+        }
+        
+        // Recompute access
+        const newAccess = userCanViewFinances(appState.currentTeamData, currentAuthUser?.uid);
+        appState.financesAccess = newAccess;
+        
+        // Update nav visibility
+        updateNavVisibilityForFinances();
+        
+        // If finances tab is currently active, handle the change
+        if (appState.currentSection === 'finances') {
+            if (newAccess.canAccess) {
+                renderFinances();
+            } else {
+                showToast("Access to finances has changed.", 'info', 3000);
+                window.switchTab('activity');
+            }
+        }
+        
+        showToast('Finances settings saved', 'success');
+        debugLog('💰 Finances settings updated:', { isEnabled, selectedVisibility });
+        
+    } catch (error) {
+        console.error('Error saving finances settings:', error);
+        showToast('Failed to save finances settings', 'error');
+    }
+}
+
+/**
+ * Refresh finances access and nav visibility after team data changes.
+ * Call this after loading team data or when settings change.
+ */
+function refreshFinancesAccess() {
+    if (!appState.currentTeamData || !currentAuthUser) {
+        appState.financesAccess = { canAccess: false, mode: 'none' };
+        appState.financesEnabled = false;
+        appState.financesVisibility = 'owner-only';
+    } else {
+        appState.financesEnabled = getFinancesEnabledSetting(appState.currentTeamData);
+        appState.financesVisibility = getFinancesVisibilitySetting(appState.currentTeamData);
+        appState.financesAccess = userCanViewFinances(appState.currentTeamData, currentAuthUser.uid);
+    }
+    
+    // Update nav visibility
+    updateNavVisibilityForFinances();
+    
+    // If user lost access while on finances tab, redirect them
+    if (appState.currentSection === 'finances' && !appState.financesAccess.canAccess) {
+        showToast("Your access to finances has been changed.", 'info', 3000);
         window.switchTab('activity');
     }
 }
@@ -19359,6 +19647,699 @@ window.toggleLinkExpanded = toggleLinkExpanded;
 window.startEditLinkName = startEditLinkName;
 
 // ===================================
+// FINANCES TAB FUNCTIONALITY
+// ===================================
+
+/**
+ * Transaction data model:
+ * {
+ *   id: string,
+ *   type: 'income' | 'expense',
+ *   amount: number,
+ *   date: timestamp,
+ *   description: string,
+ *   category: string,
+ *   party: string (customer/vendor name),
+ *   isRecurring: boolean,
+ *   frequency: 'monthly' | 'quarterly' | 'yearly' (if recurring),
+ *   notes: string,
+ *   createdBy: string (userId),
+ *   createdAt: timestamp,
+ *   updatedAt: timestamp
+ * }
+ */
+
+// Category definitions
+const FINANCE_CATEGORIES = {
+    income: [
+        { value: 'sales', label: 'Sales' },
+        { value: 'services', label: 'Services' },
+        { value: 'subscriptions', label: 'Subscriptions' },
+        { value: 'consulting', label: 'Consulting' },
+        { value: 'other-income', label: 'Other Income' }
+    ],
+    expense: [
+        { value: 'payroll', label: 'Payroll' },
+        { value: 'software', label: 'Software & Tools' },
+        { value: 'marketing', label: 'Marketing' },
+        { value: 'office', label: 'Office & Equipment' },
+        { value: 'travel', label: 'Travel' },
+        { value: 'utilities', label: 'Utilities' },
+        { value: 'other-expense', label: 'Other Expense' }
+    ]
+};
+
+/**
+ * Initialize finances tab event listeners
+ */
+function initFinances() {
+    // Add Transaction buttons
+    const addTransactionBtn = document.getElementById('addTransactionBtn');
+    const addFirstTransactionBtn = document.getElementById('addFirstTransactionBtn');
+    
+    if (addTransactionBtn) {
+        addTransactionBtn.addEventListener('click', () => openTransactionModal());
+    }
+    if (addFirstTransactionBtn) {
+        addFirstTransactionBtn.addEventListener('click', () => openTransactionModal());
+    }
+    
+    // Modal controls
+    const closeTransactionModal = document.getElementById('closeTransactionModal');
+    const cancelTransactionBtn = document.getElementById('cancelTransactionBtn');
+    
+    if (closeTransactionModal) {
+        closeTransactionModal.addEventListener('click', closeTransactionModalFn);
+    }
+    if (cancelTransactionBtn) {
+        cancelTransactionBtn.addEventListener('click', closeTransactionModalFn);
+    }
+    
+    // Transaction form
+    const transactionForm = document.getElementById('transactionForm');
+    if (transactionForm) {
+        transactionForm.addEventListener('submit', handleTransactionSave);
+    }
+    
+    // Type toggle buttons
+    const typeButtons = document.querySelectorAll('.transaction-type-toggle .type-btn');
+    typeButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+            typeButtons.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            document.getElementById('transactionType').value = btn.dataset.type;
+            
+            // Update party label
+            const partyLabel = document.getElementById('transactionPartyLabel');
+            if (partyLabel) {
+                partyLabel.innerHTML = btn.dataset.type === 'income' 
+                    ? '<i class="fas fa-user"></i> Customer'
+                    : '<i class="fas fa-building"></i> Vendor';
+            }
+        });
+    });
+    
+    // Recurring toggle
+    const recurringToggle = document.getElementById('transactionRecurring');
+    if (recurringToggle) {
+        recurringToggle.addEventListener('change', (e) => {
+            const frequencyField = document.getElementById('recurringFrequencyField');
+            if (frequencyField) {
+                frequencyField.style.display = e.target.checked ? 'block' : 'none';
+            }
+        });
+    }
+    
+    // Delete confirmation modal
+    const closeDeleteTransactionModal = document.getElementById('closeDeleteTransactionModal');
+    const cancelDeleteTransaction = document.getElementById('cancelDeleteTransaction');
+    const confirmDeleteTransaction = document.getElementById('confirmDeleteTransaction');
+    
+    if (closeDeleteTransactionModal) {
+        closeDeleteTransactionModal.addEventListener('click', closeDeleteTransactionModalFn);
+    }
+    if (cancelDeleteTransaction) {
+        cancelDeleteTransaction.addEventListener('click', closeDeleteTransactionModalFn);
+    }
+    if (confirmDeleteTransaction) {
+        confirmDeleteTransaction.addEventListener('click', handleDeleteTransaction);
+    }
+    
+    // Filters
+    const typeFilter = document.getElementById('financesTypeFilter');
+    const categoryFilter = document.getElementById('financesCategoryFilter');
+    const dateFilter = document.getElementById('financesDateFilter');
+    const searchInput = document.getElementById('financesSearchInput');
+    
+    if (typeFilter) {
+        typeFilter.addEventListener('change', applyFinancesFilters);
+    }
+    if (categoryFilter) {
+        categoryFilter.addEventListener('change', applyFinancesFilters);
+    }
+    if (dateFilter) {
+        dateFilter.addEventListener('change', applyFinancesFilters);
+    }
+    if (searchInput) {
+        searchInput.addEventListener('input', debounce(applyFinancesFilters, 300));
+    }
+    
+    // Close modal on background click
+    const transactionModal = document.getElementById('transactionModal');
+    if (transactionModal) {
+        transactionModal.addEventListener('click', (e) => {
+            if (e.target === transactionModal) {
+                closeTransactionModalFn();
+            }
+        });
+    }
+}
+
+/**
+ * Open transaction modal for adding or editing
+ */
+function openTransactionModal(transaction = null) {
+    const modal = document.getElementById('transactionModal');
+    const form = document.getElementById('transactionForm');
+    const title = document.getElementById('transactionModalTitle');
+    const subtitle = document.getElementById('transactionModalSubtitle');
+    
+    if (!modal || !form) return;
+    
+    // Reset form
+    form.reset();
+    document.getElementById('transactionId').value = '';
+    document.getElementById('transactionType').value = 'income';
+    
+    // Reset type buttons
+    const typeButtons = document.querySelectorAll('.transaction-type-toggle .type-btn');
+    typeButtons.forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.type === 'income');
+    });
+    
+    // Reset recurring field
+    const frequencyField = document.getElementById('recurringFrequencyField');
+    if (frequencyField) {
+        frequencyField.style.display = 'none';
+    }
+    
+    // Set default date to today
+    const dateInput = document.getElementById('transactionDate');
+    if (dateInput) {
+        dateInput.value = new Date().toISOString().split('T')[0];
+    }
+    
+    // Update party label
+    const partyLabel = document.getElementById('transactionPartyLabel');
+    if (partyLabel) {
+        partyLabel.innerHTML = '<i class="fas fa-user"></i> Customer';
+    }
+    
+    if (transaction) {
+        // Edit mode
+        title.innerHTML = '<i class="fas fa-edit"></i> Edit Transaction';
+        subtitle.textContent = 'Update transaction details';
+        
+        // Fill form with transaction data
+        document.getElementById('transactionId').value = transaction.id;
+        document.getElementById('transactionType').value = transaction.type;
+        document.getElementById('transactionAmount').value = transaction.amount;
+        document.getElementById('transactionDate').value = transaction.date?.toDate?.()?.toISOString().split('T')[0] || transaction.date;
+        document.getElementById('transactionDescription').value = transaction.description || '';
+        document.getElementById('transactionCategory').value = transaction.category || '';
+        document.getElementById('transactionParty').value = transaction.party || '';
+        document.getElementById('transactionRecurring').checked = transaction.isRecurring || false;
+        document.getElementById('transactionFrequency').value = transaction.frequency || 'monthly';
+        document.getElementById('transactionNotes').value = transaction.notes || '';
+        
+        // Update type buttons
+        typeButtons.forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.type === transaction.type);
+        });
+        
+        // Show frequency field if recurring
+        if (transaction.isRecurring && frequencyField) {
+            frequencyField.style.display = 'block';
+        }
+        
+        // Update party label
+        if (partyLabel) {
+            partyLabel.innerHTML = transaction.type === 'income'
+                ? '<i class="fas fa-user"></i> Customer'
+                : '<i class="fas fa-building"></i> Vendor';
+        }
+    } else {
+        // Add mode
+        title.innerHTML = '<i class="fas fa-plus-circle"></i> New Transaction';
+        subtitle.textContent = 'Record a financial transaction';
+    }
+    
+    modal.classList.add('active');
+}
+
+/**
+ * Close transaction modal
+ */
+function closeTransactionModalFn() {
+    const modal = document.getElementById('transactionModal');
+    if (modal) {
+        modal.classList.remove('active');
+    }
+}
+
+/**
+ * Handle transaction form submission
+ */
+async function handleTransactionSave(event) {
+    event.preventDefault();
+    
+    if (!db || !appState.currentTeamId || !currentAuthUser) {
+        showToast('Unable to save transaction. Please try again.', 'error');
+        return;
+    }
+    
+    const transactionId = document.getElementById('transactionId').value;
+    const isEdit = !!transactionId;
+    
+    // Get form values
+    const transactionData = {
+        type: document.getElementById('transactionType').value,
+        amount: parseFloat(document.getElementById('transactionAmount').value) || 0,
+        date: new Date(document.getElementById('transactionDate').value),
+        description: document.getElementById('transactionDescription').value.trim(),
+        category: document.getElementById('transactionCategory').value,
+        party: document.getElementById('transactionParty').value.trim(),
+        isRecurring: document.getElementById('transactionRecurring').checked,
+        frequency: document.getElementById('transactionFrequency').value,
+        notes: document.getElementById('transactionNotes').value.trim(),
+        updatedAt: new Date()
+    };
+    
+    // Validate
+    if (!transactionData.description) {
+        showToast('Please enter a description', 'error');
+        return;
+    }
+    if (transactionData.amount <= 0) {
+        showToast('Please enter a valid amount', 'error');
+        return;
+    }
+    
+    try {
+        const { doc, collection, addDoc, updateDoc, serverTimestamp } = await import('https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js');
+        
+        if (isEdit) {
+            // Update existing transaction
+            const transactionRef = doc(db, 'teams', appState.currentTeamId, 'transactions', transactionId);
+            await updateDoc(transactionRef, {
+                ...transactionData,
+                updatedAt: serverTimestamp()
+            });
+            showToast('Transaction updated successfully', 'success');
+        } else {
+            // Add new transaction
+            const transactionsRef = collection(db, 'teams', appState.currentTeamId, 'transactions');
+            await addDoc(transactionsRef, {
+                ...transactionData,
+                createdBy: currentAuthUser.uid,
+                createdAt: serverTimestamp(),
+                updatedAt: serverTimestamp()
+            });
+            showToast('Transaction added successfully', 'success');
+        }
+        
+        closeTransactionModalFn();
+        loadTransactions(); // Refresh the list
+        
+    } catch (error) {
+        console.error('Error saving transaction:', error);
+        showToast('Failed to save transaction', 'error');
+    }
+}
+
+/**
+ * Open delete transaction confirmation modal
+ */
+function openDeleteTransactionModal(transactionId) {
+    const modal = document.getElementById('deleteTransactionModal');
+    const idInput = document.getElementById('deleteTransactionId');
+    
+    if (modal && idInput) {
+        idInput.value = transactionId;
+        modal.classList.add('active');
+    }
+}
+
+/**
+ * Close delete transaction modal
+ */
+function closeDeleteTransactionModalFn() {
+    const modal = document.getElementById('deleteTransactionModal');
+    if (modal) {
+        modal.classList.remove('active');
+    }
+}
+
+/**
+ * Handle transaction deletion
+ */
+async function handleDeleteTransaction() {
+    const transactionId = document.getElementById('deleteTransactionId').value;
+    
+    if (!db || !appState.currentTeamId || !transactionId) {
+        showToast('Unable to delete transaction', 'error');
+        return;
+    }
+    
+    try {
+        const { doc, deleteDoc } = await import('https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js');
+        const transactionRef = doc(db, 'teams', appState.currentTeamId, 'transactions', transactionId);
+        await deleteDoc(transactionRef);
+        
+        showToast('Transaction deleted', 'success');
+        closeDeleteTransactionModalFn();
+        loadTransactions();
+        
+    } catch (error) {
+        console.error('Error deleting transaction:', error);
+        showToast('Failed to delete transaction', 'error');
+    }
+}
+
+/**
+ * Load transactions from Firestore
+ */
+async function loadTransactions() {
+    if (!db || !appState.currentTeamId) {
+        appState.transactions = [];
+        return;
+    }
+    
+    try {
+        const { collection, query, orderBy, getDocs } = await import('https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js');
+        const transactionsRef = collection(db, 'teams', appState.currentTeamId, 'transactions');
+        const q = query(transactionsRef, orderBy('date', 'desc'));
+        const snapshot = await getDocs(q);
+        
+        appState.transactions = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+        }));
+        
+        debugLog('💰 Loaded transactions:', appState.transactions.length);
+        renderFinances();
+        
+    } catch (error) {
+        console.error('Error loading transactions:', error);
+        appState.transactions = [];
+    }
+}
+
+/**
+ * Apply filters and render finances
+ */
+function applyFinancesFilters() {
+    const typeFilter = document.getElementById('financesTypeFilter')?.value || 'all';
+    const categoryFilter = document.getElementById('financesCategoryFilter')?.value || 'all';
+    const dateFilter = document.getElementById('financesDateFilter')?.value || 'all';
+    const searchFilter = document.getElementById('financesSearchInput')?.value?.toLowerCase() || '';
+    
+    appState.financesFilters = { type: typeFilter, category: categoryFilter, date: dateFilter, search: searchFilter };
+    renderFinances();
+}
+
+/**
+ * Filter transactions based on current filters
+ */
+function getFilteredTransactions() {
+    const { type, category, date, search } = appState.financesFilters;
+    const now = new Date();
+    
+    return appState.transactions.filter(t => {
+        // Type filter
+        if (type !== 'all' && t.type !== type) return false;
+        
+        // Category filter
+        if (category !== 'all' && t.category !== category) return false;
+        
+        // Date filter
+        const transactionDate = t.date?.toDate?.() || new Date(t.date);
+        if (date !== 'all') {
+            const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+            const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+            const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0);
+            const startOfQuarter = new Date(now.getFullYear(), Math.floor(now.getMonth() / 3) * 3, 1);
+            const startOfYear = new Date(now.getFullYear(), 0, 1);
+            
+            switch (date) {
+                case 'thisMonth':
+                    if (transactionDate < startOfMonth) return false;
+                    break;
+                case 'lastMonth':
+                    if (transactionDate < startOfLastMonth || transactionDate > endOfLastMonth) return false;
+                    break;
+                case 'thisQuarter':
+                    if (transactionDate < startOfQuarter) return false;
+                    break;
+                case 'thisYear':
+                case 'ytd':
+                    if (transactionDate < startOfYear) return false;
+                    break;
+            }
+        }
+        
+        // Search filter
+        if (search) {
+            const searchableText = `${t.description} ${t.party} ${t.category} ${t.notes}`.toLowerCase();
+            if (!searchableText.includes(search)) return false;
+        }
+        
+        return true;
+    });
+}
+
+/**
+ * Calculate finance metrics from transactions
+ */
+function calculateFinanceMetrics(transactions = appState.transactions) {
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const startOfYear = new Date(now.getFullYear(), 0, 1);
+    
+    let totalIncome = 0;
+    let totalExpenses = 0;
+    let mrr = 0;
+    let ytdIncome = 0;
+    let ytdExpenses = 0;
+    const customerTotals = {};
+    
+    transactions.forEach(t => {
+        const amount = t.amount || 0;
+        const transactionDate = t.date?.toDate?.() || new Date(t.date);
+        
+        if (t.type === 'income') {
+            totalIncome += amount;
+            
+            // Track customer totals
+            if (t.party) {
+                customerTotals[t.party] = (customerTotals[t.party] || 0) + amount;
+            }
+            
+            // YTD income
+            if (transactionDate >= startOfYear) {
+                ytdIncome += amount;
+            }
+            
+            // MRR calculation - recurring monthly income
+            if (t.isRecurring) {
+                switch (t.frequency) {
+                    case 'monthly':
+                        mrr += amount;
+                        break;
+                    case 'quarterly':
+                        mrr += amount / 3;
+                        break;
+                    case 'yearly':
+                        mrr += amount / 12;
+                        break;
+                }
+            }
+        } else {
+            totalExpenses += amount;
+            
+            // YTD expenses
+            if (transactionDate >= startOfYear) {
+                ytdExpenses += amount;
+            }
+        }
+    });
+    
+    // Find main customer (highest total)
+    let mainCustomer = null;
+    let maxTotal = 0;
+    for (const [customer, total] of Object.entries(customerTotals)) {
+        if (total > maxTotal) {
+            maxTotal = total;
+            mainCustomer = customer;
+        }
+    }
+    
+    return {
+        totalIncome,
+        totalExpenses,
+        netBalance: totalIncome - totalExpenses,
+        mrr,
+        ytdIncome,
+        ytdExpenses,
+        ytdNet: ytdIncome - ytdExpenses,
+        mainCustomer,
+        mainCustomerTotal: maxTotal
+    };
+}
+
+/**
+ * Format currency amount
+ */
+function formatCurrency(amount) {
+    return new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: 'USD',
+        minimumFractionDigits: 2
+    }).format(amount || 0);
+}
+
+/**
+ * Get category label from value
+ */
+function getCategoryLabel(value) {
+    const allCategories = [...FINANCE_CATEGORIES.income, ...FINANCE_CATEGORIES.expense];
+    const cat = allCategories.find(c => c.value === value);
+    return cat?.label || value || 'Uncategorized';
+}
+
+/**
+ * Render the finances section
+ */
+function renderFinances() {
+    const filteredTransactions = getFilteredTransactions();
+    const metrics = calculateFinanceMetrics(appState.transactions); // Use all for summary
+    
+    // Update summary cards
+    const totalIncomeEl = document.getElementById('totalIncomeValue');
+    const totalExpensesEl = document.getElementById('totalExpensesValue');
+    const netBalanceEl = document.getElementById('netBalanceValue');
+    const mrrEl = document.getElementById('mrrValue');
+    
+    if (totalIncomeEl) totalIncomeEl.textContent = formatCurrency(metrics.totalIncome);
+    if (totalExpensesEl) totalExpensesEl.textContent = formatCurrency(metrics.totalExpenses);
+    if (netBalanceEl) {
+        netBalanceEl.textContent = formatCurrency(metrics.netBalance);
+        netBalanceEl.style.color = metrics.netBalance >= 0 ? '#22c55e' : '#ef4444';
+    }
+    if (mrrEl) mrrEl.textContent = formatCurrency(metrics.mrr);
+    
+    // Update category filter options
+    updateCategoryFilterOptions();
+    
+    // Render transactions list
+    const transactionsList = document.getElementById('transactionsList');
+    const placeholder = document.getElementById('financesPlaceholder');
+    
+    if (!transactionsList) return;
+    
+    if (filteredTransactions.length === 0) {
+        transactionsList.innerHTML = '';
+        if (placeholder) {
+            placeholder.style.display = 'flex';
+            // Update placeholder message based on whether we have any transactions
+            const hasAnyTransactions = appState.transactions.length > 0;
+            placeholder.querySelector('h3').textContent = hasAnyTransactions ? 'No Matching Transactions' : 'No Transactions Yet';
+            placeholder.querySelector('p').textContent = hasAnyTransactions 
+                ? 'Try adjusting your filters to see more results.'
+                : 'Start tracking your finances by adding your first transaction.';
+            placeholder.querySelector('button').style.display = hasAnyTransactions ? 'none' : 'inline-flex';
+        }
+        return;
+    }
+    
+    if (placeholder) placeholder.style.display = 'none';
+    
+    transactionsList.innerHTML = filteredTransactions.map(t => {
+        const transactionDate = t.date?.toDate?.() || new Date(t.date);
+        const dateStr = transactionDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        
+        return `
+            <div class="transaction-item" data-id="${t.id}">
+                <div class="transaction-type-icon ${t.type}">
+                    <i class="fas fa-arrow-${t.type === 'income' ? 'up' : 'down'}"></i>
+                </div>
+                <div class="transaction-info">
+                    <div class="transaction-description">${escapeHtml(t.description)}</div>
+                    <div class="transaction-meta">
+                        <span><i class="fas fa-calendar"></i> ${dateStr}</span>
+                        ${t.party ? `<span><i class="fas fa-${t.type === 'income' ? 'user' : 'building'}"></i> ${escapeHtml(t.party)}</span>` : ''}
+                        ${t.isRecurring ? `<span class="transaction-recurring-badge"><i class="fas fa-sync-alt"></i> ${t.frequency}</span>` : ''}
+                    </div>
+                </div>
+                ${t.category ? `<span class="transaction-category">${getCategoryLabel(t.category)}</span>` : ''}
+                <span class="transaction-amount ${t.type}">${t.type === 'income' ? '+' : '-'}${formatCurrency(t.amount)}</span>
+                <div class="transaction-actions">
+                    <button class="transaction-action-btn edit" onclick="editTransaction('${t.id}')" title="Edit">
+                        <i class="fas fa-pen"></i>
+                    </button>
+                    <button class="transaction-action-btn delete" onclick="openDeleteTransactionModal('${t.id}')" title="Delete">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+/**
+ * Update category filter options based on transaction types
+ */
+function updateCategoryFilterOptions() {
+    const categoryFilter = document.getElementById('financesCategoryFilter');
+    if (!categoryFilter) return;
+    
+    const typeFilter = document.getElementById('financesTypeFilter')?.value || 'all';
+    const currentValue = categoryFilter.value;
+    
+    categoryFilter.innerHTML = '<option value="all">All Categories</option>';
+    
+    if (typeFilter === 'all' || typeFilter === 'income') {
+        const incomeGroup = document.createElement('optgroup');
+        incomeGroup.label = 'Income';
+        FINANCE_CATEGORIES.income.forEach(cat => {
+            const option = document.createElement('option');
+            option.value = cat.value;
+            option.textContent = cat.label;
+            incomeGroup.appendChild(option);
+        });
+        categoryFilter.appendChild(incomeGroup);
+    }
+    
+    if (typeFilter === 'all' || typeFilter === 'expense') {
+        const expenseGroup = document.createElement('optgroup');
+        expenseGroup.label = 'Expense';
+        FINANCE_CATEGORIES.expense.forEach(cat => {
+            const option = document.createElement('option');
+            option.value = cat.value;
+            option.textContent = cat.label;
+            expenseGroup.appendChild(option);
+        });
+        categoryFilter.appendChild(expenseGroup);
+    }
+    
+    // Restore previous selection if still valid
+    if (currentValue && categoryFilter.querySelector(`option[value="${currentValue}"]`)) {
+        categoryFilter.value = currentValue;
+    }
+}
+
+/**
+ * Edit transaction
+ */
+function editTransaction(transactionId) {
+    const transaction = appState.transactions.find(t => t.id === transactionId);
+    if (transaction) {
+        openTransactionModal(transaction);
+    }
+}
+
+/**
+ * Get finance data for metrics integration
+ */
+function getFinanceMetricsData() {
+    return calculateFinanceMetrics(appState.transactions);
+}
+
+// Expose functions to window for inline onclick handlers
+window.editTransaction = editTransaction;
+window.openDeleteTransactionModal = openDeleteTransactionModal;
+
+// ===================================
 // INITIALIZATION
 // ===================================
 document.addEventListener('DOMContentLoaded', async () => {
@@ -19390,6 +20371,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     initSettings();
     initJoinTeamModal(); // Initialize join team modal
     initLinkLobby(); // Initialize Link Lobby
+    initFinances(); // Initialize Finances tab
     startActivityRefreshTimer(); // Start periodic refresh of activity times
     
     console.log('TeamHub App Ready!');

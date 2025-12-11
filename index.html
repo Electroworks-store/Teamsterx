@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Teamster - Internal Collaboration Platform</title>
-    <link rel="stylesheet" href="styles.css?v=31">
+    <link rel="stylesheet" href="styles.css?v=32">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Apply dark mode immediately to prevent flash -->
     <script>
@@ -57,6 +57,10 @@
                 <button class="nav-item hidden" data-section="metrics" id="metricsNavItem" style="display: none;">
                     <i class="fas fa-chart-line"></i>
                     <span>Metrics</span>
+                </button>
+                <button class="nav-item hidden" data-section="finances" id="financesNavItem" style="display: none;">
+                    <i class="fas fa-dollar-sign"></i>
+                    <span>Finances</span>
                 </button>
                 <button class="nav-item" data-section="settings">
                     <i class="fas fa-cog"></i>
@@ -617,6 +621,104 @@
                 </div>
             </section>
 
+            <!-- Finances Section -->
+            <section class="content-section" id="finances-section">
+                <div class="section-header">
+                    <div>
+                        <h1>Finances</h1>
+                        <p class="section-subtitle">Track revenue, expenses, and financial metrics.</p>
+                    </div>
+                    <div class="section-header-actions">
+                        <button class="btn-primary" id="addTransactionBtn">
+                            <i class="fas fa-plus"></i> Add Transaction
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Finances Summary Cards -->
+                <div class="finances-summary" id="financesSummary">
+                    <div class="finance-card summary-card">
+                        <div class="finance-card-icon income">
+                            <i class="fas fa-arrow-up"></i>
+                        </div>
+                        <div class="finance-card-content">
+                            <span class="finance-card-label">Total Income</span>
+                            <span class="finance-card-value" id="totalIncomeValue">$0.00</span>
+                        </div>
+                    </div>
+                    <div class="finance-card summary-card">
+                        <div class="finance-card-icon expense">
+                            <i class="fas fa-arrow-down"></i>
+                        </div>
+                        <div class="finance-card-content">
+                            <span class="finance-card-label">Total Expenses</span>
+                            <span class="finance-card-value" id="totalExpensesValue">$0.00</span>
+                        </div>
+                    </div>
+                    <div class="finance-card summary-card">
+                        <div class="finance-card-icon net">
+                            <i class="fas fa-balance-scale"></i>
+                        </div>
+                        <div class="finance-card-content">
+                            <span class="finance-card-label">Net Balance</span>
+                            <span class="finance-card-value" id="netBalanceValue">$0.00</span>
+                        </div>
+                    </div>
+                    <div class="finance-card summary-card">
+                        <div class="finance-card-icon mrr">
+                            <i class="fas fa-sync-alt"></i>
+                        </div>
+                        <div class="finance-card-content">
+                            <span class="finance-card-label">MRR</span>
+                            <span class="finance-card-value" id="mrrValue">$0.00</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Finances Filters -->
+                <div class="finances-filters" id="financesFilters">
+                    <div class="filter-group">
+                        <select id="financesTypeFilter" class="filter-select">
+                            <option value="all">All Types</option>
+                            <option value="income">Income</option>
+                            <option value="expense">Expenses</option>
+                        </select>
+                        <select id="financesCategoryFilter" class="filter-select">
+                            <option value="all">All Categories</option>
+                        </select>
+                        <select id="financesDateFilter" class="filter-select">
+                            <option value="all">All Time</option>
+                            <option value="thisMonth">This Month</option>
+                            <option value="lastMonth">Last Month</option>
+                            <option value="thisQuarter">This Quarter</option>
+                            <option value="thisYear">This Year</option>
+                            <option value="ytd">Year to Date</option>
+                        </select>
+                    </div>
+                    <div class="filter-search">
+                        <i class="fas fa-search"></i>
+                        <input type="text" id="financesSearchInput" placeholder="Search transactions...">
+                    </div>
+                </div>
+
+                <!-- Transactions List -->
+                <div class="finances-content" id="financesContent">
+                    <div class="transactions-list" id="transactionsList">
+                        <!-- Transactions will be rendered here by JS -->
+                    </div>
+                    <div class="finances-placeholder-state" id="financesPlaceholder">
+                        <div class="finances-placeholder-icon">
+                            <i class="fas fa-dollar-sign"></i>
+                        </div>
+                        <h3>No Transactions Yet</h3>
+                        <p>Start tracking your finances by adding your first transaction.</p>
+                        <button class="btn-primary" id="addFirstTransactionBtn">
+                            <i class="fas fa-plus"></i> Add First Transaction
+                        </button>
+                    </div>
+                </div>
+            </section>
+
             <!-- Settings Section -->
             <section class="content-section" id="settings-section">
                 <div class="section-header">
@@ -1072,6 +1174,63 @@
                                 <div class="form-actions" style="margin-top: 16px;">
                                     <button type="submit" class="btn-primary">
                                         <i class="fas fa-save"></i> Save Metrics Settings
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+
+                    <!-- Finances Tab Visibility Card (Owner Only) -->
+                    <div class="settings-card" id="financesSettingsCard" style="margin-top: 20px; display: none;">
+                        <div class="settings-card-header">
+                            <h2><i class="fas fa-dollar-sign"></i> Finances Tab</h2>
+                            <p>Control who can see financial data for this team (Owner only)</p>
+                        </div>
+                        <div class="settings-card-body">
+                            <form id="financesVisibilityForm" class="settings-form">
+                                <div class="form-group">
+                                    <label>
+                                        <i class="fas fa-toggle-on"></i> Enable Finances Tab
+                                    </label>
+                                    <div class="toggle-switch-wrapper" style="margin-bottom: 16px;">
+                                        <label class="toggle-switch">
+                                            <input type="checkbox" name="financesEnabled" id="financesEnabledToggle">
+                                            <span class="toggle-slider"></span>
+                                        </label>
+                                        <span class="toggle-label">Show Finances tab in navigation</span>
+                                    </div>
+                                </div>
+                                <div class="form-group" id="financesVisibilityOptions">
+                                    <label>
+                                        <i class="fas fa-eye"></i> Who can see finances?
+                                    </label>
+                                    <div class="radio-group-vertical">
+                                        <label class="radio-option">
+                                            <input type="radio" name="financesVisibility" value="owner-only">
+                                            <div class="radio-option-content">
+                                                <span class="radio-option-title">Owner only</span>
+                                                <span class="radio-option-desc">Only you can see financial data</span>
+                                            </div>
+                                        </label>
+                                        <label class="radio-option">
+                                            <input type="radio" name="financesVisibility" value="admin-owner">
+                                            <div class="radio-option-content">
+                                                <span class="radio-option-title">Owner & Admins</span>
+                                                <span class="radio-option-desc">Owner and team admins can see all financial data</span>
+                                            </div>
+                                        </label>
+                                        <label class="radio-option">
+                                            <input type="radio" name="financesVisibility" value="everyone">
+                                            <div class="radio-option-content">
+                                                <span class="radio-option-title">Everyone</span>
+                                                <span class="radio-option-desc">All team members can see financial data</span>
+                                            </div>
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="form-actions" style="margin-top: 16px;">
+                                    <button type="submit" class="btn-primary">
+                                        <i class="fas fa-save"></i> Save Finances Settings
                                     </button>
                                 </div>
                             </form>
@@ -2380,10 +2539,183 @@
         </div>
     </div>
 
+    <!-- Transaction Modal for Finances -->
+    <div class="unified-modal" id="transactionModal">
+        <div class="unified-modal-container modal-form">
+            <div class="unified-modal-header">
+                <div class="unified-modal-title">
+                    <h2 id="transactionModalTitle"><i class="fas fa-plus-circle"></i> New Transaction</h2>
+                    <p class="subtitle" id="transactionModalSubtitle">Record a financial transaction</p>
+                </div>
+                <button class="unified-modal-close" id="closeTransactionModal">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            
+            <form id="transactionForm">
+                <div class="unified-modal-body">
+                    <div class="unified-form-grid">
+                        <!-- Transaction Type -->
+                        <div class="unified-form-field full-width">
+                            <label class="unified-form-label">
+                                Type <span class="required">*</span>
+                            </label>
+                            <div class="transaction-type-toggle">
+                                <button type="button" class="type-btn active" data-type="income">
+                                    <i class="fas fa-arrow-up"></i> Income
+                                </button>
+                                <button type="button" class="type-btn" data-type="expense">
+                                    <i class="fas fa-arrow-down"></i> Expense
+                                </button>
+                            </div>
+                            <input type="hidden" id="transactionType" name="transactionType" value="income">
+                        </div>
+
+                        <!-- Amount -->
+                        <div class="unified-form-field">
+                            <label class="unified-form-label">
+                                Amount <span class="required">*</span>
+                            </label>
+                            <div class="amount-input-wrapper">
+                                <span class="currency-symbol">$</span>
+                                <input type="number" class="unified-input amount-input" id="transactionAmount" 
+                                       required min="0.01" step="0.01" placeholder="0.00">
+                            </div>
+                        </div>
+
+                        <!-- Date -->
+                        <div class="unified-form-field">
+                            <label class="unified-form-label">
+                                <i class="fas fa-calendar"></i> Date <span class="required">*</span>
+                            </label>
+                            <input type="date" class="unified-input" id="transactionDate" required>
+                        </div>
+
+                        <!-- Description -->
+                        <div class="unified-form-field full-width">
+                            <label class="unified-form-label">
+                                Description <span class="required">*</span>
+                            </label>
+                            <input type="text" class="unified-input" id="transactionDescription" 
+                                   required placeholder="e.g., Client payment, Office supplies">
+                        </div>
+
+                        <!-- Category -->
+                        <div class="unified-form-field">
+                            <label class="unified-form-label">
+                                <i class="fas fa-tag"></i> Category
+                            </label>
+                            <select class="unified-input" id="transactionCategory">
+                                <option value="">Select category...</option>
+                                <optgroup label="Income" id="incomeCategoryGroup">
+                                    <option value="sales">Sales</option>
+                                    <option value="services">Services</option>
+                                    <option value="subscriptions">Subscriptions</option>
+                                    <option value="consulting">Consulting</option>
+                                    <option value="other-income">Other Income</option>
+                                </optgroup>
+                                <optgroup label="Expense" id="expenseCategoryGroup">
+                                    <option value="payroll">Payroll</option>
+                                    <option value="software">Software & Tools</option>
+                                    <option value="marketing">Marketing</option>
+                                    <option value="office">Office & Equipment</option>
+                                    <option value="travel">Travel</option>
+                                    <option value="utilities">Utilities</option>
+                                    <option value="other-expense">Other Expense</option>
+                                </optgroup>
+                            </select>
+                        </div>
+
+                        <!-- Customer/Vendor (Optional) -->
+                        <div class="unified-form-field">
+                            <label class="unified-form-label" id="transactionPartyLabel">
+                                <i class="fas fa-user"></i> Customer
+                            </label>
+                            <input type="text" class="unified-input" id="transactionParty" 
+                                   placeholder="Customer or vendor name">
+                        </div>
+
+                        <!-- Recurring Toggle -->
+                        <div class="unified-form-field full-width">
+                            <label class="unified-form-label">
+                                <i class="fas fa-sync-alt"></i> Recurring
+                            </label>
+                            <div class="toggle-switch-wrapper">
+                                <label class="toggle-switch">
+                                    <input type="checkbox" name="transactionRecurring" id="transactionRecurring">
+                                    <span class="toggle-slider"></span>
+                                </label>
+                                <span class="toggle-label">This is a recurring transaction (counts toward MRR)</span>
+                            </div>
+                        </div>
+
+                        <!-- Recurring Frequency (shown when recurring is checked) -->
+                        <div class="unified-form-field" id="recurringFrequencyField" style="display: none;">
+                            <label class="unified-form-label">
+                                <i class="fas fa-clock"></i> Frequency
+                            </label>
+                            <select class="unified-input" id="transactionFrequency">
+                                <option value="monthly">Monthly</option>
+                                <option value="quarterly">Quarterly</option>
+                                <option value="yearly">Yearly</option>
+                            </select>
+                        </div>
+
+                        <!-- Notes -->
+                        <div class="unified-form-field full-width">
+                            <label class="unified-form-label">
+                                Notes <span class="optional">(optional)</span>
+                            </label>
+                            <textarea class="unified-textarea" id="transactionNotes" rows="2" 
+                                      placeholder="Additional notes or details..."></textarea>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="unified-modal-footer">
+                    <button type="button" class="btn-secondary" id="cancelTransactionBtn">Cancel</button>
+                    <button type="submit" class="btn-primary" id="saveTransactionBtn">
+                        <i class="fas fa-save"></i> Save Transaction
+                    </button>
+                </div>
+                <input type="hidden" id="transactionId" value="">
+            </form>
+        </div>
+    </div>
+
+    <!-- Delete Transaction Confirmation Modal -->
+    <div class="unified-modal" id="deleteTransactionModal">
+        <div class="unified-modal-container modal-sm">
+            <div class="unified-modal-header">
+                <div class="unified-modal-title">
+                    <h2><i class="fas fa-trash-alt"></i> Delete Transaction</h2>
+                </div>
+                <button class="unified-modal-close" id="closeDeleteTransactionModal">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="unified-modal-body">
+                <div class="unified-confirm-box warning">
+                    <div class="unified-confirm-icon">
+                        <i class="fas fa-exclamation-triangle"></i>
+                    </div>
+                    <p>Are you sure you want to delete this transaction? This action cannot be undone.</p>
+                </div>
+            </div>
+            <div class="unified-modal-footer">
+                <button type="button" class="btn-secondary" id="cancelDeleteTransaction">Cancel</button>
+                <button type="button" class="btn-danger" id="confirmDeleteTransaction">
+                    <i class="fas fa-trash"></i> Delete
+                </button>
+            </div>
+            <input type="hidden" id="deleteTransactionId" value="">
+        </div>
+    </div>
+
     <!-- Toast Notification Container -->
     <div id="toastContainer"></div>
 
     <!-- Main JavaScript -->
-    <script src="main.js?v=31"></script>
+    <script src="main.js?v=32"></script>
 </body>
 </html>
