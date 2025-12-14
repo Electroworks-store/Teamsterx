@@ -2503,7 +2503,7 @@ function renderWeekView(titleEl, daysEl) {
     titleEl.textContent = `${startOfWeek.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })} - ${endOfWeek.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}`;
     
     // Constants for positioning
-    const HEADER_HEIGHT = 56;
+    const HEADER_HEIGHT = 64;
     const SLOT_HEIGHT = 48;
     const START_HOUR = 8;
     const END_HOUR = 18;
@@ -2955,7 +2955,10 @@ function initTasks() {
         card.className = 'spreadsheet-card';
         card.dataset.spreadsheetId = spreadsheet.id;
 
-        // Count tasks in this spreadsheet (filtered by spreadsheetId)
+        // Determine if this is a leads table
+        const isLeadsTable = spreadsheet.type === 'leads';
+
+        // Count tasks/leads in this spreadsheet
         const spreadsheetTasks = getTasksForSpreadsheet(spreadsheet);
         const taskCount = spreadsheetTasks.length;
         const completedCount = spreadsheetTasks.filter(t => t.status === 'done').length;
@@ -2965,6 +2968,21 @@ function initTasks() {
         const isPrivate = spreadsheet.visibility === 'private';
         const privateTag = isPrivate ? '<span class="spreadsheet-private-tag"><i class="fas fa-lock"></i> Private</span>' : '';
 
+        // Different metrics for leads vs tasks
+        let metaHtml;
+        if (isLeadsTable) {
+            const wonCount = spreadsheetTasks.filter(t => t.status === 'won').length;
+            metaHtml = `
+                <span><i class="fas fa-user-tie"></i> ${taskCount} leads</span>
+                <span><i class="fas fa-trophy"></i> ${wonCount} won</span>
+            `;
+        } else {
+            metaHtml = `
+                <span><i class="fas fa-tasks"></i> ${taskCount} tasks</span>
+                <span><i class="fas fa-check-circle"></i> ${completedCount} done</span>
+            `;
+        }
+
         card.innerHTML = `
             <button class="spreadsheet-card-menu-btn" title="More options">
                 <i class="fas fa-ellipsis-v"></i>
@@ -2973,15 +2991,14 @@ function initTasks() {
                 <div class="spreadsheet-card-icon" style="background: ${spreadsheet.color}15; color: ${spreadsheet.color};">
                     <i class="fas ${spreadsheet.icon || 'fa-table'}"></i>
                 </div>
-                ${privateTag}
             </div>
             <div class="spreadsheet-card-content">
                 <h4 class="spreadsheet-card-title">${escapeHtml(spreadsheet.name)}</h4>
                 <div class="spreadsheet-card-meta">
-                    <span><i class="fas fa-tasks"></i> ${taskCount} tasks</span>
-                    <span><i class="fas fa-check-circle"></i> ${completedCount} done</span>
+                    ${metaHtml}
                 </div>
             </div>
+            ${privateTag}
             <div class="spreadsheet-card-progress">
                 <div class="spreadsheet-card-progress-fill" style="width: ${progressPercent}%;"></div>
             </div>
@@ -8121,12 +8138,13 @@ const CUSTOM_METRICS_CATALOG = {
         icon: 'fa-user-plus',
         color: '',
         getValue: () => {
-            // Use leads from appState if available
-            const leadCount = appState.leads?.length || 0;
+            // Always pull from Leads sheets
+            const allLeads = getAllLeadsFromTables();
+            const leadCount = allLeads.length;
             return {
                 value: leadCount.toLocaleString(),
                 subtitle: leadCount === 0 ? 'No leads yet' : `${leadCount} in pipeline`,
-                tooltip: 'Total leads in your pipeline'
+                tooltip: 'Total leads from Leads sheets'
             };
         },
         hasChart: false
@@ -8138,9 +8156,28 @@ const CUSTOM_METRICS_CATALOG = {
         icon: 'fa-percentage',
         color: 'success',
         getValue: () => {
-            const leadCount = appState.leads?.length || 0;
+            const allLeads = getAllLeadsFromTables();
+            const leadCount = allLeads.length;
             const customerCount = getUniqueCustomerCount();
-            const rate = leadCount > 0 ? ((customerCount / leadCount) * 100).toFixed(1) : 0;
+            
+            // Handle edge cases logically
+            if (leadCount === 0 && customerCount === 0) {
+                return {
+                    value: '—',
+                    subtitle: 'No leads or customers yet',
+                    tooltip: 'Add leads to track conversion'
+                };
+            }
+            
+            if (leadCount === 0 && customerCount > 0) {
+                return {
+                    value: '—',
+                    subtitle: `${customerCount} customers (no leads tracked)`,
+                    tooltip: 'Add leads to calculate conversion rate'
+                };
+            }
+            
+            const rate = ((customerCount / leadCount) * 100).toFixed(1);
             return {
                 value: rate + '%',
                 subtitle: `${customerCount} customers from ${leadCount} leads`,
@@ -10322,10 +10359,21 @@ function createPieChart(data, options = {}) {
     
     let currentAngle = -90; // Start from top
     
-    // Get colors from palette if specified
+    // Get colors from palette if specified, or generate distinct colors per member
     const paletteId = options.palette || 'default';
     const paletteConfig = PIE_PALETTE_OPTIONS.find(p => p.id === paletteId) || PIE_PALETTE_OPTIONS[0];
-    const defaultColors = paletteConfig.colors;
+    let defaultColors = paletteConfig.colors;
+    
+    // For member-based data, generate stable distinct colors
+    if (options.colorByMember && normalizedData.length > defaultColors.length) {
+        // Extend palette with hashed colors
+        const extendedColors = [...defaultColors];
+        for (let i = defaultColors.length; i < normalizedData.length; i++) {
+            const hue = (i * 137.5) % 360; // Golden angle for distinct hues
+            extendedColors.push(`hsl(${hue}, 65%, 55%)`);
+        }
+        defaultColors = extendedColors;
+    }
     
     // Handle single segment edge case (full circle)
     if (normalizedData.length === 1) {
@@ -10376,6 +10424,7 @@ function createPieChart(data, options = {}) {
         const y4 = center + innerRadius * Math.sin(startRad);
         
         const largeArc = angle > 180 ? 1 : 0;
+        // Use assigned color or default based on index (ensures distinct colors)
         const color = item.color || defaultColors[index % defaultColors.length];
         
         currentAngle = endAngle;
@@ -11055,11 +11104,17 @@ function renderMetrics() {
                 'Complete your first task to see your progress trend!'
             );
         } else {
+            // Ensure dailyCompletions has proper structure for chart rendering
+            const trendData = personalMetrics.trends.dailyCompletions.map(d => ({
+                label: d.label,
+                value: d.count,
+                count: d.count
+            }));
             html += createSwitchableGraphCard(
                 'personal-trend',
                 `My Task Completions (${timeBounds.label})`,
                 'fa-chart-line',
-                personalMetrics.trends.dailyCompletions,
+                trendData,
                 'trend'
             );
         }
@@ -11140,11 +11195,17 @@ function renderMetrics() {
                     'Team members haven\'t completed any tasks yet. Metrics will appear once tasks are done!'
                 );
             } else {
+                // Ensure proper data structure for trend chart
+                const teamTrendData = teamMetrics.trends.dailyCompletions.map(d => ({
+                    label: d.label,
+                    value: d.count,
+                    count: d.count
+                }));
                 html += createSwitchableGraphCard(
                     'team-trend',
                     `Team Task Completions (${timeBounds.label})`,
                     'fa-chart-bar',
-                    teamMetrics.trends.dailyCompletions,
+                    teamTrendData,
                     'trend'
                 );
             }
@@ -11154,10 +11215,12 @@ function renderMetrics() {
                 .filter(m => m.total > 0)
                 .sort((a, b) => b.completed - a.completed)
                 .slice(0, 10) // Top 10 members
-                .map(m => ({
+                .map((m, index) => ({
                     label: m.name,
                     value: m.completed,
-                    color: 'var(--accent)'
+                    count: m.completed,
+                    // Don't assign color here - let pie chart auto-assign distinct colors
+                    color: undefined
                 }));
             
             if (memberData.length > 0) {
@@ -11166,7 +11229,8 @@ function renderMetrics() {
                     'Tasks Completed by Member',
                     'fa-trophy',
                     memberData,
-                    'breakdown'
+                    'breakdown',
+                    { colorByMember: true }
                 );
             } else if (teamMetrics.memberCount > 0) {
                 html += createMetricsEmptyState(
@@ -12552,10 +12616,6 @@ async function viewEventDetails(eventId) {
         month: 'short',
         day: 'numeric'
     });
-    
-    // Color indicator in header
-    const colorIndicator = document.getElementById('detailColorIndicator');
-    colorIndicator.style.backgroundColor = eventColor;
     
     // Date
     document.getElementById('detailDate').textContent = eventDate.toLocaleDateString('en-US', {

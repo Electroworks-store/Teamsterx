@@ -483,6 +483,28 @@ body {
     letter-spacing: -0.02em;
 }
 
+.logo-img {
+    width: 34px;
+    height: 34px;
+    border-radius: 8px;
+    object-fit: contain;
+    flex-shrink: 0;
+}
+
+.logo-t {
+    width: 34px;
+    height: 34px;
+    background: linear-gradient(135deg, #0078d4, #0061b0);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    font-weight: 700;
+    color: white;
+    flex-shrink: 0;
+}
+
 .logo i {
     font-size: 28px;
     opacity: 0.95;
@@ -2824,22 +2846,27 @@ body.dark-mode .calendar-day-header {
     min-height: 90px;
     padding: 6px;
     cursor: pointer;
-    transition: background 0.12s ease;
+    transition: all 0.12s ease;
     display: flex;
     flex-direction: column;
     align-items: flex-start;
+    border: 1px solid var(--border-subtle);
+    border-radius: 8px;
 }
 
 body.dark-mode .calendar-day {
     background: var(--bg-body);
+    border-color: var(--border-subtle);
 }
 
 .calendar-day:hover {
     background: var(--light-gray);
+    border-color: var(--border-medium);
 }
 
 body.dark-mode .calendar-day:hover {
     background: rgba(255, 255, 255, 0.04);
+    border-color: var(--border-medium);
 }
 
 /* Today - Subtle highlight */
@@ -3069,7 +3096,7 @@ body.dark-mode .week-time-column {
 }
 
 .week-time-header {
-    height: 56px;
+    height: 64px;
     border-bottom: 1px solid var(--border-subtle);
     background: var(--bg-surface);
 }
@@ -3084,7 +3111,7 @@ body.dark-mode .week-time-header {
 
 .week-time-slot {
     height: 48px;
-    padding: 0 6px;
+    padding: 4px 6px 0 6px;
     border-bottom: 1px solid var(--border-light);
     font-size: 9px;
     color: var(--text-muted);
@@ -3093,8 +3120,6 @@ body.dark-mode .week-time-header {
     display: flex;
     align-items: flex-start;
     justify-content: flex-end;
-    padding-top: 0;
-    transform: translateY(-5px);
 }
 
 body.dark-mode .week-time-slot {
@@ -3134,7 +3159,7 @@ body.dark-mode .week-day-column.today-column {
 
 /* Day header - clean and consistent */
 .week-day-header {
-    height: 56px;
+    height: 64px;
     padding: 8px 4px;
     text-align: center;
     border-bottom: 1px solid var(--border-subtle);
@@ -3222,24 +3247,11 @@ body.dark-mode .week-time-cell.current-hour {
 
 /* Current time indicator line */
 .week-current-time-indicator {
-    position: absolute;
-    left: 0;
-    right: 0;
-    height: 2px;
-    background: #FF3B30;
-    z-index: 15;
-    pointer-events: none;
+    display: none;
 }
 
 .week-current-time-indicator::before {
-    content: '';
-    position: absolute;
-    left: -4px;
-    top: -3px;
-    width: 8px;
-    height: 8px;
-    background: #FF3B30;
-    border-radius: 50%;
+    display: none;
 }
 
 /* ===================================
@@ -12003,6 +12015,10 @@ body.dark-mode .activity-item:hover {
     border-radius: 100px;
     letter-spacing: 0.02em;
     white-space: nowrap;
+    position: absolute;
+    bottom: 32px;
+    right: 20px;
+    z-index: 2;
 }
 
 .spreadsheet-private-tag i {

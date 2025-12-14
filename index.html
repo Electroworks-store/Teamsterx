@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Teamster - Internal Collaboration Platform</title>
+    <link rel="icon" href="img/favicon.svg" type="image/svg+xml">
     <link rel="stylesheet" href="styles.css?v=32">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Apply dark mode immediately to prevent flash -->
@@ -27,7 +28,7 @@
         <aside class="sidebar">
             <div class="sidebar-header">
                 <div class="logo">
-                    <i class="fas fa-users"></i>
+                    <img src="img/logo.png" alt="Teamster" class="logo-img">
                     <span>Teamster</span>
                 </div>
             </div>
@@ -1655,13 +1656,10 @@
     <!-- Modal for Event Details - Clean Modern Design -->
     <div class="unified-modal" id="eventDetailsModal">
         <div class="unified-modal-container event-details-modal">
-            <div class="unified-modal-header event-header-colored" id="eventDetailHeader">
-                <div class="event-header-content">
-                    <div class="event-color-indicator" id="detailColorIndicator"></div>
-                    <div class="event-header-text">
-                        <h2 id="eventDetailsTitle">Event Details</h2>
-                        <p class="event-subtitle" id="eventSubtitle"></p>
-                    </div>
+            <div class="unified-modal-header">
+                <div class="event-header-text">
+                    <h2 id="eventDetailsTitle">Event Details</h2>
+                    <p class="event-subtitle" id="eventSubtitle"></p>
                 </div>
                 <div class="unified-modal-header-actions">
                     <button class="btn-icon-subtle" id="editEventBtnHeader" style="display: none;" title="Edit Event">
@@ -1741,7 +1739,7 @@
                 <!-- Hidden color field for JS use -->
                 <div id="detailColor" style="display: none;"></div>
             </div>
-            <div class="unified-modal-footer event-footer" id="eventDetailsActions">
+            <div class="unified-modal-footer" id="eventDetailsActions">
                 <button type="button" class="unified-btn unified-btn-danger" id="deleteEventBtn" style="display: none;">
                     <i class="fas fa-trash"></i> Delete
                 </button>
