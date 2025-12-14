@@ -3129,14 +3129,14 @@ body.dark-mode .week-time-slot {
 
 /* Day columns */
 .week-day-column {
-    border-right: 1px solid var(--border-light);
+    border-right: 1px solid rgba(0, 0, 0, 0.08);
     min-width: 85px;
     position: relative;
     background: var(--bg-surface);
 }
 
 body.dark-mode .week-day-column {
-    border-right-color: var(--border-subtle);
+    border-right-color: rgba(255, 255, 255, 0.08);
     background: var(--bg-body);
 }
 
@@ -3216,12 +3216,14 @@ body.dark-mode .week-day-header {
 .week-time-cell {
     height: 48px;
     border-bottom: 1px solid var(--border-light);
+    border-right: 1px solid rgba(0, 0, 0, 0.04);
     position: relative;
     transition: background-color 0.1s ease;
 }
 
 body.dark-mode .week-time-cell {
     border-bottom-color: var(--border-subtle);
+    border-right-color: rgba(255, 255, 255, 0.06);
 }
 
 .week-time-cell:hover {
@@ -8434,11 +8436,21 @@ body.dark-mode .dropdown-menu-option.active {
     align-items: center;
     justify-content: center;
     transition: all var(--transition-fast);
+    flex-shrink: 0;
 }
 
 .btn-icon-subtle:hover {
     background: rgba(0, 122, 255, 0.1);
     color: var(--accent);
+}
+
+/* Event modal header actions - ensure buttons stay side-by-side */
+.unified-modal-header-actions {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
 }
 
 /* Event Info Grid - 2x2 layout */

@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Favicon Generator</title>
+</head>
+<body>
+    <canvas id="canvas" width="64" height="64" style="border: 1px solid #ccc;"></canvas>
+    <p>Instructions: This will generate a circular white background favicon. Place your logo-no-bg.png in the /img/ folder, then open this HTML in a browser. Right-click the canvas above and "Save image as..." to save as favicon-circle.png</p>
+    
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Draw white circle background
+        ctx.fillStyle = '#FFFFFF';
+        ctx.beginPath();
+        ctx.arc(32, 32, 32, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Load and draw logo
+        const logo = new Image();
+        logo.onload = function() {
+            // Calculate size to fit logo with padding
+            const padding = 8;
+            const logoSize = 64 - (padding * 2);
+            
+            // Center the logo
+            const x = (64 - logoSize) / 2;
+            const y = (64 - logoSize) / 2;
+            
+            ctx.drawImage(logo, x, y, logoSize, logoSize);
+        };
+        logo.src = 'logo-no-bg.png'; // Place your transparent logo here
+    </script>
+</body>
+</html>

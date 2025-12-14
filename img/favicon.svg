@@ -1,10 +1,8 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <defs>
-    <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#0078d4;stop-opacity:1" />
-      <stop offset="100%" style="stop-color:#0061b0;stop-opacity:1" />
-    </linearGradient>
-  </defs>
-  <circle cx="32" cy="32" r="32" fill="url(#grad)"/>
-  <text x="32" y="44" font-family="system-ui, -apple-system, sans-serif" font-size="36" font-weight="700" fill="white" text-anchor="middle">T</text>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 64 64">
+  <!-- White circular background -->
+  <circle cx="32" cy="32" r="32" fill="#FFFFFF"/>
+  
+  <!-- Logo image (centered with padding) -->
+  <!-- Replace logo-no-bg.png with your actual transparent logo -->
+  <image href="logo-no-bg.png" x="8" y="8" width="48" height="48"/>
 </svg>

@@ -2999,9 +2999,6 @@ function initTasks() {
                 </div>
             </div>
             ${privateTag}
-            <div class="spreadsheet-card-progress">
-                <div class="spreadsheet-card-progress-fill" style="width: ${progressPercent}%;"></div>
-            </div>
         `;
 
         // Click handler for the card (open spreadsheet)
