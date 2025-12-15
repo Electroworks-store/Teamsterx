@@ -3324,7 +3324,6 @@ body.dark-mode .week-day-header {
     top: var(--week-header-h);
     z-index: 11;
     cursor: pointer;
-    position: relative;
 }
 
 .week-allday-strip:hover .week-task-dropdown {
