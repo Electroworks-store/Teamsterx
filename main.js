@@ -2752,6 +2752,17 @@ function getEventOccurrences(event, rangeStart, rangeEnd) {
     const occurrences = [];
     const repeat = event.repeat || 'none';
     
+    if (DEBUG && repeat !== 'none') {
+        console.log('🔄 Generating occurrences for repeating event:', {
+            eventId: event.id,
+            title: event.title,
+            repeat: repeat,
+            repeatStart: event.repeatStart,
+            rangeStart: rangeStart.toISOString(),
+            rangeEnd: rangeEnd.toISOString()
+        });
+    }
+    
     // Non-repeating events: return single occurrence if in range
     if (repeat === 'none') {
         const eventDate = event.date instanceof Date ? event.date : new Date(event.date);
@@ -2927,13 +2938,32 @@ window.navigateToTaskSheet = function(taskId) {
     const task = appState.tasks.find(t => t.id === taskId);
     if (!task) {
         showToast('Task not found', 'error');
+        console.error('Task not found:', taskId);
+        return;
+    }
+    
+    console.log('Task found:', task);
+    
+    // Check if task has sheetId
+    if (!task.sheetId) {
+        showToast('This task is not associated with a sheet', 'info');
+        console.log('Task has no sheetId, opening task details instead');
+        // Just open the task details modal instead
+        if (window.viewTaskDetails) {
+            window.viewTaskDetails(taskId);
+        }
         return;
     }
     
     // Find the spreadsheet that contains this task
     const spreadsheet = appState.spreadsheets.find(s => s.id === task.sheetId);
     if (!spreadsheet) {
-        showToast('Sheet not found', 'error');
+        showToast('Sheet not found', 'info');
+        console.error('Sheet not found for sheetId:', task.sheetId);
+        // Fallback to opening task details
+        if (window.viewTaskDetails) {
+            window.viewTaskDetails(taskId);
+        }
         return;
     }
     
@@ -12434,6 +12464,12 @@ function initModals() {
             repeatStart: repeat !== 'none' ? startDate : null,
             teamId: appState.currentTeamId
         };
+        
+        console.log('📅 Event being saved:', {
+            repeat: event.repeat,
+            repeatStart: event.repeatStart,
+            date: event.date
+        });
 
         if (DEBUG) console.log(`${isEditing ? 'Updating' : 'Creating'} event:`, event);
 
