@@ -2569,34 +2569,52 @@ function renderWeekView(titleEl, daysEl) {
             return taskDate.toDateString() === date.toDateString();
         });
         
-        // All-day strip for tasks with improved overflow
-        html += '<div class="week-allday-strip">';
-        const maxVisible = 2;
-        dayTasks.slice(0, maxVisible).forEach((task) => {
-            html += `
-                <div class="week-allday-task" 
-                     onclick="event.stopPropagation(); viewTaskDetails && viewTaskDetails('${escapeHtml(task.id)}')"
-                     title="${escapeHtml(task.title)}">
-                    <i class="fas fa-check-circle"></i>
-                    <span>${escapeHtml(task.title.length > 10 ? task.title.substring(0, 10) + '…' : task.title)}</span>
-                </div>
-            `;
-        });
-        if (dayTasks.length > maxVisible) {
-            const overflowTasks = dayTasks.slice(maxVisible);
-            const taskListHtml = overflowTasks.map(t => 
-                `<div class="week-overflow-task-item" onclick="event.stopPropagation(); viewTaskDetails && viewTaskDetails('${escapeHtml(t.id)}')">${escapeHtml(t.title)}</div>`
-            ).join('');
-            html += `
-                <div class="week-allday-overflow" onclick="event.stopPropagation(); toggleTaskOverflowPopover(this)">
-                    +${dayTasks.length - maxVisible}
-                    <div class="week-overflow-popover">
-                        <div class="week-overflow-header">${dayTasks.length - maxVisible} more tasks</div>
-                        ${taskListHtml}
+        // All-day strip for tasks with improved hover dropdown showing all tasks
+        html += `<div class="week-allday-strip" data-date="${date.toISOString()}">`;
+        
+        if (dayTasks.length > 0) {
+            // Show first 2 tasks
+            const maxVisible = 2;
+            dayTasks.slice(0, maxVisible).forEach((task) => {
+                html += `
+                    <div class="week-allday-task" 
+                         onclick="event.stopPropagation(); navigateToTaskSheet('${escapeHtml(task.id)}')"
+                         title="${escapeHtml(task.title)}">
+                        <i class="fas fa-check-circle"></i>
+                        <span>${escapeHtml(task.title.length > 12 ? task.title.substring(0, 12) + '…' : task.title)}</span>
                     </div>
+                `;
+            });
+            
+            // If more than 2 tasks, show hover indicator
+            if (dayTasks.length > maxVisible) {
+                html += `<div class="week-allday-more">+${dayTasks.length - maxVisible}</div>`;
+            }
+            
+            // Create hover dropdown with ALL tasks for this day
+            const allTasksHtml = dayTasks.map(t => `
+                <div class="week-task-dropdown-item" onclick="event.stopPropagation(); navigateToTaskSheet('${escapeHtml(t.id)}')">
+                    <div class="task-dropdown-checkbox">
+                        <i class="fas fa-${t.status === 'done' ? 'check-circle' : 'circle'}"></i>
+                    </div>
+                    <div class="task-dropdown-content">
+                        <div class="task-dropdown-title">${escapeHtml(t.title)}</div>
+                        ${t.priority ? `<span class="task-dropdown-priority priority-${t.priority}">${t.priority}</span>` : ''}
+                    </div>
+                </div>
+            `).join('');
+            
+            html += `
+                <div class="week-task-dropdown">
+                    <div class="week-task-dropdown-header">
+                        <i class="fas fa-calendar-check"></i>
+                        ${dayTasks.length} task${dayTasks.length !== 1 ? 's' : ''} due today
+                    </div>
+                    ${allTasksHtml}
                 </div>
             `;
         }
+        
         html += '</div>';
         
         // Get all event occurrences for this day
@@ -2615,13 +2633,6 @@ function renderWeekView(titleEl, daysEl) {
         for (let hour = START_HOUR; hour <= END_HOUR; hour++) {
             const isCurrent = isToday && hour === currentHour;
             html += `<div class="week-time-cell ${isCurrent ? 'current-hour' : ''}" data-hour="${hour}" data-date="${date.toISOString()}"></div>`;
-        }
-        
-        // Current time indicator for today's column (always visible in 24h range)
-        if (isToday) {
-            const minutesSinceStart = (currentHour - START_HOUR) * 60 + currentMinute;
-            const topPosition = GRID_START + (minutesSinceStart * SLOT_HEIGHT / 60);
-            html += `<div class="week-current-time-indicator" style="top: ${topPosition}px;"></div>`;
         }
         
         // Calculate overlapping events and assign lanes
@@ -2694,6 +2705,21 @@ function renderWeekView(titleEl, daysEl) {
     }
     
     html += '</div>'; // Close .week-view
+    
+    // Current time indicator spanning all days (outside day columns)
+    const todayIndex = [...Array(7)].findIndex((_, i) => {
+        const date = new Date(startOfWeek);
+        date.setDate(date.getDate() + i);
+        return date.toDateString() === today.toDateString();
+    });
+    
+    if (todayIndex !== -1) {
+        const minutesSinceStart = (currentHour - START_HOUR) * 60 + currentMinute;
+        const topPosition = GRID_START + (minutesSinceStart * SLOT_HEIGHT / 60);
+        const timeLabel = formatTime24(currentHour, currentMinute);
+        html += `<div class="week-current-time-line" style="top: ${topPosition}px;" data-time="${timeLabel}"></div>`;
+    }
+    
     html += '</div>'; // Close .week-view-scroll-container
     daysEl.innerHTML = html;
     
@@ -2894,6 +2920,40 @@ window.toggleTaskOverflowPopover = function(element) {
             popover.classList.add('show');
         }
     }
+};
+
+// Navigate to the sheet containing a specific task
+window.navigateToTaskSheet = function(taskId) {
+    const task = appState.tasks.find(t => t.id === taskId);
+    if (!task) {
+        showToast('Task not found', 'error');
+        return;
+    }
+    
+    // Find the spreadsheet that contains this task
+    const spreadsheet = appState.spreadsheets.find(s => s.id === task.sheetId);
+    if (!spreadsheet) {
+        showToast('Sheet not found', 'error');
+        return;
+    }
+    
+    // Switch to tasks tab first
+    window.switchTab('tasks');
+    
+    // Open the spreadsheet panel
+    setTimeout(() => {
+        openSpreadsheetPanel(spreadsheet);
+        
+        // Highlight the task row
+        setTimeout(() => {
+            const taskRow = document.querySelector(`tr[data-task-id="${taskId}"]`);
+            if (taskRow) {
+                taskRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                taskRow.classList.add('highlight-row');
+                setTimeout(() => taskRow.classList.remove('highlight-row'), 2000);
+            }
+        }, 300);
+    }, 100);
 };
 
 // Close popovers when clicking outside
