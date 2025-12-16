@@ -393,6 +393,20 @@ async function initializeFirebaseAuth() {
                 appState.currentUser = user.displayName || user.email.split('@')[0];
                 updateUserProfile(user);
                 console.log('✅ User authenticated');
+                
+                // Sync public profile for teammate visibility
+                // This ensures other users can see this user's basic info
+                try {
+                    await syncPublicProfile({
+                        displayName: user.displayName || user.email.split('@')[0],
+                        email: user.email,
+                        photoURL: user.photoURL || null
+                    });
+                } catch (profileError) {
+                    // Non-critical - don't block auth flow
+                    console.warn('Public profile sync deferred');
+                }
+                
                 // Track session login time for force logout feature
                 if (!localStorage.getItem('sessionLoginAt')) {
                     localStorage.setItem('sessionLoginAt', Date.now().toString());
@@ -3638,7 +3652,9 @@ function initTasks() {
             titleInput.value = spreadsheet.name;
         }
         if (iconPreview) {
-            iconPreview.innerHTML = `<i class="fas ${spreadsheet.icon || 'fa-table'}"></i>`;
+            // Validate icon class - must be a valid FontAwesome class
+            const iconClass = (spreadsheet.icon || 'fa-table').replace(/[^a-zA-Z0-9-]/g, '');
+            iconPreview.innerHTML = `<i class="fas ${iconClass}"></i>`;
             iconPreview.style.background = `${spreadsheet.color}15`;
             iconPreview.style.color = spreadsheet.color;
         }
@@ -13654,6 +13670,17 @@ async function createTeamNow() {
         appState.userTeams = [teamRef.id];
 
         debugLog('✅ Created new team:', teamRef.id);
+        
+        // Create public teamJoinInfo document for join-by-code flow
+        // This allows non-members to look up team by code without exposing full team data
+        await setDoc(doc(db, 'teamJoinInfo', teamCode), {
+            teamId: teamRef.id,
+            teamName: teamName,
+            memberCount: 1,
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp()
+        });
+        debugLog('✅ Created teamJoinInfo for code:', teamCode);
 
         // Check if user has old teams and remove them (single team policy)
         const userRef = doc(db, 'users', currentAuthUser.uid);
@@ -13954,6 +13981,9 @@ async function loadTeamData() {
         // Subscribe to Link Lobby groups
         await subscribeLinkLobbyGroups();
         
+        // Ensure teamJoinInfo exists for join-by-code (for admins/owners)
+        await ensureTeamJoinInfoExists();
+        
         // Initialize team section display
         await initTeamSection();
 
@@ -13961,6 +13991,60 @@ async function loadTeamData() {
     } catch (error) {
         console.error('Error loading team data:', error.code || error.message);
         debugError('Full error:', error);
+    }
+}
+
+/**
+ * Ensure teamJoinInfo document exists for the current team
+ * This is needed for the join-by-code flow to work with the new security model
+ * Only admins/owners can create/update this document
+ */
+async function ensureTeamJoinInfoExists() {
+    if (!db || !currentAuthUser || !appState.currentTeamId || !appState.currentTeamData) return;
+    
+    // Only admins/owners should ensure this exists
+    const teamData = appState.currentTeamData;
+    const userRole = teamData.members?.[currentAuthUser.uid]?.role;
+    if (!userRole || !['owner', 'admin'].includes(userRole)) return;
+    
+    const teamCode = teamData.teamCode;
+    if (!teamCode) return;
+    
+    try {
+        const { doc, getDoc, setDoc, serverTimestamp } = 
+            await import('https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js');
+        
+        const joinInfoRef = doc(db, 'teamJoinInfo', teamCode);
+        const joinInfoDoc = await getDoc(joinInfoRef);
+        
+        if (!joinInfoDoc.exists()) {
+            // Create the teamJoinInfo document
+            const memberCount = Object.keys(teamData.members || {}).length;
+            await setDoc(joinInfoRef, {
+                teamId: appState.currentTeamId,
+                teamName: teamData.name || 'Team',
+                memberCount: memberCount,
+                createdAt: serverTimestamp(),
+                updatedAt: serverTimestamp()
+            });
+            debugLog('✅ Created teamJoinInfo for code:', teamCode);
+        } else {
+            // Update member count if needed
+            const joinInfo = joinInfoDoc.data();
+            const currentMemberCount = Object.keys(teamData.members || {}).length;
+            if (joinInfo.memberCount !== currentMemberCount || joinInfo.teamName !== teamData.name) {
+                await setDoc(joinInfoRef, {
+                    teamId: appState.currentTeamId,
+                    teamName: teamData.name || 'Team',
+                    memberCount: currentMemberCount,
+                    updatedAt: serverTimestamp()
+                }, { merge: true });
+                debugLog('✅ Updated teamJoinInfo for code:', teamCode);
+            }
+        }
+    } catch (error) {
+        // Non-critical - just log
+        debugLog('Could not sync teamJoinInfo:', error.message);
     }
 }
 
@@ -14341,44 +14425,33 @@ async function processJoinCode(teamCode) {
     showToast('Processing join request...', 'info');
     
     try {
-        const { collection, query, where, getDocs, doc, updateDoc, serverTimestamp } = 
+        const { doc, getDoc, updateDoc, serverTimestamp } = 
             await import('https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js');
 
-        // Find team by code
-        const teamsRef = collection(db, 'teams');
-        const q = query(teamsRef, where('teamCode', '==', teamCode));
-        const querySnapshot = await getDocs(q);
+        // Look up team by code via teamJoinInfo (public collection)
+        const normalizedCode = teamCode.toUpperCase().trim();
+        const joinInfoRef = doc(db, 'teamJoinInfo', normalizedCode);
+        const joinInfoDoc = await getDoc(joinInfoRef);
 
-        if (querySnapshot.empty) {
+        if (!joinInfoDoc.exists()) {
             showToast('Invalid join link. Team not found.', 'error');
             return;
         }
 
-        const teamDoc = querySnapshot.docs[0];
-        const teamData = teamDoc.data();
-        const teamId = teamDoc.id;
+        const joinInfo = joinInfoDoc.data();
+        const teamId = joinInfo.teamId;
+        const teamName = joinInfo.teamName;
 
-        // Check if already a member
-        if (teamData.members && teamData.members[currentAuthUser.uid]) {
-            showToast('You are already a member of this team!', 'info');
-            return;
-        }
-
-        // Check if already requested
-        if (teamData.pendingRequests && teamData.pendingRequests[currentAuthUser.uid]) {
-            showToast('You have already requested to join. Waiting for approval.', 'info');
-            return;
-        }
-
-        // Show confirmation dialog
+        // Show confirmation dialog (we don't read team doc - use joinInfo instead)
         const confirmJoin = confirm(
-            `You've been invited to join "${teamData.name}"!\n\n` +
+            `You've been invited to join "${teamName}"!\n\n` +
             `Click OK to send a join request to the team owner.`
         );
         
         if (!confirmJoin) return;
 
-        // Add join request
+        // Add join request to team document
+        // This uses the pendingRequests update rule which allows any auth user to add themselves
         const teamRef = doc(db, 'teams', teamId);
         await updateDoc(teamRef, {
             [`pendingRequests.${currentAuthUser.uid}`]: {
@@ -14390,11 +14463,15 @@ async function processJoinCode(teamCode) {
             }
         });
         
-        showToast(`Join request sent to "${teamData.name}"! The owner will review it.`, 'success');
+        showToast(`Join request sent to "${teamName}"! The owner will review it.`, 'success');
 
     } catch (error) {
         console.error('Error processing join code:', error);
-        showToast('Failed to process join link. Please try again.', 'error');
+        if (error.code === 'permission-denied') {
+            showToast('Unable to send join request. You may already be a member or have a pending request.', 'error');
+        } else {
+            showToast('Failed to process join link. Please try again.', 'error');
+        }
     }
 }
 
@@ -14431,40 +14508,26 @@ window.submitJoinRequest = async function() {
     submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...';
 
     try {
-        const { collection, query, where, getDocs, doc, updateDoc, serverTimestamp } = 
+        const { doc, getDoc, updateDoc, serverTimestamp } = 
             await import('https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js');
 
-        // Find team by code
-        const teamsRef = collection(db, 'teams');
-        const q = query(teamsRef, where('teamCode', '==', teamCode));
-        const querySnapshot = await getDocs(q);
+        // Look up team by code via teamJoinInfo (public collection)
+        const joinInfoRef = doc(db, 'teamJoinInfo', teamCode);
+        const joinInfoDoc = await getDoc(joinInfoRef);
 
-        if (querySnapshot.empty) {
+        if (!joinInfoDoc.exists()) {
             showToast('Team code not found. Please check and try again.', 'error', 5000, 'Invalid Code');
             submitBtn.disabled = false;
             submitBtn.innerHTML = originalHTML;
             return;
         }
 
-        const teamDoc = querySnapshot.docs[0];
-        const teamData = teamDoc.data();
-        const teamId = teamDoc.id;
+        const joinInfo = joinInfoDoc.data();
+        const teamId = joinInfo.teamId;
+        const teamName = joinInfo.teamName;
 
-        // Check if already a member
-        if (teamData.members && teamData.members[currentAuthUser.uid]) {
-            showToast('You are already a member of this team!', 'info', 4000, 'Already Joined');
-            closeJoinTeamModal();
-            return;
-        }
-
-        // Check if already requested
-        if (teamData.pendingRequests && teamData.pendingRequests[currentAuthUser.uid]) {
-            showToast('You have already requested to join this team. Waiting for approval.', 'info', 5000, 'Request Pending');
-            closeJoinTeamModal();
-            return;
-        }
-
-        // Add join request
+        // Add join request to team document
+        // The Firestore rules allow any auth user to add themselves to pendingRequests
         const teamRef = doc(db, 'teams', teamId);
         await updateDoc(teamRef, {
             [`pendingRequests.${currentAuthUser.uid}`]: {
@@ -14481,12 +14544,19 @@ window.submitJoinRequest = async function() {
         closeJoinTeamModal();
         
         // Show success message
-        showToast(`Join request sent to "${teamData.name}". The team owner will review your request.`, 'success', 5000, 'Request Sent');
+        showToast(`Join request sent to "${teamName}". The team owner will review your request.`, 'success', 5000, 'Request Sent');
 
     } catch (error) {
         console.error('Error sending join request:', error.code || error.message);
         debugError('Full error:', error);
-        showToast('Failed to send join request. Please try again.', 'error', 5000, 'Request Failed');
+        
+        if (error.code === 'permission-denied') {
+            // This might happen if they're already a member or have a pending request
+            showToast('Unable to send request. You may already be a member or have a pending request.', 'error', 5000, 'Request Failed');
+        } else {
+            showToast('Failed to send join request. Please try again.', 'error', 5000, 'Request Failed');
+        }
+        
         submitBtn.disabled = false;
         submitBtn.innerHTML = originalHTML;
     }
@@ -14887,12 +14957,68 @@ async function sendTeamInvitation(invitedEmail, invitedName, occupation) {
     }
 }
 
-// Generate unique invitation token with improved uniqueness
+// Generate cryptographically secure invitation token
+// Uses crypto.getRandomValues() for high entropy
 function generateInvitationToken() {
-    const timestamp = Date.now();
-    const random1 = Math.random().toString(36).substring(2, 15);
-    const random2 = Math.random().toString(36).substring(2, 15);
-    return `inv_${timestamp}_${random1}${random2}`;
+    // Generate 24 random bytes (192 bits of entropy)
+    const randomBytes = new Uint8Array(24);
+    crypto.getRandomValues(randomBytes);
+    
+    // Convert to base64url-safe string (no +, /, or =)
+    const base64 = btoa(String.fromCharCode(...randomBytes))
+        .replace(/\+/g, '-')
+        .replace(/\//g, '_')
+        .replace(/=/g, '');
+    
+    // Return with prefix for easy identification (total >= 32 chars as required by rules)
+    return `inv_${base64}`;
+}
+
+/**
+ * Sync public profile data for teammate visibility
+ * This creates/updates the publicProfiles/{userId} document with limited fields
+ * that other authenticated users can read (for teammate displays, assignees, etc.)
+ * 
+ * @param {Object} profileData - Profile data to sync
+ * @param {string} profileData.displayName - User's display name
+ * @param {string} profileData.email - User's email
+ * @param {string|null} profileData.photoURL - User's avatar URL
+ * @param {string|null} profileData.occupation - User's job title/occupation
+ */
+async function syncPublicProfile(profileData) {
+    if (!db || !currentAuthUser) {
+        debugLog('Cannot sync public profile: not authenticated');
+        return;
+    }
+    
+    try {
+        const { doc, setDoc, serverTimestamp } = 
+            await import('https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js');
+        
+        const publicProfileRef = doc(db, 'publicProfiles', currentAuthUser.uid);
+        
+        // Only include allowed fields
+        const publicData = {
+            displayName: profileData.displayName || currentAuthUser.displayName || 'Unknown',
+            email: profileData.email || currentAuthUser.email,
+            updatedAt: serverTimestamp()
+        };
+        
+        // Add optional fields only if they exist
+        if (profileData.photoURL) {
+            publicData.photoURL = profileData.photoURL;
+        }
+        if (profileData.occupation) {
+            publicData.occupation = profileData.occupation;
+        }
+        
+        await setDoc(publicProfileRef, publicData, { merge: true });
+        debugLog('✅ Public profile synced successfully');
+        
+    } catch (error) {
+        // Non-critical error - log but don't throw
+        console.warn('Failed to sync public profile:', error.code || error.message);
+    }
 }
 
 // Check invitation rate limits to prevent spam
@@ -15109,16 +15235,32 @@ async function loadTeammatesFromFirestore() {
             const teammatePromises = Object.keys(members).map(async userId => {
                 const member = members[userId];
                 
-                // Fetch latest user profile data from users collection
+                // Fetch public profile data (or own private profile if it's the current user)
                 let userData = null;
                 try {
-                    const userRef = doc(db, 'users', userId);
-                    const userDoc = await getDoc(userRef);
-                    if (userDoc.exists()) {
-                        userData = userDoc.data();
+                    if (userId === currentAuthUser.uid) {
+                        // Current user can read their own private profile
+                        const userRef = doc(db, 'users', userId);
+                        const userDoc = await getDoc(userRef);
+                        if (userDoc.exists()) {
+                            userData = userDoc.data();
+                        }
+                    } else {
+                        // For other users, read from publicProfiles collection
+                        const publicProfileRef = doc(db, 'publicProfiles', userId);
+                        const publicProfileDoc = await getDoc(publicProfileRef);
+                        if (publicProfileDoc.exists()) {
+                            const publicData = publicProfileDoc.data();
+                            userData = {
+                                displayName: publicData.displayName,
+                                jobTitle: publicData.occupation,
+                                photoURL: publicData.photoURL
+                            };
+                        }
                     }
                 } catch (error) {
-                    console.warn('Could not fetch user data for:', userId, error);
+                    // Expected for users who haven't synced their public profile yet
+                    debugLog('Could not fetch profile for:', userId);
                 }
                 
                 // Merge team member data with latest user profile data
@@ -16630,6 +16772,14 @@ async function saveAccountSettings(e) {
         await setDoc(userRef, userData, { merge: true });
         
         debugLog('✅ User document updated successfully');
+        
+        // Sync public profile for teammate visibility
+        await syncPublicProfile({
+            displayName: displayName,
+            email: currentAuthUser.email,
+            photoURL: currentAuthUser.photoURL || null,
+            occupation: jobTitle || null
+        });
         
         // Note: Team member display names will update automatically when loadTeammatesFromFirestore()
         // fetches user documents - no need to update team document directly
@@ -19071,7 +19221,7 @@ async function joinTeamByCode(teamCode) {
     }
     
     try {
-        const { collection, query, where, getDocs, doc, getDoc, updateDoc, serverTimestamp } = 
+        const { doc, getDoc, updateDoc, serverTimestamp } = 
             await import('https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js');
         
         // Normalize the team code - add TEAM- prefix if not present
@@ -19082,53 +19232,24 @@ async function joinTeamByCode(teamCode) {
         
         if (DEBUG) console.log('🔍 Searching for team with code');
         
-        // Find team by code
-        const teamsRef = collection(db, 'teams');
-        const q = query(teamsRef, where('teamCode', '==', normalizedCode));
-        const querySnapshot = await getDocs(q);
+        // Look up team by code via teamJoinInfo (public collection)
+        const joinInfoRef = doc(db, 'teamJoinInfo', normalizedCode);
+        const joinInfoDoc = await getDoc(joinInfoRef);
         
-        if (querySnapshot.empty) {
+        if (!joinInfoDoc.exists()) {
             debugLog('❌ No team found for code');
             showToast('No team found with this code. Please check the code and try again.', 'error', 5000, 'Invalid Code');
             return;
         }
         
-        const teamDoc = querySnapshot.docs[0];
-        const teamId = teamDoc.id;
-        const teamData = teamDoc.data();
+        const joinInfo = joinInfoDoc.data();
+        const teamId = joinInfo.teamId;
+        const teamName = joinInfo.teamName;
         
-        debugLog('✅ Found team:', teamData.name);
-        
-        // Check if user is already a member
-        if (teamData.members && teamData.members[currentAuthUser.uid]) {
-            showToast('You are already a member of this team!', 'info', 4000, 'Already Member');
-            return;
-        }
-        
-        // Check if user already has a pending request for this specific team
-        if (teamData.pendingRequests && teamData.pendingRequests[currentAuthUser.uid]) {
-            showToast('You already have a pending request for this team. Please wait for approval.', 'warning', 5000, 'Duplicate Request');
-            return;
-        }
-        
-        // Check total pending requests across all teams to prevent spam
-        const allTeamsQuery = query(teamsRef);
-        const allTeamsSnapshot = await getDocs(allTeamsQuery);
-        let pendingCount = 0;
-        
-        allTeamsSnapshot.forEach(teamDoc => {
-            const data = teamDoc.data();
-            if (data.pendingRequests && data.pendingRequests[currentAuthUser.uid]) {
-                pendingCount++;
-            }
-        });
-        
-        if (pendingCount >= 3) {
-            showToast('You already have 3 pending join requests. Please wait for them to be reviewed before sending more.', 'warning', 6000, 'Too Many Requests');
-            return;
-        }
+        debugLog('✅ Found team:', teamName);
         
         // Create join request
+        // The Firestore rules allow any auth user to add themselves to pendingRequests
         const teamRef = doc(db, 'teams', teamId);
         const joinRequest = {
             name: currentAuthUser.displayName || currentAuthUser.email,
@@ -19143,29 +19264,16 @@ async function joinTeamByCode(teamCode) {
         
         debugLog('✅ Join request sent successfully');
         
-        // Add activity log directly to team activities
-        try {
-            const { collection, addDoc, serverTimestamp } = 
-                await import('https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js');
-            
-            const activitiesRef = collection(db, 'teams', teamId, 'activities');
-            await addDoc(activitiesRef, {
-                type: 'team',
-                userId: currentAuthUser.uid,
-                userName: currentAuthUser.displayName || currentAuthUser.email,
-                description: `${currentAuthUser.displayName || currentAuthUser.email} requested to join the team`,
-                createdAt: serverTimestamp()
-            });
-        } catch (activityError) {
-            console.log('Note: Could not log activity (permissions)', activityError.message);
-        }
-        
-        showToast(`Join request sent! Wait for a team member to approve your request.`, 'success', 5000, 'Request Sent');
+        showToast(`Join request sent to "${teamName}"! Wait for a team member to approve your request.`, 'success', 5000, 'Request Sent');
         closeJoinTeamModal();
         
     } catch (error) {
         console.error('Error joining team:', error.code || error.message);
-        showToast('Error sending join request. Please try again.', 'error', 5000, 'Request Failed');
+        if (error.code === 'permission-denied') {
+            showToast('Unable to send request. You may already be a member or have a pending request.', 'error', 5000, 'Request Failed');
+        } else {
+            showToast('Error sending join request. Please try again.', 'error', 5000, 'Request Failed');
+        }
     }
 }
 
@@ -19796,24 +19904,31 @@ async function subscribeLinkLobbyGroups() {
                 const groupData = { id: docSnapshot.id, ...docSnapshot.data(), links: [], domainGroups: {} };
                 
                 // Fetch links for this group using getDocs
-                const linksRef = collection(db, 'teams', appState.currentTeamId, 'linkLobbyGroups', docSnapshot.id, 'links');
-                const linksQuery = query(linksRef, orderBy('createdAt', 'desc'));
-                
-                const linksSnapshot = await getDocs(linksQuery);
-                
-                linksSnapshot.forEach(linkDoc => {
-                    const linkData = { id: linkDoc.id, ...linkDoc.data() };
+                // Note: With server-side visibility rules, we can only read links in groups we have access to
+                try {
+                    const linksRef = collection(db, 'teams', appState.currentTeamId, 'linkLobbyGroups', docSnapshot.id, 'links');
+                    const linksQuery = query(linksRef, orderBy('createdAt', 'desc'));
                     
-                    // If auto-domain grouping is enabled, organize by domain
-                    if (groupData.autoGroupDomain && linkData.domain) {
-                        if (!groupData.domainGroups[linkData.domain]) {
-                            groupData.domainGroups[linkData.domain] = [];
+                    const linksSnapshot = await getDocs(linksQuery);
+                    
+                    linksSnapshot.forEach(linkDoc => {
+                        const linkData = { id: linkDoc.id, ...linkDoc.data() };
+                        
+                        // If auto-domain grouping is enabled, organize by domain
+                        if (groupData.autoGroupDomain && linkData.domain) {
+                            if (!groupData.domainGroups[linkData.domain]) {
+                                groupData.domainGroups[linkData.domain] = [];
+                            }
+                            groupData.domainGroups[linkData.domain].push(linkData);
+                        } else {
+                            groupData.links.push(linkData);
                         }
-                        groupData.domainGroups[linkData.domain].push(linkData);
-                    } else {
-                        groupData.links.push(linkData);
-                    }
-                });
+                    });
+                } catch (linkError) {
+                    // Permission error - user doesn't have access to this group's links
+                    // This can happen for private groups created by others
+                    debugLog('Could not fetch links for group:', docSnapshot.id, linkError.message);
+                }
                 
                 // Sort links: favorites first, then by createdAt
                 groupData.links.sort((a, b) => {

@@ -1,10 +1,42 @@
 // storage.rules
+// SECURITY HARDENED - v2
 service firebase.storage {
   match /b/{bucket}/o {
-    // Avatars stored at avatars/{userId}.{ext}
-    match /avatars/{userId}.{ext} {
-      allow write: if request.auth != null && request.auth.uid == userId;
+    // ============================
+    // AVATARS
+    // Stored at avatars/{userId}.{ext}
+    // ============================
+    match /avatars/{userId}.{allPaths=**} {
+      // Write: Only owner can upload their own avatar
+      // Validate: max 2MB, must be an image
+      allow write: if request.auth != null 
+        && request.auth.uid == userId
+        && request.resource.size < 2 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+      
+      // Read: Any authenticated user can read avatars
+      // (needed for teammate displays, profile views)
       allow read: if request.auth != null;
+      
+      // Delete: Only owner can delete their avatar
+      allow delete: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // ============================
+    // TEAM FILES (if added later)
+    // Stored at teams/{teamId}/files/{fileId}
+    // ============================
+    match /teams/{teamId}/files/{allPaths=**} {
+      // Placeholder for future team file storage
+      // Will need to verify team membership via custom claims or callable function
+      allow read, write: if false;
+    }
+
+    // ============================
+    // DEFAULT: Deny all other paths
+    // ============================
+    match /{allPaths=**} {
+      allow read, write: if false;
     }
   }
 }
