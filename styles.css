@@ -9316,6 +9316,113 @@ body.dark-mode .btn-icon-subtle:hover {
 }
 
 /* ===================================
+   PENDING LEAVE REQUESTS SECTION
+   =================================== */
+.pending-requests-section {
+    margin-top: 24px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border-subtle);
+}
+
+.pending-requests-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.leave-request-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 16px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    gap: 16px;
+}
+
+.leave-request-info {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+}
+
+.leave-request-name {
+    font-weight: 600;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.leave-request-time {
+    font-size: 12px;
+    color: var(--text-muted);
+}
+
+.leave-request-actions {
+    display: flex;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+.btn-approve-leave,
+.btn-deny-leave {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    border: none;
+}
+
+.btn-approve-leave {
+    background: var(--success);
+    color: white;
+}
+
+.btn-approve-leave:hover {
+    background: #2d9042;
+    transform: translateY(-1px);
+}
+
+.btn-deny-leave {
+    background: transparent;
+    color: var(--text-secondary);
+    border: 1px solid var(--border-subtle);
+}
+
+.btn-deny-leave:hover {
+    background: var(--danger);
+    color: white;
+    border-color: var(--danger);
+}
+
+/* Mobile responsive */
+@media (max-width: 480px) {
+    .leave-request-item {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .leave-request-actions {
+        width: 100%;
+        margin-top: 12px;
+    }
+    
+    .btn-approve-leave,
+    .btn-deny-leave {
+        flex: 1;
+        justify-content: center;
+    }
+}
+
+/* ===================================
    TEAM ROLES CARD - Collapsible Dropdown
    =================================== */
 .role-info-card {

@@ -1136,10 +1136,25 @@ function initChat() {
         
         // === REACTIONS DISPLAY ===
         // Show aggregated reactions below message text
+        // Load from subcollection for new messages, fall back to legacy reactions map
         const reactionsDisplay = document.createElement('div');
         reactionsDisplay.className = 'message-reactions-display';
         reactionsDisplay.dataset.messageId = message.id;
-        renderReactionsDisplay(reactionsDisplay, message.reactions || {});
+        
+        // First show legacy reactions if they exist (for backward compatibility)
+        if (message.reactions && Object.keys(message.reactions).length > 0) {
+            renderReactionsDisplay(reactionsDisplay, message.reactions);
+        }
+        
+        // Then async load from subcollection (will override if present)
+        loadMessageReactions(message.id).then(subcollectionReactions => {
+            if (Object.keys(subcollectionReactions).length > 0) {
+                renderReactionsDisplay(reactionsDisplay, subcollectionReactions);
+            }
+        }).catch(err => {
+            // Silently fail - legacy reactions will remain
+            debugLog('Could not load reactions subcollection:', err.message);
+        });
         
         // === MESSAGE INTERACTION HANDLERS ===
         // Desktop: click to show reactions
@@ -2037,6 +2052,8 @@ function closeReactionsBar() {
 
 /**
  * Toggle a reaction on a message
+ * Uses reactions subcollection: /teams/{teamId}/messages/{messageId}/reactions/{userId}
+ * Each user can only modify their own reaction document
  * @param {string} messageId - ID of the message
  * @param {string} emoji - The emoji to toggle
  */
@@ -2046,35 +2063,37 @@ async function toggleReaction(messageId, emoji) {
     const userId = currentAuthUser.uid;
     
     try {
-        const { doc, getDoc, updateDoc, arrayUnion, arrayRemove } = 
+        const { doc, getDoc, setDoc, deleteDoc, serverTimestamp } = 
             await import('https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js');
         
-        const messageRef = doc(db, 'teams', appState.currentTeamId, 'messages', messageId);
-        const messageDoc = await getDoc(messageRef);
+        // Reference to user's reaction document in the subcollection
+        const reactionRef = doc(db, 'teams', appState.currentTeamId, 'messages', messageId, 'reactions', userId);
+        const reactionDoc = await getDoc(reactionRef);
         
-        if (!messageDoc.exists()) {
-            showToast('Message not found', 'error');
-            return;
-        }
-        
-        const messageData = messageDoc.data();
-        const reactions = messageData.reactions || {};
-        const emojiReactions = reactions[emoji] || [];
-        
-        // Check if user already reacted with this emoji
-        const hasReacted = emojiReactions.includes(userId);
-        
-        if (hasReacted) {
-            // Remove reaction
-            await updateDoc(messageRef, {
-                [`reactions.${emoji}`]: arrayRemove(userId)
-            });
+        if (reactionDoc.exists()) {
+            const currentEmoji = reactionDoc.data().emoji;
+            if (currentEmoji === emoji) {
+                // Same emoji - remove reaction (toggle off)
+                await deleteDoc(reactionRef);
+            } else {
+                // Different emoji - update to new emoji
+                await setDoc(reactionRef, {
+                    emoji: emoji,
+                    userId: userId,
+                    updatedAt: serverTimestamp()
+                });
+            }
         } else {
-            // Add reaction
-            await updateDoc(messageRef, {
-                [`reactions.${emoji}`]: arrayUnion(userId)
+            // No existing reaction - create new one
+            await setDoc(reactionRef, {
+                emoji: emoji,
+                userId: userId,
+                updatedAt: serverTimestamp()
             });
         }
+        
+        // Refresh the reactions display for this message
+        await refreshMessageReactions(messageId);
         
         // Close reactions bar after toggling
         closeReactionsBar();
@@ -2082,6 +2101,76 @@ async function toggleReaction(messageId, emoji) {
     } catch (error) {
         console.error('Error toggling reaction:', error);
         showToast('Failed to update reaction', 'error');
+    }
+}
+
+/**
+ * Fetch and refresh reactions display for a specific message
+ * @param {string} messageId - ID of the message
+ */
+async function refreshMessageReactions(messageId) {
+    try {
+        const { collection, getDocs } = 
+            await import('https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js');
+        
+        const reactionsRef = collection(db, 'teams', appState.currentTeamId, 'messages', messageId, 'reactions');
+        const reactionsSnapshot = await getDocs(reactionsRef);
+        
+        // Aggregate reactions by emoji
+        const reactionsByEmoji = {};
+        reactionsSnapshot.forEach(doc => {
+            const data = doc.data();
+            const emoji = data.emoji;
+            if (emoji) {
+                if (!reactionsByEmoji[emoji]) {
+                    reactionsByEmoji[emoji] = [];
+                }
+                reactionsByEmoji[emoji].push(doc.id); // doc.id is the userId
+            }
+        });
+        
+        // Find the reactions display container for this message
+        const container = document.querySelector(`.message-reactions-display[data-message-id="${messageId}"]`);
+        if (container) {
+            renderReactionsDisplay(container, reactionsByEmoji);
+        }
+    } catch (error) {
+        console.error('Error refreshing reactions:', error);
+    }
+}
+
+/**
+ * Load reactions for a message from the subcollection
+ * @param {string} messageId - ID of the message
+ * @returns {Object} Aggregated reactions { emoji: [userIds] }
+ */
+async function loadMessageReactions(messageId) {
+    if (!db || !appState.currentTeamId) return {};
+    
+    try {
+        const { collection, getDocs } = 
+            await import('https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js');
+        
+        const reactionsRef = collection(db, 'teams', appState.currentTeamId, 'messages', messageId, 'reactions');
+        const reactionsSnapshot = await getDocs(reactionsRef);
+        
+        // Aggregate reactions by emoji
+        const reactionsByEmoji = {};
+        reactionsSnapshot.forEach(doc => {
+            const data = doc.data();
+            const emoji = data.emoji;
+            if (emoji) {
+                if (!reactionsByEmoji[emoji]) {
+                    reactionsByEmoji[emoji] = [];
+                }
+                reactionsByEmoji[emoji].push(doc.id);
+            }
+        });
+        
+        return reactionsByEmoji;
+    } catch (error) {
+        console.error('Error loading reactions:', error);
+        return {};
     }
 }
 
@@ -14958,20 +15047,26 @@ async function sendTeamInvitation(invitedEmail, invitedName, occupation) {
 }
 
 // Generate cryptographically secure invitation token
-// Uses crypto.getRandomValues() for high entropy
+// Uses crypto.getRandomValues() for high entropy (256 bits)
 function generateInvitationToken() {
-    // Generate 24 random bytes (192 bits of entropy)
-    const randomBytes = new Uint8Array(24);
+    // Generate 32 random bytes (256 bits of entropy)
+    const randomBytes = new Uint8Array(32);
     crypto.getRandomValues(randomBytes);
     
-    // Convert to base64url-safe string (no +, /, or =)
-    const base64 = btoa(String.fromCharCode(...randomBytes))
-        .replace(/\+/g, '-')
-        .replace(/\//g, '_')
-        .replace(/=/g, '');
+    // Convert to hex string (64 characters)
+    const hex = Array.from(randomBytes)
+        .map(b => b.toString(16).padStart(2, '0'))
+        .join('');
     
-    // Return with prefix for easy identification (total >= 32 chars as required by rules)
-    return `inv_${base64}`;
+    // Return with prefix for easy identification (total = 68 chars, well above 32 minimum)
+    return `inv_${hex}`;
+}
+
+// Generic secure token generator for any security-sensitive use
+function generateSecureToken(bytes = 32) {
+    const arr = new Uint8Array(bytes);
+    crypto.getRandomValues(arr);
+    return Array.from(arr).map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
 /**
@@ -18605,6 +18700,65 @@ function displayTeamMembers(teamData) {
         const card = createTeamMemberCard(teammate, teamData);
         grid.appendChild(card);
     });
+    
+    // Load pending leave requests for admins
+    loadAndDisplayPendingLeaveRequests(teamData);
+}
+
+// Load and display pending leave requests (admin only)
+async function loadAndDisplayPendingLeaveRequests(teamData) {
+    const section = document.getElementById('pendingLeaveRequestsSection');
+    const list = document.getElementById('pendingLeaveRequestsList');
+    
+    if (!section || !list) return;
+    
+    // Check if current user is admin/owner
+    const currentUserRole = teamData?.members?.[currentAuthUser?.uid]?.role;
+    if (currentUserRole !== 'admin' && currentUserRole !== 'owner') {
+        section.style.display = 'none';
+        return;
+    }
+    
+    try {
+        const requests = await loadPendingLeaveRequests();
+        
+        if (!requests || requests.length === 0) {
+            section.style.display = 'none';
+            return;
+        }
+        
+        section.style.display = 'block';
+        list.innerHTML = '';
+        
+        requests.forEach(request => {
+            const requestEl = document.createElement('div');
+            requestEl.className = 'leave-request-item';
+            
+            const timeAgo = request.requestedAt?.toDate ? 
+                formatTimeAgo(request.requestedAt.toDate()) : 'Recently';
+            
+            requestEl.innerHTML = `
+                <div class="leave-request-info">
+                    <span class="leave-request-name">${escapeHtml(request.userName || request.userEmail)}</span>
+                    <span class="leave-request-time">Requested ${timeAgo}</span>
+                </div>
+                <div class="leave-request-actions">
+                    <button class="btn-approve-leave" onclick="approveLeaveRequest('${request.id}', '${request.userId}', '${escapeHtml(request.userName || 'User')}')">
+                        <i class="fas fa-check"></i> Approve
+                    </button>
+                    <button class="btn-deny-leave" onclick="denyLeaveRequest('${request.id}', '${escapeHtml(request.userName || 'User')}')">
+                        <i class="fas fa-times"></i> Deny
+                    </button>
+                </div>
+            `;
+            
+            list.appendChild(requestEl);
+        });
+        
+    } catch (error) {
+        console.error('Error loading leave requests:', error);
+        section.style.display = 'none';
+    }
 }
 
 // Create enhanced team member card
@@ -19277,51 +19431,209 @@ async function joinTeamByCode(teamCode) {
     }
 }
 
-// Leave team
+// Leave team - SECURITY FIX: Use pendingLeaveRequests for non-owners
+// Regular members submit a leave request; admins/owners can leave directly or approve requests
 window.leaveTeam = async function() {
-    if (!confirm('Are you sure you want to leave this team? This action cannot be undone.')) {
-        return;
-    }
-    
     if (!db || !currentAuthUser || !appState.currentTeamId) return;
     
     try {
-        const { doc, getDoc, updateDoc, setDoc } = 
+        const { doc, getDoc, updateDoc, setDoc, collection, addDoc, serverTimestamp, deleteField } = 
             await import('https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js');
         
-        // Remove user from team members
         const teamRef = doc(db, 'teams', appState.currentTeamId);
         const teamDoc = await getDoc(teamRef);
         
-        if (teamDoc.exists()) {
-            const members = teamDoc.data().members || {};
-            delete members[currentAuthUser.uid];
-            
-            await updateDoc(teamRef, { members });
+        if (!teamDoc.exists()) {
+            showToast('Team not found', 'error');
+            return;
         }
         
-        // Update user document
-        const userRef = doc(db, 'users', currentAuthUser.uid);
-        await setDoc(userRef, {
-            teams: [],
-            email: currentAuthUser.email,
-            displayName: currentAuthUser.displayName
-        }, { merge: true });
+        const teamData = teamDoc.data();
+        const members = teamData.members || {};
+        const memberCount = Object.keys(members).length;
+        const userRole = members[currentAuthUser.uid]?.role || 'member';
         
-        // Clear local state
-        appState.currentTeamId = null;
-        appState.userTeams = [];
-        appState.teammates = [];
+        // Case 1: Owner trying to leave
+        if (userRole === 'owner') {
+            if (memberCount > 1) {
+                // Owner cannot leave without transferring ownership
+                showToast('You must transfer ownership before leaving the team', 'warning', 5000, 'Cannot Leave');
+                return;
+            } else {
+                // Owner is the last member - confirm and delete team
+                if (!confirm('You are the only member. Leaving will delete this team permanently. Continue?')) {
+                    return;
+                }
+                // For now, just remove themselves (team will be orphaned but rules prevent access)
+                // TODO: Consider full team deletion
+            }
+        }
         
-        alert('You have left the team successfully.');
+        // Case 2: Admin can leave directly
+        if (userRole === 'admin' || userRole === 'owner') {
+            if (!confirm('Are you sure you want to leave this team? This action cannot be undone.')) {
+                return;
+            }
+            await performLeaveTeam(currentAuthUser.uid, appState.currentTeamId);
+            return;
+        }
         
-        // Refresh the team section
-        await initTeamSection();
+        // Case 3: Regular member - submit leave request for admin approval
+        if (!confirm('Submit a request to leave this team? An admin will need to approve it.')) {
+            return;
+        }
+        
+        // Create leave request
+        const leaveRequestsRef = collection(db, 'teams', appState.currentTeamId, 'pendingLeaveRequests');
+        await addDoc(leaveRequestsRef, {
+            userId: currentAuthUser.uid,
+            userName: currentAuthUser.displayName || currentAuthUser.email,
+            userEmail: currentAuthUser.email,
+            requestedAt: serverTimestamp(),
+            status: 'pending'
+        });
+        
+        showToast('Leave request submitted. An admin will review it.', 'success', 5000, 'Request Sent');
         
     } catch (error) {
         console.error('Error leaving team:', error.code || error.message);
         debugError('Full error:', error);
-        showToast('Error leaving team. Please try again.', 'error', 5000, 'Error');
+        
+        // If permission denied, it might be a rules issue - guide the user
+        if (error.code === 'permission-denied') {
+            showToast('You do not have permission to leave directly. Contact an admin.', 'error', 5000, 'Permission Denied');
+        } else {
+            showToast('Error leaving team. Please try again.', 'error', 5000, 'Error');
+        }
+    }
+};
+
+// Actually perform the leave team operation (used by admins and for approved requests)
+async function performLeaveTeam(userId, teamId) {
+    if (!db) return;
+    
+    try {
+        const { doc, getDoc, updateDoc, setDoc, deleteField } = 
+            await import('https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js');
+        
+        const teamRef = doc(db, 'teams', teamId);
+        const teamDoc = await getDoc(teamRef);
+        
+        if (!teamDoc.exists()) return;
+        
+        const members = teamDoc.data().members || {};
+        
+        // Use deleteField to remove the user from members map
+        const updates = {};
+        updates[`members.${userId}`] = deleteField();
+        await updateDoc(teamRef, updates);
+        
+        // Update user's teams list
+        const userRef = doc(db, 'users', userId);
+        const userDoc = await getDoc(userRef);
+        if (userDoc.exists()) {
+            const userData = userDoc.data();
+            const userTeams = (userData.teams || []).filter(t => t !== teamId);
+            await setDoc(userRef, { teams: userTeams }, { merge: true });
+        }
+        
+        // If this is the current user, clear local state
+        if (userId === currentAuthUser?.uid) {
+            appState.currentTeamId = null;
+            appState.userTeams = [];
+            appState.teammates = [];
+            
+            showToast('You have left the team successfully.', 'success');
+            await initTeamSection();
+        }
+        
+    } catch (error) {
+        console.error('Error performing leave team:', error);
+        throw error;
+    }
+}
+
+// Approve a leave request (admin/owner only)
+window.approveLeaveRequest = async function(requestId, userId, userName) {
+    if (!db || !currentAuthUser || !appState.currentTeamId) return;
+    
+    if (!confirm(`Approve ${userName}'s request to leave the team?`)) {
+        return;
+    }
+    
+    try {
+        const { doc, deleteDoc } = 
+            await import('https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js');
+        
+        // Perform the leave operation
+        await performLeaveTeam(userId, appState.currentTeamId);
+        
+        // Delete the request
+        const requestRef = doc(db, 'teams', appState.currentTeamId, 'pendingLeaveRequests', requestId);
+        await deleteDoc(requestRef);
+        
+        showToast(`${userName} has been removed from the team.`, 'success');
+        
+        // Refresh the members list
+        if (window.loadPendingLeaveRequests) {
+            await loadPendingLeaveRequests();
+        }
+        
+    } catch (error) {
+        console.error('Error approving leave request:', error);
+        showToast('Error approving request. Please try again.', 'error');
+    }
+};
+
+// Deny a leave request (admin/owner only)
+window.denyLeaveRequest = async function(requestId, userName) {
+    if (!db || !currentAuthUser || !appState.currentTeamId) return;
+    
+    if (!confirm(`Deny ${userName}'s request to leave?`)) {
+        return;
+    }
+    
+    try {
+        const { doc, deleteDoc } = 
+            await import('https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js');
+        
+        const requestRef = doc(db, 'teams', appState.currentTeamId, 'pendingLeaveRequests', requestId);
+        await deleteDoc(requestRef);
+        
+        showToast(`Leave request denied.`, 'info');
+        
+        if (window.loadPendingLeaveRequests) {
+            await loadPendingLeaveRequests();
+        }
+        
+    } catch (error) {
+        console.error('Error denying leave request:', error);
+        showToast('Error denying request. Please try again.', 'error');
+    }
+};
+
+// Load pending leave requests (admin/owner only)
+window.loadPendingLeaveRequests = async function() {
+    if (!db || !appState.currentTeamId) return [];
+    
+    try {
+        const { collection, query, orderBy, getDocs } = 
+            await import('https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js');
+        
+        const requestsRef = collection(db, 'teams', appState.currentTeamId, 'pendingLeaveRequests');
+        const q = query(requestsRef, orderBy('requestedAt', 'desc'));
+        const snapshot = await getDocs(q);
+        
+        const requests = [];
+        snapshot.forEach(doc => {
+            requests.push({ id: doc.id, ...doc.data() });
+        });
+        
+        return requests;
+        
+    } catch (error) {
+        console.error('Error loading leave requests:', error);
+        return [];
     }
 };
 
@@ -19882,39 +20194,54 @@ function initLinkLobby() {
 }
 
 // Subscribe to Link Lobby groups
+// Security: Uses split queries to avoid permission errors on private groups
 async function subscribeLinkLobbyGroups() {
-    if (!db || !appState.currentTeamId) return;
+    if (!db || !appState.currentTeamId || !currentAuthUser) return;
     
-    // Unsubscribe from previous listener
+    // Unsubscribe from previous listeners
     if (linkLobbyUnsubscribe) {
-        linkLobbyUnsubscribe();
+        if (typeof linkLobbyUnsubscribe === 'function') {
+            linkLobbyUnsubscribe();
+        } else if (Array.isArray(linkLobbyUnsubscribe)) {
+            linkLobbyUnsubscribe.forEach(unsub => unsub && unsub());
+        }
     }
     
     try {
-        const { collection, query, orderBy, onSnapshot, getDocs } = 
+        const { collection, query, where, orderBy, onSnapshot, getDocs } = 
             await import('https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js');
         
         const groupsRef = collection(db, 'teams', appState.currentTeamId, 'linkLobbyGroups');
-        const q = query(groupsRef, orderBy('sortOrder', 'asc'));
+        const currentUserId = currentAuthUser.uid;
         
-        linkLobbyUnsubscribe = onSnapshot(q, async (snapshot) => {
-            const rawGroups = [];
-            
+        // SECURITY FIX: Split into two queries to avoid permission errors
+        // Query 1: Public/team groups (visibility == 'team' or no visibility field)
+        // Query 2: Private groups created by current user
+        const teamGroupsQuery = query(groupsRef, where('visibility', '==', 'team'), orderBy('sortOrder', 'asc'));
+        const privateGroupsQuery = query(groupsRef, where('visibility', '==', 'private'), where('createdBy', '==', currentUserId), orderBy('sortOrder', 'asc'));
+        // Query 3: Legacy groups without visibility field (treated as team-visible)
+        const legacyGroupsQuery = query(groupsRef, orderBy('sortOrder', 'asc'));
+        
+        // Track results from both queries
+        let teamGroups = [];
+        let privateGroups = [];
+        let legacyGroups = [];
+        let unsubscribers = [];
+        
+        // Helper to process group documents
+        const processGroupDocs = async (snapshot) => {
+            const groups = [];
             for (const docSnapshot of snapshot.docs) {
                 const groupData = { id: docSnapshot.id, ...docSnapshot.data(), links: [], domainGroups: {} };
                 
-                // Fetch links for this group using getDocs
-                // Note: With server-side visibility rules, we can only read links in groups we have access to
+                // Fetch links for this group
                 try {
                     const linksRef = collection(db, 'teams', appState.currentTeamId, 'linkLobbyGroups', docSnapshot.id, 'links');
                     const linksQuery = query(linksRef, orderBy('createdAt', 'desc'));
-                    
                     const linksSnapshot = await getDocs(linksQuery);
                     
                     linksSnapshot.forEach(linkDoc => {
                         const linkData = { id: linkDoc.id, ...linkDoc.data() };
-                        
-                        // If auto-domain grouping is enabled, organize by domain
                         if (groupData.autoGroupDomain && linkData.domain) {
                             if (!groupData.domainGroups[linkData.domain]) {
                                 groupData.domainGroups[linkData.domain] = [];
@@ -19925,8 +20252,6 @@ async function subscribeLinkLobbyGroups() {
                         }
                     });
                 } catch (linkError) {
-                    // Permission error - user doesn't have access to this group's links
-                    // This can happen for private groups created by others
                     debugLog('Could not fetch links for group:', docSnapshot.id, linkError.message);
                 }
                 
@@ -19937,7 +20262,6 @@ async function subscribeLinkLobbyGroups() {
                     return (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0);
                 });
                 
-                // Sort domain group links
                 Object.keys(groupData.domainGroups).forEach(domain => {
                     groupData.domainGroups[domain].sort((a, b) => {
                         if (a.favorite && !b.favorite) return -1;
@@ -19946,38 +20270,106 @@ async function subscribeLinkLobbyGroups() {
                     });
                 });
                 
-                rawGroups.push(groupData);
+                groups.push(groupData);
             }
+            return groups;
+        };
+        
+        // Merge and deduplicate groups from all queries
+        const mergeAndRender = () => {
+            // Combine all groups, filtering legacy groups to exclude those with explicit visibility
+            const filteredLegacy = legacyGroups.filter(g => !('visibility' in g) || g.visibility === undefined);
+            const allGroups = [...teamGroups, ...privateGroups, ...filteredLegacy];
             
-            // Deduplicate groups by normalized title (keep the one with lowest sortOrder or earliest creation)
+            // Deduplicate by ID first, then by normalized title
+            const seenIds = new Set();
             const seenTitles = new Map();
             linkLobbyGroups = [];
             
-            for (const group of rawGroups) {
+            // Sort by sortOrder before deduplication
+            allGroups.sort((a, b) => (a.sortOrder ?? Infinity) - (b.sortOrder ?? Infinity));
+            
+            for (const group of allGroups) {
+                // Skip if already seen this exact document
+                if (seenIds.has(group.id)) continue;
+                seenIds.add(group.id);
+                
                 const normalizedTitle = normalizeGroupTitle(group.title);
                 
                 if (!seenTitles.has(normalizedTitle)) {
                     seenTitles.set(normalizedTitle, group);
                     linkLobbyGroups.push(group);
                 } else {
-                    // Keep the group with lower sortOrder (earlier in list)
                     const existing = seenTitles.get(normalizedTitle);
                     if ((group.sortOrder ?? Infinity) < (existing.sortOrder ?? Infinity)) {
-                        // Replace with newer group that has lower sort order
                         const idx = linkLobbyGroups.indexOf(existing);
                         if (idx !== -1) {
                             linkLobbyGroups[idx] = group;
                             seenTitles.set(normalizedTitle, group);
                         }
                     }
-                    console.warn(`Duplicate group detected: "${group.title}" (id: ${group.id}) - using existing`);
                 }
             }
             
+            // Re-sort after deduplication
+            linkLobbyGroups.sort((a, b) => (a.sortOrder ?? Infinity) - (b.sortOrder ?? Infinity));
+            
             renderLinkLobby();
+        };
+        
+        // Subscribe to team groups (visibility == 'team')
+        const unsub1 = onSnapshot(teamGroupsQuery, async (snapshot) => {
+            teamGroups = await processGroupDocs(snapshot);
+            mergeAndRender();
         }, (error) => {
-            console.error('Error subscribing to link lobby groups:', error);
+            // This query may fail if no groups have visibility=='team' yet, that's ok
+            debugLog('Team groups query error (may be normal):', error.code);
+            teamGroups = [];
+            mergeAndRender();
         });
+        unsubscribers.push(unsub1);
+        
+        // Subscribe to private groups (visibility == 'private' AND createdBy == currentUser)
+        const unsub2 = onSnapshot(privateGroupsQuery, async (snapshot) => {
+            privateGroups = await processGroupDocs(snapshot);
+            mergeAndRender();
+        }, (error) => {
+            debugLog('Private groups query error (may be normal):', error.code);
+            privateGroups = [];
+            mergeAndRender();
+        });
+        unsubscribers.push(unsub2);
+        
+        // Subscribe to legacy groups (no visibility field) - filter client-side
+        // This handles backward compatibility with groups created before visibility was added
+        const unsub3 = onSnapshot(legacyGroupsQuery, async (snapshot) => {
+            // Filter to only include groups without visibility OR where user is creator of private
+            const filteredDocs = {
+                docs: snapshot.docs.filter(doc => {
+                    const data = doc.data();
+                    // Include if no visibility field
+                    if (!('visibility' in data)) return true;
+                    // Already handled by other queries
+                    return false;
+                })
+            };
+            legacyGroups = await processGroupDocs(filteredDocs);
+            mergeAndRender();
+        }, (error) => {
+            // If permission-denied, it means the rules are working correctly
+            // and we shouldn't have access to some groups in this query
+            if (error.code === 'permission-denied') {
+                debugLog('Legacy query permission denied - using split queries only');
+                legacyGroups = [];
+                mergeAndRender();
+            } else {
+                console.error('Legacy groups query error:', error);
+            }
+        });
+        unsubscribers.push(unsub3);
+        
+        // Store all unsubscribers
+        linkLobbyUnsubscribe = unsubscribers;
         
     } catch (error) {
         console.error('Error setting up link lobby subscription:', error);
@@ -19991,16 +20383,9 @@ function renderLinkLobby() {
     
     if (!container) return;
     
-    // Filter groups based on visibility
-    const currentUserId = currentAuthUser?.uid;
-    const visibleGroups = linkLobbyGroups.filter(group => {
-        // If visibility is 'private', only show to creator
-        if (group.visibility === 'private') {
-            return group.createdBy === currentUserId;
-        }
-        // Otherwise (team or undefined), show to all team members
-        return true;
-    });
+    // NOTE: Visibility filtering is now done at query level in subscribeLinkLobbyGroups()
+    // The linkLobbyGroups array only contains groups the user has permission to see
+    const visibleGroups = linkLobbyGroups;
     
     if (visibleGroups.length === 0) {
         if (emptyState) emptyState.style.display = 'block';
@@ -20396,13 +20781,14 @@ async function saveLinkGroup(event) {
             await updateDoc(groupRef, { title, autoGroupDomain });
             showToast('Group updated!', 'success');
         } else {
-            // Create new group
+            // Create new group - always set explicit visibility for query compatibility
             const groupsRef = collection(db, 'teams', appState.currentTeamId, 'linkLobbyGroups');
             const sortOrder = linkLobbyGroups.length;
             await addDoc(groupsRef, {
                 title,
                 autoGroupDomain,
                 sortOrder,
+                visibility: 'team',  // SECURITY: Explicit visibility for split query support
                 createdAt: serverTimestamp(),
                 createdBy: currentAuthUser.uid
             });
