@@ -1,14 +1,21 @@
 // ===================================
 // FIREBASE CONFIGURATION
 // ===================================
+/**
+ * SECURITY NOTE:
+ * Firebase Web API keys are PUBLIC IDENTIFIERS, NOT secrets.
+ * Security is enforced via Firestore/Storage rules and API key restrictions.
+ * Never place service account credentials or admin keys in frontend code.
+ * See SECURITY.md for detailed documentation.
+ */
 const firebaseConfig = {
-    apiKey: "AIzaSyBsV-g9DBRTCE9sk1bsYy4TRsohAETF7vg",
-    authDomain: "teamhub-bf61f.firebaseapp.com",
-    projectId: "teamhub-bf61f",
-    storageBucket: "teamhub-bf61f.firebasestorage.app",
-    messagingSenderId: "186552753103",
-    appId: "1:186552753103:web:4a102aa3b91aa71c4150ba",
-    measurementId: "G-1VH5ZLCH63"
+    apiKey: import.meta.env.VITE_FIREBASE_API_KEY || window.__ENV__?.VITE_FIREBASE_API_KEY || "AIzaSyBsV-g9DBRTCE9sk1bsYy4TRsohAETF7vg",
+    authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || window.__ENV__?.VITE_FIREBASE_AUTH_DOMAIN || "teamhub-bf61f.firebaseapp.com",
+    projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || window.__ENV__?.VITE_FIREBASE_PROJECT_ID || "teamhub-bf61f",
+    storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || window.__ENV__?.VITE_FIREBASE_STORAGE_BUCKET || "teamhub-bf61f.firebasestorage.app",
+    messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || window.__ENV__?.VITE_FIREBASE_MESSAGING_SENDER_ID || "186552753103",
+    appId: import.meta.env.VITE_FIREBASE_APP_ID || window.__ENV__?.VITE_FIREBASE_APP_ID || "1:186552753103:web:4a102aa3b91aa71c4150ba",
+    measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || window.__ENV__?.VITE_FIREBASE_MEASUREMENT_ID || "G-1VH5ZLCH63"
 };
 
 // Initialize Firebase
@@ -23,6 +30,46 @@ const DEBUG = false;
 // Set to true to log Firestore write details (paths, keys, payloads)
 // ===================================
 const DEBUG_PERMS = false;  // DISABLED for production - prevents logging UIDs, paths, doc IDs
+
+// ===================================
+// RUNTIME CONFIGURATION VALIDATION
+// ===================================
+/**
+ * Validates Firebase configuration before initialization.
+ * Prevents silent failures by failing loudly with clear error messages.
+ * This makes misconfiguration immediately obvious in development.
+ */
+function assertFirebaseConfig(cfg) {
+    const requiredKeys = ['apiKey', 'authDomain', 'projectId', 'storageBucket', 'messagingSenderId', 'appId'];
+    const missing = requiredKeys.filter(key => !cfg[key] || cfg[key].includes('your-') || cfg[key].includes('your_'));
+    
+    if (missing.length > 0) {
+        const errorMsg = `
+🚨 FIREBASE CONFIGURATION ERROR 🚨
+Missing or invalid keys: ${missing.join(', ')}
+
+Fix:
+  1. Copy .env.example to .env
+  2. Fill in Firebase config from Firebase Console
+  3. Restart dev server
+
+See SECURITY.md for detailed instructions.
+        `.trim();
+        console.error(errorMsg);
+        throw new Error(`Invalid Firebase configuration. Missing: ${missing.join(', ')}`);
+    }
+    
+    if (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && cfg.authDomain?.includes('localhost')) {
+        console.warn('⚠️ [SECURITY] Production site using localhost config. Check environment variables.');
+    }
+    
+    if (DEBUG || DEBUG_PERMS) {
+        console.log('✅ Firebase configuration validated');
+    }
+}
+
+// Validate before initializing
+assertFirebaseConfig(firebaseConfig);
 
 // ===================================
 // FIRESTORE ERROR LOGGER HELPER
@@ -20845,17 +20892,7 @@ async function subscribeLinkLobbyGroups() {
             });
             unsubscribers.push(privateGroupsUnsub);
         };
-        subscribePrivateGroups(true
-        // Subscribe to private groups (visibility == 'private' AND createdBy == currentUser)
-        const unsub2 = onSnapshot(privateGroupsQuery, async (snapshot) => {
-            privateGroups = await processGroupDocs(snapshot);
-            mergeAndRender();
-        }, (error) => {
-            debugLog('Private groups query error (may be normal):', error.code);
-            privateGroups = [];
-            mergeAndRender();
-        });
-        unsubscribers.push(unsub2);
+        subscribePrivateGroups(true);
         
         // Subscribe to legacy groups (no visibility field) - filter client-side
         // This handles backward compatibility with groups created before visibility was added

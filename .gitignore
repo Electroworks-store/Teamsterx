@@ -1,3 +1,13 @@
+# ============================================
+# ENVIRONMENT VARIABLES (CRITICAL - NEVER COMMIT)
+# ============================================
+# These files contain Firebase API keys and config
+.env
+.env.local
+.env.*.local
+.env.production
+.env.development
+
 # Dependencies
 node_modules/
 package-lock.json
