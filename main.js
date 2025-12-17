@@ -20872,6 +20872,16 @@ async function subscribeLinkLobbyGroups() {
                     if (teamGroupsUnsub) teamGroupsUnsub();
                     subscribeTeamGroups(false);
                 } else {
+                    debugLog('Team groups query error:', error.code);
+                    teamGroups = [];
+                    mergeAndRender();
+                }
+            });
+            unsubscribers.push(teamGroupsUnsub);
+        };
+        subscribeTeamGroups(true);
+        
+        // Subscribe to private groups (visibility == 'private' AND createdBy == currentUser)
         let privateGroupsUnsub;
         const subscribePrivateGroups = (useOrderBy = true) => {
             const queryToUse = useOrderBy ? privateGroupsQuery : privateGroupsQueryFallback;
