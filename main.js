@@ -20822,6 +20822,8 @@ async function subscribeLinkLobbyGroups() {
             const filteredLegacy = legacyGroups.filter(g => !('visibility' in g) || g.visibility === undefined);
             const allGroups = [...teamGroups, ...privateGroups, ...filteredLegacy];
             
+            console.log(`📦 mergeAndRender: ${allGroups.length} total groups before dedup`);
+            
             // Deduplicate by ID first, then by normalized title
             const seenIds = new Set();
             const seenTitles = new Map();
@@ -20841,19 +20843,27 @@ async function subscribeLinkLobbyGroups() {
                     seenTitles.set(normalizedTitle, group);
                     linkLobbyGroups.push(group);
                 } else {
+                    // Found duplicate title - log it
                     const existing = seenTitles.get(normalizedTitle);
+                    console.log(`⚠️ Duplicate group title found: "${group.title}" (ID: ${group.id}) vs "${existing.title}" (ID: ${existing.id})`);
+                    
                     if ((group.sortOrder ?? Infinity) < (existing.sortOrder ?? Infinity)) {
                         const idx = linkLobbyGroups.indexOf(existing);
                         if (idx !== -1) {
+                            console.log(`   → Replacing ${existing.id} with ${group.id} (better sortOrder)`);
                             linkLobbyGroups[idx] = group;
                             seenTitles.set(normalizedTitle, group);
                         }
+                    } else {
+                        console.log(`   → Keeping ${existing.id}, hiding ${group.id}`);
                     }
                 }
             }
             
             // Re-sort after deduplication
             linkLobbyGroups.sort((a, b) => (a.sortOrder ?? Infinity) - (b.sortOrder ?? Infinity));
+            
+            console.log(`✅ After dedup: ${linkLobbyGroups.length} groups displayed:`, linkLobbyGroups.map(g => `${g.title} (${g.id})`));
             
             renderLinkLobby();
         };
@@ -21485,6 +21495,8 @@ async function confirmDeleteLinkGroup() {
     
     if (!db || !appState.currentTeamId || !groupId) return;
     
+    console.log('🗑️ Deleting group:', groupId);
+    
     try {
         const { doc, deleteDoc, collection, getDocs } = 
             await import('https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js');
@@ -21492,6 +21504,8 @@ async function confirmDeleteLinkGroup() {
         // Delete all links in the group first
         const linksRef = collection(db, 'teams', appState.currentTeamId, 'linkLobbyGroups', groupId, 'links');
         const linksSnapshot = await getDocs(linksRef);
+        
+        console.log(`🗑️ Deleting ${linksSnapshot.docs.length} links from group ${groupId}`);
         
         const deletePromises = linksSnapshot.docs.map(linkDoc => 
             deleteDoc(doc(db, 'teams', appState.currentTeamId, 'linkLobbyGroups', groupId, 'links', linkDoc.id))
@@ -21502,11 +21516,12 @@ async function confirmDeleteLinkGroup() {
         const groupRef = doc(db, 'teams', appState.currentTeamId, 'linkLobbyGroups', groupId);
         await deleteDoc(groupRef);
         
+        console.log('✅ Group deleted from Firestore:', groupId);
         showToast('Group deleted!', 'success');
         closeDeleteLinkGroupModal();
         
     } catch (error) {
-        console.error('Error deleting group:', error);
+        console.error('❌ Error deleting group:', error);
         showToast('Error deleting group: ' + error.message, 'error');
     }
 }
