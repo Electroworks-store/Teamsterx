@@ -20695,10 +20695,13 @@ async function subscribeLinkLobbyGroups() {
         
         // SECURITY FIX: Split into two queries to avoid permission errors
         // Query 1: Public/team groups (visibility == 'team')
-        const teamGroupsQuery = query(groupsRef, where('visibility', '==', 'team'), orderBy('sortOrder', 'asc'));
+        // Try with orderBy first, fall back to client-side sort if indexes not ready
+        let teamGroupsQuery = query(groupsRef, where('visibility', '==', 'team'), orderBy('sortOrder', 'asc'));
+        let teamGroupsQueryFallback = query(groupsRef, where('visibility', '==', 'team'));
         
         // Query 2: Private groups created by current user
-        const privateGroupsQuery = query(groupsRef, where('visibility', '==', 'private'), where('createdBy', '==', currentUserId), orderBy('sortOrder', 'asc'));
+        let privateGroupsQuery = query(groupsRef, where('visibility', '==', 'private'), where('createdBy', '==', currentUserId), orderBy('sortOrder', 'asc'));
+        let privateGroupsQueryFallback = query(groupsRef, where('visibility', '==', 'private'), where('createdBy', '==', currentUserId));
         
         // Query 3: Legacy groups without visibility field (treated as team-visible)
         const legacyGroupsQuery = query(groupsRef);
@@ -20809,18 +20812,40 @@ async function subscribeLinkLobbyGroups() {
         };
         
         // Subscribe to team groups (visibility == 'team')
-        const unsub1 = onSnapshot(teamGroupsQuery, async (snapshot) => {
-            teamGroups = await processGroupDocs(snapshot);
-            mergeAndRender();
-        }, (error) => {
-            // This query may fail if no groups have visibility=='team' yet, that's ok
-            console.log('%c⚠️ Team groups query error:', 'color: #ff8800; font-weight: bold', error.code);
-            debugLog('Team groups query error (may be normal):', error.code);
-            teamGroups = [];
-            mergeAndRender();
-        });
-        unsubscribers.push(unsub1);
-        
+        let teamGroupsUnsub;
+        const subscribeTeamGroups = (useOrderBy = true) => {
+            const queryToUse = useOrderBy ? teamGroupsQuery : teamGroupsQueryFallback;
+            teamGroupsUnsub = onSnapshot(queryToUse, async (snapshot) => {
+                teamGroups = await processGroupDocs(snapshot);
+                mergeAndRender();
+            }, (error) => {
+                // If failed-precondition, indexes not ready - retry without orderBy
+                if (error.code === 'failed-precondition' && useOrderBy) {
+                    console.log('%c⚠️ Indexes not ready, using fallback query without orderBy', 'color: #ff8800; font-weight: bold');
+                    if (teamGroupsUnsub) teamGroupsUnsub();
+                    subscribeTeamGroups(false);
+                } else {
+        let privateGroupsUnsub;
+        const subscribePrivateGroups = (useOrderBy = true) => {
+            const queryToUse = useOrderBy ? privateGroupsQuery : privateGroupsQueryFallback;
+            privateGroupsUnsub = onSnapshot(queryToUse, async (snapshot) => {
+                privateGroups = await processGroupDocs(snapshot);
+                mergeAndRender();
+            }, (error) => {
+                // If failed-precondition, indexes not ready - retry without orderBy
+                if (error.code === 'failed-precondition' && useOrderBy) {
+                    console.log('%c⚠️ Indexes not ready, using fallback query without orderBy', 'color: #ff8800; font-weight: bold');
+                    if (privateGroupsUnsub) privateGroupsUnsub();
+                    subscribePrivateGroups(false);
+                } else {
+                    debugLog('Private groups query error:', error.code);
+                    privateGroups = [];
+                    mergeAndRender();
+                }
+            });
+            unsubscribers.push(privateGroupsUnsub);
+        };
+        subscribePrivateGroups(true
         // Subscribe to private groups (visibility == 'private' AND createdBy == currentUser)
         const unsub2 = onSnapshot(privateGroupsQuery, async (snapshot) => {
             privateGroups = await processGroupDocs(snapshot);
