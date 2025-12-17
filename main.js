@@ -20868,7 +20868,7 @@ async function subscribeLinkLobbyGroups() {
             }, (error) => {
                 // If failed-precondition, indexes not ready - retry without orderBy
                 if (error.code === 'failed-precondition' && useOrderBy) {
-                    console.log('%c⚠️ Indexes not ready, using fallback query without orderBy', 'color: #ff8800; font-weight: bold');
+                    // Silently fallback to query without orderBy (client-side sorting handles it)
                     if (teamGroupsUnsub) teamGroupsUnsub();
                     subscribeTeamGroups(false);
                 } else {
@@ -20891,7 +20891,7 @@ async function subscribeLinkLobbyGroups() {
             }, (error) => {
                 // If failed-precondition, indexes not ready - retry without orderBy
                 if (error.code === 'failed-precondition' && useOrderBy) {
-                    console.log('%c⚠️ Indexes not ready, using fallback query without orderBy', 'color: #ff8800; font-weight: bold');
+                    // Silently fallback to query without orderBy (client-side sorting handles it)
                     if (privateGroupsUnsub) privateGroupsUnsub();
                     subscribePrivateGroups(false);
                 } else {
