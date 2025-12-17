@@ -22,7 +22,7 @@ const DEBUG = false;
 // DEBUG_PERMS FLAG - Enable verbose permission debugging
 // Set to true to log Firestore write details (paths, keys, payloads)
 // ===================================
-const DEBUG_PERMS = true;  // ENABLED - check console for [DEBUG_PERMS] logs
+const DEBUG_PERMS = false;  // DISABLED for production - prevents logging UIDs, paths, doc IDs
 
 // ===================================
 // FIRESTORE ERROR LOGGER HELPER
@@ -20694,12 +20694,11 @@ async function subscribeLinkLobbyGroups() {
         const currentUserId = currentAuthUser.uid;
         
         // SECURITY FIX: Split into two queries to avoid permission errors
-        // TEMPORARY: Remove orderBy to avoid index requirement until indexes are built
         // Query 1: Public/team groups (visibility == 'team')
-        const teamGroupsQuery = query(groupsRef, where('visibility', '==', 'team'));
+        const teamGroupsQuery = query(groupsRef, where('visibility', '==', 'team'), orderBy('sortOrder', 'asc'));
         
         // Query 2: Private groups created by current user
-        const privateGroupsQuery = query(groupsRef, where('visibility', '==', 'private'), where('createdBy', '==', currentUserId));
+        const privateGroupsQuery = query(groupsRef, where('visibility', '==', 'private'), where('createdBy', '==', currentUserId), orderBy('sortOrder', 'asc'));
         
         // Query 3: Legacy groups without visibility field (treated as team-visible)
         const legacyGroupsQuery = query(groupsRef);
@@ -20769,17 +20768,9 @@ async function subscribeLinkLobbyGroups() {
         
         // Merge and deduplicate groups from all queries
         const mergeAndRender = () => {
-            console.log('%c🔀 mergeAndRender CALLED', 'color: #ff00ff; font-weight: bold', {
-                teamGroupsCount: teamGroups.length,
-                privateGroupsCount: privateGroups.length,
-                legacyGroupsCount: legacyGroups.length
-            });
-            
             // Combine all groups, filtering legacy groups to exclude those with explicit visibility
             const filteredLegacy = legacyGroups.filter(g => !('visibility' in g) || g.visibility === undefined);
             const allGroups = [...teamGroups, ...privateGroups, ...filteredLegacy];
-            
-            console.log('%c📊 All Groups (before dedup):', 'color: #ff00ff; font-weight: bold', allGroups.length);
             
             // Deduplicate by ID first, then by normalized title
             const seenIds = new Set();
@@ -20814,17 +20805,12 @@ async function subscribeLinkLobbyGroups() {
             // Re-sort after deduplication
             linkLobbyGroups.sort((a, b) => (a.sortOrder ?? Infinity) - (b.sortOrder ?? Infinity));
             
-            console.log('%c✅ Final linkLobbyGroups:', 'color: #00ff00; font-weight: bold', linkLobbyGroups.length, linkLobbyGroups.map(g => g.title));
-            console.log('%c🎨 Calling renderLinkLobby()...', 'color: #ff00ff; font-weight: bold');
-            
             renderLinkLobby();
         };
         
         // Subscribe to team groups (visibility == 'team')
         const unsub1 = onSnapshot(teamGroupsQuery, async (snapshot) => {
-            console.log('%c📥 Team groups snapshot:', 'color: #00aaff; font-weight: bold', snapshot.docs.length, 'docs');
             teamGroups = await processGroupDocs(snapshot);
-            console.log('%c✅ Team groups processed:', 'color: #00aaff; font-weight: bold', teamGroups.length, teamGroups.map(g => ({ id: g.id, title: g.title })));
             mergeAndRender();
         }, (error) => {
             // This query may fail if no groups have visibility=='team' yet, that's ok
