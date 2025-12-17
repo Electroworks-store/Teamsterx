@@ -20694,12 +20694,15 @@ async function subscribeLinkLobbyGroups() {
         const currentUserId = currentAuthUser.uid;
         
         // SECURITY FIX: Split into two queries to avoid permission errors
-        // Query 1: Public/team groups (visibility == 'team' or no visibility field)
+        // TEMPORARY: Remove orderBy to avoid index requirement until indexes are built
+        // Query 1: Public/team groups (visibility == 'team')
+        const teamGroupsQuery = query(groupsRef, where('visibility', '==', 'team'));
+        
         // Query 2: Private groups created by current user
-        const teamGroupsQuery = query(groupsRef, where('visibility', '==', 'team'), orderBy('sortOrder', 'asc'));
-        const privateGroupsQuery = query(groupsRef, where('visibility', '==', 'private'), where('createdBy', '==', currentUserId), orderBy('sortOrder', 'asc'));
+        const privateGroupsQuery = query(groupsRef, where('visibility', '==', 'private'), where('createdBy', '==', currentUserId));
+        
         // Query 3: Legacy groups without visibility field (treated as team-visible)
-        const legacyGroupsQuery = query(groupsRef, orderBy('sortOrder', 'asc'));
+        const legacyGroupsQuery = query(groupsRef);
         
         // Track results from both queries
         let teamGroups = [];
