@@ -8,12 +8,17 @@
     <link rel="icon" type="image/png" sizes="16x16" href="img/favicon-circle.png">
     <link rel="shortcut icon" href="img/favicon-circle.png">
     <link rel="apple-touch-icon" href="img/favicon-circle.png">
-    <link rel="stylesheet" href="styles.css?v=65">
+    <script src="version.js"></script>
+    <link rel="stylesheet" href="styles.css?v=65" id="styles-link">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Apply dark mode immediately to prevent flash -->
     <script>
         if (localStorage.getItem('darkMode') === 'true') {
             document.documentElement.classList.add('dark-mode');
+        }
+        // Auto-update version on links
+        if (window.APP_VERSION) {
+            document.getElementById('styles-link').href = `styles.css?v=${window.APP_VERSION}`;
         }
     </script>
 </head>
