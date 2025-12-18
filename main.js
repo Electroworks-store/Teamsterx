@@ -3738,6 +3738,14 @@ function initTasks() {
             hideSpreadsheetContextMenu();
         });
         
+        // Edit action (icon, color, visibility)
+        document.getElementById('contextMenuEdit')?.addEventListener('click', () => {
+            if (contextMenuSpreadsheet) {
+                openEditSpreadsheetModal(contextMenuSpreadsheet);
+            }
+            hideSpreadsheetContextMenu();
+        });
+        
         // Delete action
         document.getElementById('contextMenuDelete')?.addEventListener('click', () => {
             if (contextMenuSpreadsheet) {
@@ -3817,6 +3825,56 @@ function initTasks() {
                 titleInput.select();
             }
         }, 100);
+    }
+    
+    function openEditSpreadsheetModal(spreadsheet) {
+        // Populate modal with existing values
+        const modal = document.getElementById('spreadsheetModal');
+        const form = document.getElementById('spreadsheetForm');
+        const titleEl = modal.querySelector('.unified-modal-title h2');
+        const subtitleEl = modal.querySelector('.unified-modal-title .subtitle');
+        const submitBtn = modal.querySelector('.unified-btn-primary');
+        
+        // Update modal title
+        if (titleEl) titleEl.innerHTML = '<i class=\"fas fa-palette\"></i> Edit Spreadsheet';
+        if (subtitleEl) subtitleEl.textContent = 'Update icon, color, and visibility';
+        if (submitBtn) submitBtn.innerHTML = '<i class=\"fas fa-check\"></i> Save Changes';
+        
+        // Hide name and type fields (can't change these after creation)
+        const nameField = modal.querySelector('#spreadsheetName')?.closest('.unified-form-field');
+        const typeField = modal.querySelector('#typeSelectRow')?.closest('.unified-form-field');
+        if (nameField) nameField.style.display = 'none';
+        if (typeField) typeField.style.display = 'none';
+        
+        // Set icon\n        const iconButtons = modal.querySelectorAll('.unified-icon-option');
+        iconButtons.forEach(btn => {
+            const isSelected = btn.dataset.icon === spreadsheet.icon;
+            btn.classList.toggle('selected', isSelected);
+        });
+        document.getElementById('spreadsheetIcon').value = spreadsheet.icon || 'fa-table';
+        
+        // Set color
+        const colorButtons = modal.querySelectorAll('.unified-color-option');
+        colorButtons.forEach(btn => {
+            const isSelected = btn.dataset.color === spreadsheet.color;
+            btn.classList.toggle('selected', isSelected);
+        });
+        document.getElementById('spreadsheetColor').value = spreadsheet.color || '#0070f3';
+        
+        // Set visibility
+        const visibilityOptions = modal.querySelectorAll('.unified-visibility-option');
+        visibilityOptions.forEach(opt => {
+            const visibility = opt.dataset.visibility;
+            const isSelected = visibility === (spreadsheet.visibility || 'team');
+            opt.classList.toggle('selected', isSelected);
+            const radio = opt.querySelector('input[type=\"radio\"]');
+            if (radio) radio.checked = isSelected;
+        });
+        
+        // Store spreadsheet ID for editing
+        form.dataset.editingSpreadsheetId = spreadsheet.id;
+        
+        openModal('spreadsheetModal');
     }
     
     async function confirmDeleteSpreadsheet(spreadsheet) {
@@ -7239,17 +7297,64 @@ function initTasks() {
             form.addEventListener('submit', async (e) => {
                 e.preventDefault();
                 
-                const name = document.getElementById('spreadsheetName').value;
-                const icon = document.getElementById('spreadsheetIcon').value;
-                const color = document.getElementById('spreadsheetColor').value;
-                const visibility = document.querySelector('input[name="spreadsheetVisibility"]:checked').value;
-                const type = document.getElementById('spreadsheetType').value || 'tasks';
+                const editingSpreadsheetId = form.dataset.editingSpreadsheetId;
+                
+                if (editingSpreadsheetId) {
+                    // EDIT MODE - Update existing spreadsheet
+                    const spreadsheet = appState.spreadsheets.find(s => s.id === editingSpreadsheetId);
+                    if (!spreadsheet) {
+                        showToast('Spreadsheet not found', 'error');
+                        return;
+                    }
+                    
+                    const icon = document.getElementById('spreadsheetIcon').value;
+                    const color = document.getElementById('spreadsheetColor').value;
+                    const visibility = document.querySelector('input[name="spreadsheetVisibility"]:checked').value;
+                    
+                    // Update spreadsheet properties
+                    spreadsheet.icon = icon;
+                    spreadsheet.color = color;
+                    spreadsheet.visibility = visibility;
+                    
+                    // Save to Firestore
+                    await saveSpreadsheetToFirestore(spreadsheet);
+                    
+                    renderSpreadsheetCards();
+                    
+                    // Reset form
+                    form.reset();
+                    delete form.dataset.editingSpreadsheetId;
+                    
+                    // Reset modal to create mode
+                    const titleEl = document.querySelector('#spreadsheetModal .unified-modal-title h2');
+                    const subtitleEl = document.querySelector('#spreadsheetModal .unified-modal-title .subtitle');
+                    const submitBtn = document.querySelector('#spreadsheetModal .unified-btn-primary');
+                    if (titleEl) titleEl.innerHTML = '<i class=\"fas fa-table-cells\"></i> New Spreadsheet';
+                    if (subtitleEl) subtitleEl.textContent = 'Create a new spreadsheet for your team';
+                    if (submitBtn) submitBtn.innerHTML = '<i class=\"fas fa-plus\"></i> Create Spreadsheet';
+                    
+                    // Show hidden fields
+                    const nameField = document.querySelector('#spreadsheetName')?.closest('.unified-form-field');
+                    const typeField = document.querySelector('#typeSelectRow')?.closest('.unified-form-field');
+                    if (nameField) nameField.style.display = '';
+                    if (typeField) typeField.style.display = '';
+                    
+                    closeModal('spreadsheetModal');
+                    showToast(`Spreadsheet updated!`, 'success');
+                    
+                } else {
+                    // CREATE MODE - New spreadsheet
+                    const name = document.getElementById('spreadsheetName').value;
+                    const icon = document.getElementById('spreadsheetIcon').value;
+                    const color = document.getElementById('spreadsheetColor').value;
+                    const visibility = document.querySelector('input[name="spreadsheetVisibility"]:checked').value;
+                    const type = document.getElementById('spreadsheetType').value || 'tasks';
 
-                if (!appState.spreadsheets) {
-                    appState.spreadsheets = [];
-                }
+                    if (!appState.spreadsheets) {
+                        appState.spreadsheets = [];
+                    }
 
-                // Use preset based on type
+                    // Use preset based on type
                 const preset = type === 'leads' ? LEADS_TABLE_PRESET : TASKS_TABLE_PRESET;
 
                 // Generate unique ID with type prefix for reliable type detection on reload
@@ -7279,10 +7384,10 @@ function initTasks() {
                 
                 // Reset form and selections
                 form.reset();
-                iconGrid.querySelectorAll('.icon-option').forEach((b, i) => b.classList.toggle('active', i === 0));
-                colorGrid.querySelectorAll('.color-option').forEach((b, i) => b.classList.toggle('active', i === 0));
-                typeSelectRow.querySelectorAll('.type-option').forEach((b, i) => b.classList.toggle('active', i === 0));
-                visibilityOptions.forEach((o, i) => o.classList.toggle('active', i === 0));
+                iconGrid.querySelectorAll('.unified-icon-option').forEach((b, i) => b.classList.toggle('selected', i === 0));
+                colorGrid.querySelectorAll('.unified-color-option').forEach((b, i) => b.classList.toggle('selected', i === 0));
+                typeSelectRow.querySelectorAll('.unified-segmented-option').forEach((b, i) => b.classList.toggle('active', i === 0));
+                visibilityOptions.forEach((o, i) => o.classList.toggle('selected', i === 0));
                 document.getElementById('spreadsheetIcon').value = 'fa-table';
                 document.getElementById('spreadsheetColor').value = '#0070f3';
                 document.getElementById('spreadsheetType').value = 'tasks';
@@ -7290,6 +7395,7 @@ function initTasks() {
                 closeModal('spreadsheetModal');
                 
                 showToast(`Spreadsheet "${name}" created!`, 'success');
+                }
             });
         }
     }
@@ -8508,11 +8614,15 @@ async function addActivity(activity) {
         
         const activitiesRef = collection(db, 'teams', appState.currentTeamId, 'activities');
         
+        // Get username from team members data
+        const currentUserData = appState.currentTeamData?.members?.[currentAuthUser.uid];
+        const username = currentUserData?.username || currentAuthUser.displayName || currentAuthUser.email;
+        
         // SECURITY: Rules require createdBy == request.auth.uid
         const activityData = {
             type: activity.type,
             createdBy: currentAuthUser.uid, // Required by rules (was userId)
-            userName: currentAuthUser.displayName || currentAuthUser.email,
+            userName: username,  // Use username, not displayName
             description: activity.description,
             createdAt: serverTimestamp()
         };
@@ -12238,10 +12348,11 @@ function filterNotificationsByPreferences(notifications) {
 async function updateNotifications(activities) {
     if (!currentAuthUser) return;
     
-    // Filter activities that are not from the current user and are recent (last 24 hours)
+    // Filter out activities from the current user (don't notify yourself) and only show recent (last 24 hours)
     const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
     let notifications = activities.filter(activity => {
-        return activity.userId !== currentAuthUser.uid && 
+        // Exclude self-triggered activities
+        return activity.createdBy !== currentAuthUser.uid && 
                activity.timestamp > oneDayAgo;
     });
     
