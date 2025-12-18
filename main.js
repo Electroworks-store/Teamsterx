@@ -1139,11 +1139,8 @@ function initChat() {
         // Message will be displayed automatically by Firestore onSnapshot listener
         // This ensures the UI always uses the real Firestore doc ID
 
-        // Add to activity feed
-        addActivity({
-            type: 'message',
-            description: 'sent a message in Team Chat'
-        });
+        // Don't add activity for own messages (others will see it via their listeners)
+        // Activity is only for notification purposes, and you shouldn't notify yourself
 
         // Clear input and reply context
         chatInput.value = '';
@@ -3846,7 +3843,8 @@ function initTasks() {
         if (nameField) nameField.style.display = 'none';
         if (typeField) typeField.style.display = 'none';
         
-        // Set icon\n        const iconButtons = modal.querySelectorAll('.unified-icon-option');
+        // Set icon
+        const iconButtons = modal.querySelectorAll('.unified-icon-option');
         iconButtons.forEach(btn => {
             const isSelected = btn.dataset.icon === spreadsheet.icon;
             btn.classList.toggle('selected', isSelected);
@@ -12405,6 +12403,10 @@ function displayNotifications(notifications, readNotifications, filterMode = 'un
                     notification.type === 'message' ? 'fa-comment' : 
                     notification.type === 'team' ? 'fa-user-plus' : 'fa-calendar';
         
+        // Get username from team members data if available
+        const userMemberData = appState.currentTeamData?.members?.[notification.createdBy];
+        const displayName = userMemberData?.username || notification.userName || 'Someone';
+        
         const notificationEl = document.createElement('div');
         notificationEl.className = `notification-item ${!isRead ? 'unread' : ''}`;
         notificationEl.style.cursor = 'pointer';
@@ -12414,7 +12416,7 @@ function displayNotifications(notifications, readNotifications, filterMode = 'un
             </div>
             <div class="notification-content">
                 <div class="notification-text">
-                    <strong>${escapeHtml(notification.userName)}</strong> ${escapeHtml(notification.description)}
+                    <strong>${escapeHtml(displayName)}</strong> ${escapeHtml(notification.description)}
                 </div>
                 <div class="notification-time">${notification.timeAgo}</div>
             </div>
