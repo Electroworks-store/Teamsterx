@@ -20193,7 +20193,8 @@ async function saveTaskToFirestore(task) {
             hasTeamId: 'teamId' in taskData,
             hasCreatedAt: 'createdAt' in taskData,
             hasUpdatedAt: 'updatedAt' in taskData,
-            teamIdValue: taskData.teamId
+            teamIdValue: taskData.teamId,
+            actualData: JSON.stringify(taskData, null, 2)
         });
         
         const docRef = await addDoc(tasksRef, taskData);
