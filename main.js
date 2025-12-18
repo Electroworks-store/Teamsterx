@@ -20160,8 +20160,18 @@ async function saveTaskToFirestore(task) {
     const path = `teams/${appState.currentTeamId}/tasks/<new>`;
     
     try {
-        const { collection, addDoc, serverTimestamp } = 
+        const { collection, addDoc, doc, getDoc, serverTimestamp, Timestamp } = 
             await import('https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js');
+        
+        // DEBUG: Verify team membership before attempting write
+        const teamRef = doc(db, 'teams', appState.currentTeamId);
+        const teamSnap = await getDoc(teamRef);
+        const memberData = teamSnap.data()?.members?.[currentAuthUser.uid];
+        console.log('📋 Team membership check:', {
+            teamExists: teamSnap.exists(),
+            memberData: memberData,
+            hasRole: !!memberData?.role
+        });
         
         const tasksRef = collection(db, 'teams', appState.currentTeamId, 'tasks');
         
@@ -20178,9 +20188,25 @@ async function saveTaskToFirestore(task) {
             createdAt: serverTimestamp(),
             updatedAt: serverTimestamp()  // Add updatedAt for CREATE too
         };
+        
+        // Copy allowed fields, converting dates and stripping nulls
         for (const key of allowedFields) {
-            if (key in task && task[key] !== undefined) {
-                taskData[key] = task[key];
+            if (key in task && task[key] !== undefined && task[key] !== null) {
+                // Convert dueDate from milliseconds to Firestore Timestamp
+                if (key === 'dueDate' && typeof task[key] === 'number') {
+                    taskData[key] = Timestamp.fromMillis(task[key]);
+                } 
+                // Convert dueAt from milliseconds to Firestore Timestamp
+                else if (key === 'dueAt' && typeof task[key] === 'number') {
+                    taskData[key] = Timestamp.fromMillis(task[key]);
+                }
+                // completedAt might also be a timestamp
+                else if (key === 'completedAt' && typeof task[key] === 'number') {
+                    taskData[key] = Timestamp.fromMillis(task[key]);
+                }
+                else {
+                    taskData[key] = task[key];
+                }
             }
         }
         // Ensure title is set (required by rules)
@@ -20194,7 +20220,12 @@ async function saveTaskToFirestore(task) {
             hasCreatedAt: 'createdAt' in taskData,
             hasUpdatedAt: 'updatedAt' in taskData,
             teamIdValue: taskData.teamId,
-            actualData: JSON.stringify(taskData, null, 2)
+            fieldTypes: Object.fromEntries(
+                Object.entries(taskData).map(([k, v]) => [
+                    k, 
+                    v?.constructor?.name || typeof v
+                ])
+            )
         });
         
         const docRef = await addDoc(tasksRef, taskData);
@@ -20202,11 +20233,13 @@ async function saveTaskToFirestore(task) {
         debugLog('Task saved to team collection with ID:', docRef.id);
         return docRef.id; // Return the Firestore document ID
     } catch (error) {
-        // Note: Logging input 'task' object for context, actual sent data logged above
-        logFirestoreError('saveTaskToFirestore', path, task, {
+        // Log the actual taskData we tried to send, not the input task object
+        logFirestoreError('saveTaskToFirestore', path, taskData || task, {
             uid: currentAuthUser?.uid,
             teamId: appState.currentTeamId,
-            userRole: appState.currentTeamData?.members?.[currentAuthUser?.uid]?.role
+            userRole: appState.currentTeamData?.members?.[currentAuthUser?.uid]?.role,
+            inputTask: task,
+            attemptedTaskData: taskData
         }, error);
         return null;
     }
