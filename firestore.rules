@@ -377,11 +377,12 @@ service cloud.firestore {
         
         // Create: member, userId must match, validate content length
         // SECURITY: userEmail must match auth token email (prevents identity spoofing)
+        // MENTIONS: Allow mentions field (array of mentioned user IDs, max 20)
         allow create: if isMemberInTeam(teamId)
           && request.resource.data.userId == request.auth.uid
           && request.resource.data.keys().hasOnly([
             'userId', 'userName', 'message', 'timestamp', 'createdAt',
-            'edited', 'editedAt', 'teamId', 'userEmail', 'photoURL'
+            'edited', 'editedAt', 'teamId', 'userEmail', 'photoURL', 'mentions', 'repliedTo'
           ])
           && (!('teamId' in request.resource.data) || request.resource.data.teamId == teamId)
           // SECURITY: Prevent identity spoofing - userEmail must match auth token if provided
@@ -389,7 +390,10 @@ service cloud.firestore {
               request.resource.data.userEmail == request.auth.token.email)
           && request.resource.data.message is string
           && request.resource.data.message.size() > 0
-          && request.resource.data.message.size() <= 5000;
+          && request.resource.data.message.size() <= 5000
+          // MENTIONS: Validate mentions field if present
+          && (!('mentions' in request.resource.data) || 
+              (request.resource.data.mentions is list && request.resource.data.mentions.size() <= 20));
 
         // Delete: admins or own message
         allow delete: if isAdmin(teamId) ||
@@ -399,6 +403,7 @@ service cloud.firestore {
         // - Original author can update their own message content (except userId)
         // - NO longer allow reactions field updates (reactions moved to subcollection)
         // SECURITY: Schema validation on UPDATE + identity spoofing prevention
+        // MENTIONS: Allow mentions field updates
         allow update: if isMemberInTeam(teamId) 
           && resource.data.userId == request.auth.uid 
           && fieldUnchanged('userId')
@@ -406,14 +411,17 @@ service cloud.firestore {
           // Schema validation: only allowed fields
           && request.resource.data.keys().hasOnly([
             'userId', 'userName', 'message', 'timestamp', 'createdAt',
-            'edited', 'editedAt', 'teamId', 'userEmail', 'photoURL'
+            'edited', 'editedAt', 'teamId', 'userEmail', 'photoURL', 'mentions', 'repliedTo'
           ])
           // SECURITY: Prevent identity spoofing - userEmail must match auth token if provided
           && (!('userEmail' in request.resource.data) || 
               request.resource.data.userEmail == request.auth.token.email)
           && request.resource.data.message is string
           && request.resource.data.message.size() > 0
-          && request.resource.data.message.size() <= 5000;
+          && request.resource.data.message.size() <= 5000
+          // MENTIONS: Validate mentions field if present
+          && (!('mentions' in request.resource.data) || 
+              (request.resource.data.mentions is list && request.resource.data.mentions.size() <= 20));
 
         // ==========================
         // REACTIONS SUBCOLLECTION
@@ -534,6 +542,79 @@ service cloud.firestore {
 
         // Only admins/owners can delete activities
         allow delete: if isAdmin(teamId);
+      }
+
+      // ==========================
+      // DOCS SUBCOLLECTION
+      // Simple team documents with text content
+      // SECURITY: Schema validation + size limits (50KB max for contentHtml)
+      // ==========================
+      match /docs/{docId} {
+        // Read: Team member for team docs, creator for private docs
+        allow read: if isMemberInTeam(teamId) && (
+          !('visibility' in resource.data) ||
+          resource.data.visibility == 'team' ||
+          resource.data.createdBy == request.auth.uid
+        );
+        
+        // Create: team member, createdBy must match, validate schema
+        allow create: if isMemberInTeam(teamId)
+          && request.resource.data.createdBy == request.auth.uid
+          && request.resource.data.keys().hasOnly([
+            'createdBy', 'teamId', 'title', 'contentHtml', 'contentText',
+            'createdAt', 'updatedAt', 'updatedBy', 'tags', 'visibility'
+          ])
+          && (!('teamId' in request.resource.data) || request.resource.data.teamId == teamId)
+          && request.resource.data.title is string
+          && request.resource.data.title.size() > 0
+          && request.resource.data.title.size() <= 200
+          && (!('contentHtml' in request.resource.data) || 
+              (request.resource.data.contentHtml is string && request.resource.data.contentHtml.size() <= 50000))
+          && (!('contentText' in request.resource.data) || 
+              (request.resource.data.contentText is string && request.resource.data.contentText.size() <= 500))
+          && (!('tags' in request.resource.data) || (
+              request.resource.data.tags is list &&
+              request.resource.data.tags.size() <= 10 &&
+              request.resource.data.tags.toSet().hasAll(request.resource.data.tags) // no duplicates
+            ))
+          && (!('visibility' in request.resource.data) || 
+              request.resource.data.visibility in ['team', 'private']);
+        
+        // Update: creator or admin/owner; cannot change immutable fields
+        // SECURITY: Schema validation on UPDATE using affectedKeys
+        allow update: if isMemberInTeam(teamId) && (
+          isAdmin(teamId) ||
+          resource.data.createdBy == request.auth.uid
+        ) && (
+          // Only validate CHANGED fields (affectedKeys)
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'title', 'contentHtml', 'contentText', 'updatedAt', 'updatedBy', 'tags', 'visibility'
+          ])
+        ) && (
+          // SECURITY: Immutable fields cannot change
+          fieldUnchanged('createdBy') &&
+          (!('teamId' in resource.data) || fieldUnchanged('teamId')) &&
+          (!('createdAt' in resource.data) || fieldUnchanged('createdAt'))
+        ) && (
+          // Validate updated fields still meet constraints
+          request.resource.data.title is string &&
+          request.resource.data.title.size() > 0 &&
+          request.resource.data.title.size() <= 200 &&
+          (!('contentHtml' in request.resource.data) || 
+              (request.resource.data.contentHtml is string && request.resource.data.contentHtml.size() <= 50000)) &&
+          (!('contentText' in request.resource.data) || 
+              (request.resource.data.contentText is string && request.resource.data.contentText.size() <= 500)) &&
+          (!('tags' in request.resource.data) || (
+              request.resource.data.tags is list &&
+              request.resource.data.tags.size() <= 10
+            )) &&
+          (!('visibility' in request.resource.data) || 
+              request.resource.data.visibility in ['team', 'private'])
+        );
+        
+        // Delete: creator or admin/owner
+        allow delete: if isAdmin(teamId) ||
+          (isMemberInTeam(teamId) && resource.data.createdBy == request.auth.uid);
       }
 
       // ==========================

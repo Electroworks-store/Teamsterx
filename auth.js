@@ -136,7 +136,7 @@ async function handleEmailSignIn(e) {
 
         // Redirect to main app after short delay
         setTimeout(() => {
-            window.location.href = 'index.html';
+            window.location.href = '/app';
         }, 1500);
 
     } catch (error) {
@@ -203,7 +203,7 @@ async function handleEmailSignUp(e) {
 
         // Redirect to main app after short delay
         setTimeout(() => {
-            window.location.href = 'index.html';
+            window.location.href = '/app';
         }, 1500);
 
     } catch (error) {
@@ -233,7 +233,7 @@ async function handleGoogleSignIn() {
 
         // Redirect to main app after short delay
         setTimeout(() => {
-            window.location.href = 'index.html';
+            window.location.href = '/app';
         }, 1500);
 
     } catch (error) {

@@ -29,8 +29,17 @@
             document.body.classList.add('dark-mode');
         }
     </script>
-    <!-- Main App Container -->
-    <div class="app-container">
+
+    <!-- ============================================
+         MARKETING HOMEPAGE MOUNT POINT
+         Content lazy-loaded from /home/home.html
+         ============================================ -->
+    <div id="homeMount" style="display: none;"></div>
+
+    <!-- ============================================
+         MAIN APP CONTAINER (Protected - shown at "/app")
+         ============================================ -->
+    <div class="app-container" id="appContainer">
         
         <!-- Sidebar Navigation -->
         <aside class="sidebar">
@@ -61,7 +70,7 @@
                 </button>
                 <button class="nav-item" data-section="tasks">
                     <i class="fas fa-table-list"></i>
-                    <span>Sheets</span>
+                    <span>Workspace</span>
                 </button>
                 <button class="nav-item hidden" data-section="metrics" id="metricsNavItem" style="display: none;">
                     <i class="fas fa-chart-line"></i>
@@ -210,8 +219,8 @@
                     </div>
                 </div>
 
-                <!-- Notifications Inbox Section -->
-                <div class="overview-section overview-notifications-section">
+                <!-- Notifications Inbox Section - HIDDEN -->
+                <div class="overview-section overview-notifications-section" style="display: none;">
                     <div class="overview-section-header">
                         <h2><i class="fas fa-bell"></i> Notifications</h2>
                         <div class="overview-notifications-actions">
@@ -546,12 +555,24 @@
                 </div>
             </section>
 
-            <!-- Sheets Section -->
+            <!-- Workspace Section -->
             <section class="content-section" id="tasks-section">
-                <!-- Spreadsheet Header -->
-                <div class="spreadsheet-header">
+                <!-- Workspace/Docs Toggle Header -->
+                <div class="sheets-docs-header">
+                    <div class="sheets-docs-toggle">
+                        <button class="toggle-btn active" data-view="sheets">
+                            <i class="fas fa-table-cells"></i> Workspace
+                        </button>
+                        <button class="toggle-btn" data-view="docs">
+                            <i class="fas fa-file-lines"></i> Docs
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Workspace Header (shown when Workspace view active) -->
+                <div class="spreadsheet-header" id="spreadsheetsViewHeader">
                     <div class="spreadsheet-header-left">
-                        <h3><i class="fas fa-table-cells"></i> Your Sheets</h3>
+                        <h3><i class="fas fa-table-cells"></i> Your Workspace</h3>
                         <p class="spreadsheet-subtitle">Organize and track your team's work</p>
                     </div>
                     <button class="btn-primary" id="addTaskBtn">
@@ -565,6 +586,26 @@
                     <div class="spreadsheet-card create-new" id="createSpreadsheetCard">
                         <div class="spreadsheet-card-icon"><i class="fas fa-plus"></i></div>
                         <span>Create Spreadsheet</span>
+                    </div>
+                </div>
+
+                <!-- Docs Header (shown when Docs view active) -->
+                <div class="docs-header" id="docsViewHeader" style="display: none;">
+                    <div class="docs-header-left">
+                        <h3><i class="fas fa-file-lines"></i> Your Docs</h3>
+                        <p class="docs-subtitle">Create and collaborate on documents</p>
+                    </div>
+                    <button class="btn-primary" id="createDocBtn">
+                        <i class="fas fa-plus"></i> New Doc
+                    </button>
+                </div>
+
+                <!-- Doc Cards Grid -->
+                <div class="doc-cards" id="docCards" style="display: none;">
+                    <!-- Doc cards will be rendered by JS -->
+                    <div class="doc-card create-new" id="createDocCard">
+                        <div class="doc-card-icon"><i class="fas fa-plus"></i></div>
+                        <span>Create Doc</span>
                     </div>
                 </div>
 
@@ -640,6 +681,131 @@
                         <div class="spreadsheet-table-area">
                             <div class="table-container" id="tableContainer">
                                 <!-- Table will be rendered by JS -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Full-screen Doc Panel -->
+                <div class="doc-panel" id="docPanel">
+                    <div class="doc-panel-header">
+                        <div class="panel-header-left">
+                            <button class="back-btn" id="docBackBtn">
+                                <i class="fas fa-arrow-left"></i>
+                            </button>
+                            <div class="doc-title-group">
+                                <div class="doc-icon-preview">
+                                    <i class="fas fa-file-lines"></i>
+                                </div>
+                                <input type="text" class="doc-title-input" id="docTitleInput" value="Untitled" placeholder="Doc title">
+                            </div>
+                        </div>
+                        <div class="panel-header-right">
+                            <span class="doc-save-status" id="docSaveStatus">Saved</span>
+                        </div>
+                    </div>
+                    
+                    <!-- Doc Editor Toolbar -->
+                    <div class="doc-toolbar" id="docToolbar">
+                        <div class="toolbar-group">
+                            <div class="doc-format-dropdown-wrapper">
+                                <button class="toolbar-btn doc-format-trigger" id="docFormatTrigger" title="Text Style">
+                                    <span id="docFormatLabel">Normal</span>
+                                    <i class="fas fa-chevron-down" style="font-size: 10px; margin-left: 4px;"></i>
+                                </button>
+                                <div class="doc-format-dropdown" id="docFormatDropdown">
+                                    <div class="doc-format-option" data-format="p">
+                                        <span>Normal</span>
+                                    </div>
+                                    <div class="doc-format-option" data-format="h1">
+                                        <span style="font-size: 18px; font-weight: 600;">Heading 1</span>
+                                    </div>
+                                    <div class="doc-format-option" data-format="h2">
+                                        <span style="font-size: 16px; font-weight: 600;">Heading 2</span>
+                                    </div>
+                                    <div class="doc-format-option" data-format="h3">
+                                        <span style="font-size: 14px; font-weight: 600;">Heading 3</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="toolbar-divider"></div>
+                        <div class="toolbar-group">
+                            <button class="toolbar-btn" data-command="bold" title="Bold (Ctrl+B)">
+                                <i class="fas fa-bold"></i>
+                            </button>
+                            <button class="toolbar-btn" data-command="italic" title="Italic (Ctrl+I)">
+                                <i class="fas fa-italic"></i>
+                            </button>
+                            <button class="toolbar-btn" data-command="underline" title="Underline (Ctrl+U)">
+                                <i class="fas fa-underline"></i>
+                            </button>
+                        </div>
+                        <div class="toolbar-divider"></div>
+                        <div class="toolbar-group">
+                            <button class="toolbar-btn" data-command="justifyLeft" title="Align Left">
+                                <i class="fas fa-align-left"></i>
+                            </button>
+                            <button class="toolbar-btn" data-command="justifyCenter" title="Align Center">
+                                <i class="fas fa-align-center"></i>
+                            </button>
+                            <button class="toolbar-btn" data-command="justifyRight" title="Align Right">
+                                <i class="fas fa-align-right"></i>
+                            </button>
+                            <button class="toolbar-btn" data-command="justifyFull" title="Justify">
+                                <i class="fas fa-align-justify"></i>
+                            </button>
+                        </div>
+                        <div class="toolbar-divider"></div>
+                        <div class="toolbar-group">
+                            <button class="toolbar-btn" data-command="insertUnorderedList" title="Bullet List">
+                                <i class="fas fa-list-ul"></i>
+                            </button>
+                            <button class="toolbar-btn" data-command="insertOrderedList" title="Numbered List">
+                                <i class="fas fa-list-ol"></i>
+                            </button>
+                        </div>
+                        <div class="toolbar-divider"></div>
+                        <div class="toolbar-group">
+                            <button class="toolbar-btn" id="insertLinkBtn" title="Insert Link">
+                                <i class="fas fa-link"></i>
+                            </button>
+                            <button class="toolbar-btn" id="insertCommandBtn" title="Insert Reference (/)">
+                                <i class="fas fa-plus-circle"></i>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Command Popover (hidden by default) -->
+                    <div class="doc-command-popover" id="docCommandPopover" style="display: none;">
+                        <div class="command-option" data-command="task-ref">
+                            <i class="fas fa-check-circle"></i>
+                            <div class="command-option-text">
+                                <span class="command-option-title">Task Reference</span>
+                                <span class="command-option-desc">Insert a task chip</span>
+                            </div>
+                        </div>
+                        <div class="command-option" data-command="sheet-ref">
+                            <i class="fas fa-table"></i>
+                            <div class="command-option-text">
+                                <span class="command-option-title">Sheet Reference</span>
+                                <span class="command-option-desc">Insert a sheet chip</span>
+                            </div>
+                        </div>
+                        <div class="command-option" data-command="sheet-embed">
+                            <i class="fas fa-table-cells"></i>
+                            <div class="command-option-text">
+                                <span class="command-option-title">Embed Sheet</span>
+                                <span class="command-option-desc">Read-only preview</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Doc Editor Body -->
+                    <div class="doc-panel-body">
+                        <div class="doc-main-layout">
+                            <div class="doc-editor-container">
+                                <div class="doc-editor" id="docEditor" contenteditable="true" data-placeholder="Start writing..."></div>
                             </div>
                         </div>
                     </div>
@@ -2719,6 +2885,27 @@
         </div>
     </div>
 
+    <!-- Doc Context Menu -->
+    <div class="spreadsheet-context-menu" id="docContextMenu">
+        <div class="context-menu-item" id="docContextMenuOpen">
+            <i class="fas fa-external-link-alt"></i>
+            <span>Open</span>
+        </div>
+        <div class="context-menu-item" id="docContextMenuRename">
+            <i class="fas fa-pen"></i>
+            <span>Rename</span>
+        </div>
+        <div class="context-menu-item" id="docContextMenuPrivacy">
+            <i class="fas fa-eye"></i>
+            <span>Visibility</span>
+        </div>
+        <div class="context-menu-divider"></div>
+        <div class="context-menu-item danger" id="docContextMenuDelete">
+            <i class="fas fa-trash"></i>
+            <span>Delete</span>
+        </div>
+    </div>
+
     <!-- Spreadsheet Context Menu (Right-click) -->
     <div class="spreadsheet-context-menu" id="spreadsheetContextMenu">
         <div class="context-menu-item" id="contextMenuOpen">
@@ -2737,6 +2924,59 @@
         <div class="context-menu-item danger" id="contextMenuDelete">
             <i class="fas fa-trash"></i>
             <span>Delete</span>
+        </div>
+    </div>
+
+    <!-- Reference Picker Modal (for Task/Sheet references) -->
+    <div class="unified-modal" id="referencePickerModal" style="display: none;">
+        <div class="unified-modal-container modal-form">
+            <div class="unified-modal-header">
+                <div class="unified-modal-title">
+                    <h2 id="referencePickerTitle"><i class="fas fa-link\"></i> Insert Reference</h2>
+                    <p class="subtitle" id="referencePickerSubtitle">Select an item to reference</p>
+                </div>
+                <button class="unified-modal-close" onclick="closeReferencePickerModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="unified-modal-body">
+                <div class="reference-picker-search">
+                    <i class="fas fa-search"></i>
+                    <input type="text" id="referencePickerSearch" placeholder="Search..." autocomplete="off">
+                </div>
+                <div class="reference-picker-list" id="referencePickerList">
+                    <!-- Items will be rendered here -->\n                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Task Conversion Modal -->
+    <!-- Doc Visibility Modal -->
+    <div class="unified-modal" id="docVisibilityModal" style="display: none;">
+        <div class="visibility-modal-content">
+            <button class="visibility-modal-close" onclick="closeDocVisibilityModal()">
+                <i class="fas fa-times"></i>
+            </button>
+            <h3 class="visibility-modal-title">Visibility</h3>
+            <p class="visibility-modal-subtitle" id="docVisibilitySubtitle">Who can see this document</p>
+            <div class="visibility-pills-compact">
+                <label class="visibility-pill-compact selected" data-visibility="team">
+                    <input type="radio" name="docVisibility" value="team" checked>
+                    <div class="visibility-pill-icon-sm"><i class="fas fa-users"></i></div>
+                    <span class="visibility-pill-label">Team</span>
+                    <div class="visibility-pill-check-sm"><i class="fas fa-check"></i></div>
+                </label>
+                <label class="visibility-pill-compact" data-visibility="private">
+                    <input type="radio" name="docVisibility" value="private">
+                    <div class="visibility-pill-icon-sm"><i class="fas fa-lock"></i></div>
+                    <span class="visibility-pill-label">Private</span>
+                    <div class="visibility-pill-check-sm"><i class="fas fa-check"></i></div>
+                </label>
+            </div>
+            <div class="visibility-modal-actions">
+                <button class="btn-secondary" onclick="closeDocVisibilityModal()">Cancel</button>
+                <button class="btn-primary" id="saveDocVisibility">Save</button>
+            </div>
         </div>
     </div>
 

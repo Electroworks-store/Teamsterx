@@ -1,4 +1,240 @@
 // ===================================
+// TEAMSTER ROUTING SYSTEM
+// Handles: / (homepage), /app (main app), /home -> redirect to /
+// Lazy-loads homepage bundle from /home/
+// ===================================
+
+/**
+ * Current route state
+ * 'home' = marketing homepage (public)
+ * 'app' = main Teamster application (requires auth)
+ */
+let currentRoute = 'app'; // default to app for existing behavior
+
+/**
+ * Homepage bundle state
+ */
+let homeLoaded = false;
+let homeCleanup = null;
+let homeStylesheet = null;
+
+/**
+ * Load the homepage bundle (CSS, HTML, JS)
+ * @returns {Promise<void>}
+ */
+async function loadHomeBundle() {
+    const homeMount = document.getElementById('homeMount');
+    if (!homeMount) return;
+
+    // Already loaded
+    if (homeLoaded && homeMount.innerHTML) {
+        homeMount.style.display = 'block';
+        return;
+    }
+
+    try {
+        // 1. Load CSS if not already loaded
+        if (!homeStylesheet) {
+            homeStylesheet = document.createElement('link');
+            homeStylesheet.rel = 'stylesheet';
+            homeStylesheet.href = '/home/home.css?v=' + (window.APP_VERSION || Date.now());
+            homeStylesheet.id = 'home-stylesheet';
+            document.head.appendChild(homeStylesheet);
+            
+            // Wait for CSS to load
+            await new Promise((resolve, reject) => {
+                homeStylesheet.onload = resolve;
+                homeStylesheet.onerror = reject;
+                setTimeout(resolve, 1000); // Fallback timeout
+            });
+        }
+
+        // 2. Load HTML
+        const response = await fetch('/home/home.html?v=' + (window.APP_VERSION || Date.now()));
+        if (!response.ok) throw new Error('Failed to load homepage HTML');
+        const html = await response.text();
+        homeMount.innerHTML = html;
+        homeMount.style.display = 'block';
+
+        // 3. Load and initialize JS module
+        const homeModule = await import('/home/home.js?v=' + (window.APP_VERSION || Date.now()));
+        if (homeModule.initHome) {
+            homeCleanup = homeModule.initHome();
+        }
+
+        homeLoaded = true;
+    } catch (error) {
+        console.error('Failed to load homepage bundle:', error);
+        // Fallback: show app instead
+        showAppContainer();
+    }
+}
+
+/**
+ * Unload the homepage bundle (cleanup + hide)
+ */
+function unloadHomeBundle() {
+    const homeMount = document.getElementById('homeMount');
+    
+    // Run cleanup function if it exists
+    if (homeCleanup && typeof homeCleanup === 'function') {
+        homeCleanup();
+        homeCleanup = null;
+    }
+    
+    // Hide mount point (keep HTML for faster re-show)
+    if (homeMount) {
+        homeMount.style.display = 'none';
+    }
+}
+
+/**
+ * Initialize routing based on current URL path
+ * Called BEFORE Firebase auth to properly show homepage without auth redirect
+ */
+function initializeRouting() {
+    const path = window.location.pathname;
+    
+    // LOCAL DEVELOPMENT FALLBACK
+    // Check if we're on localhost and handle missing routes
+    const isLocalhost = window.location.hostname === 'localhost' || 
+                       window.location.hostname === '127.0.0.1' ||
+                       window.location.hostname === '';
+    
+    if (isLocalhost) {
+        // For localhost, use query parameter or hash-based routing as fallback
+        const urlParams = new URLSearchParams(window.location.search);
+        const route = urlParams.get('route');
+        
+        if (route === 'app' || path === '/app' || path === '/app/') {
+            // Clean up URL and navigate to app
+            window.history.replaceState({}, '', '/index.html');
+            currentRoute = 'app';
+            showAppContainer();
+            return 'app';
+        }
+        
+        if (route === 'home' || path === '/home' || path === '/home/') {
+            // Clean up URL and navigate to homepage
+            window.history.replaceState({}, '', '/index.html');
+            currentRoute = 'home';
+            showHomePage();
+            return 'home';
+        }
+    }
+    
+    // Handle /home redirect to /
+    if (path === '/home' || path === '/home/') {
+        window.history.replaceState({}, '', '/');
+        currentRoute = 'home';
+        showHomePage();
+        return 'home';
+    }
+    
+    // Handle /app path - show the main application
+    if (path === '/app' || path === '/app/' || path.startsWith('/app/')) {
+        currentRoute = 'app';
+        showAppContainer();
+        return 'app';
+    }
+    
+    // Handle root path / - TEMPORARILY redirect to app (homepage disabled)
+    if (path === '/' || path === '' || path === '/index.html') {
+        currentRoute = 'app';
+        showAppContainer();
+        return 'app';
+    }
+    
+    // Default: For any other path (like direct file access), show app
+    // This handles cases like accessing index.html directly
+    currentRoute = 'app';
+    showAppContainer();
+    return 'app';
+}
+
+/**
+ * Show the marketing homepage, hide the app
+ */
+async function showHomePage() {
+    const appContainer = document.getElementById('appContainer');
+    const bottomNav = document.querySelector('.mobile-bottom-nav');
+    
+    // Hide app elements
+    if (appContainer) appContainer.style.display = 'none';
+    if (bottomNav) bottomNav.style.display = 'none';
+    
+    // Load and show homepage bundle
+    await loadHomeBundle();
+    
+    // Update page title
+    document.title = 'Teamster - Work better, together';
+}
+
+/**
+ * Show the main app, hide the homepage
+ */
+function showAppContainer() {
+    const appContainer = document.getElementById('appContainer');
+    
+    // Unload homepage bundle
+    unloadHomeBundle();
+    
+    // Show app
+    if (appContainer) appContainer.style.display = '';
+    
+    // Update page title
+    document.title = 'Teamster - Internal Collaboration Platform';
+}
+
+/**
+ * Navigate to the app (used by CTAs and after auth)
+ */
+function navigateToApp() {
+    // Check if localhost - use query params for compatibility
+    const isLocalhost = window.location.hostname === 'localhost' || 
+                       window.location.hostname === '127.0.0.1' ||
+                       window.location.hostname === '';
+    
+    if (isLocalhost && window.location.pathname === '/index.html') {
+        // On localhost, stay on index.html but update state
+        window.history.pushState({}, '', '/index.html?route=app');
+    } else {
+        window.history.pushState({}, '', '/app');
+    }
+    
+    currentRoute = 'app';
+    showAppContainer();
+}
+
+/**
+ * Navigate to the homepage (TEMPORARILY redirects to app - homepage disabled)
+ */
+function navigateToHome() {
+    // TEMPORARY: Redirect to app instead of showing homepage
+    navigateToApp();
+}
+
+/**
+ * Handle browser back/forward navigation
+ */
+window.addEventListener('popstate', () => {
+    initializeRouting();
+});
+
+// Initialize routing immediately when script loads (before DOMContentLoaded)
+// This prevents flash of wrong content
+(function() {
+    // Wait for DOM elements to exist
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', () => {
+            initializeRouting();
+        }, { once: true });
+    } else {
+        initializeRouting();
+    }
+})();
+
+// ===================================
 // FIREBASE CONFIGURATION
 // ===================================
 /**
@@ -30,6 +266,132 @@ const DEBUG = false;
 // Set to true to log Firestore write details (paths, keys, payloads)
 // ===================================
 const DEBUG_PERMS = false;  // DISABLED for production - prevents logging UIDs, paths, doc IDs
+
+// ===================================
+// UNIFIED FLOATING MENU SYSTEM
+// Reusable helper for all menus/popovers: position, click-away, Escape, toggle
+// ===================================
+const floatingMenuState = {
+    activeMenu: null,
+    activeAnchor: null,
+    clickHandler: null,
+    keyHandler: null
+};
+
+/**
+ * Close the currently active floating menu
+ */
+function closeFloatingMenu() {
+    if (floatingMenuState.activeMenu) {
+        floatingMenuState.activeMenu.style.display = 'none';
+        floatingMenuState.activeMenu.classList.remove('visible');
+    }
+    if (floatingMenuState.clickHandler) {
+        document.removeEventListener('click', floatingMenuState.clickHandler, true);
+        floatingMenuState.clickHandler = null;
+    }
+    if (floatingMenuState.keyHandler) {
+        document.removeEventListener('keydown', floatingMenuState.keyHandler);
+        floatingMenuState.keyHandler = null;
+    }
+    floatingMenuState.activeMenu = null;
+    floatingMenuState.activeAnchor = null;
+}
+
+/**
+ * Open a floating menu, positioned relative to anchor, clamped to viewport
+ * @param {HTMLElement} menuEl - The menu element
+ * @param {HTMLElement|DOMRect} anchor - The anchor element or rect (e.g., from caret)
+ * @param {Object} opts - Options: { margin: number, preferAbove: boolean, onClose: function }
+ */
+function openFloatingMenu(menuEl, anchor, opts = {}) {
+    const margin = opts.margin ?? 10;
+    
+    // Close any existing menu first
+    closeFloatingMenu();
+    
+    // Show menu to measure its actual size
+    menuEl.style.display = 'block';
+    menuEl.style.position = 'fixed';
+    menuEl.style.visibility = 'hidden'; // Hide while measuring
+    menuEl.classList.add('visible');
+    
+    // Get actual dimensions after display
+    const menuRect = menuEl.getBoundingClientRect();
+    const anchorRect = anchor instanceof DOMRect ? anchor : anchor.getBoundingClientRect();
+    
+    // Calculate position
+    let top, left;
+    
+    // Horizontal position: prefer left-aligned with anchor, clamp to viewport
+    left = anchorRect.left;
+    if (left + menuRect.width > window.innerWidth - margin) {
+        left = window.innerWidth - menuRect.width - margin;
+    }
+    if (left < margin) left = margin;
+    
+    // Vertical position: prefer below anchor, flip above if needed
+    const spaceBelow = window.innerHeight - anchorRect.bottom - margin;
+    const spaceAbove = anchorRect.top - margin;
+    
+    if (opts.preferAbove && spaceAbove >= menuRect.height) {
+        top = anchorRect.top - menuRect.height - 4;
+    } else if (spaceBelow >= menuRect.height) {
+        top = anchorRect.bottom + 4;
+    } else if (spaceAbove >= menuRect.height) {
+        top = anchorRect.top - menuRect.height - 4;
+    } else {
+        // Not enough space either way, clamp to viewport
+        top = Math.min(anchorRect.bottom + 4, window.innerHeight - menuRect.height - margin);
+    }
+    if (top < margin) top = margin;
+    
+    // Apply position
+    menuEl.style.top = top + 'px';
+    menuEl.style.left = left + 'px';
+    menuEl.style.zIndex = '10001';
+    menuEl.style.visibility = 'visible';
+    
+    // Store state
+    floatingMenuState.activeMenu = menuEl;
+    floatingMenuState.activeAnchor = anchor instanceof DOMRect ? null : anchor;
+    
+    // Click-away handler (use capture to catch clicks before they bubble)
+    floatingMenuState.clickHandler = (e) => {
+        // Allow clicks inside menu
+        if (menuEl.contains(e.target)) return;
+        // Allow clicks on anchor (for toggle behavior)
+        if (floatingMenuState.activeAnchor && floatingMenuState.activeAnchor.contains(e.target)) return;
+        closeFloatingMenu();
+        if (opts.onClose) opts.onClose();
+    };
+    
+    // Escape handler
+    floatingMenuState.keyHandler = (e) => {
+        if (e.key === 'Escape') {
+            e.preventDefault();
+            closeFloatingMenu();
+            if (opts.onClose) opts.onClose();
+        }
+    };
+    
+    // Delay adding listeners to avoid immediate close from the opening click
+    setTimeout(() => {
+        document.addEventListener('click', floatingMenuState.clickHandler, true);
+        document.addEventListener('keydown', floatingMenuState.keyHandler);
+    }, 0);
+}
+
+/**
+ * Toggle a floating menu (open if closed, close if open)
+ */
+function toggleFloatingMenu(menuEl, anchor, opts = {}) {
+    if (floatingMenuState.activeMenu === menuEl) {
+        closeFloatingMenu();
+    } else {
+        openFloatingMenu(menuEl, anchor, opts);
+    }
+}
 
 // ===================================
 // RUNTIME CONFIGURATION VALIDATION
@@ -1016,6 +1378,16 @@ async function initializeFirebaseAuth() {
                 // Initialize team after authentication
                 await initializeUserTeam();
                 
+                // After auth and team initialization, ensure we're on the right route
+                // If user is authenticated, they should see the app, not the homepage
+                if (currentRoute === 'home') {
+                    // User authenticated but still on homepage - navigate to app
+                    navigateToApp();
+                } else if (currentRoute === 'app') {
+                    // User already on app route - ensure app is visible
+                    showAppContainer();
+                }
+                
                 // Check for pending join code from URL
                 const pendingJoinCode = sessionStorage.getItem('pendingJoinCode');
                 if (pendingJoinCode) {
@@ -1046,7 +1418,16 @@ async function initializeFirebaseAuth() {
                 appState.tasks = [];
                 appState.activities = [];
                 appState.teammates = [];
-                window.location.href = 'account.html';
+                
+                // Only redirect to login if user is trying to access the app (not homepage)
+                if (currentRoute === 'app') {
+                    // Redirect to account page for authentication
+                    window.location.href = 'account.html';
+                } else if (currentRoute === 'home') {
+                    // User on homepage without auth - this is fine, keep them there
+                    // Don't redirect, homepage is public
+                }
+                // If on homepage, do nothing - they can browse the public homepage
             }
         });
 
@@ -1067,8 +1448,10 @@ async function initializeFirebaseAuth() {
             delete window.lastInvitationLink;
         }
         
-        // Redirect to login on Firebase error
-        window.location.href = 'account.html';
+        // Only redirect to login on Firebase error if on /app route
+        if (currentRoute === 'app') {
+            window.location.href = 'account.html';
+        }
     }
 }
 
@@ -1235,7 +1618,15 @@ const appState = {
     financesVisibility: 'owner-only', // Current team's finances visibility setting
     financesAccess: { canAccess: false, mode: 'none' }, // Finances visibility access for current user
     transactions: [], // Cached transactions for current team
-    financesFilters: { type: 'all', category: 'all', date: 'all', search: '' } // Current filter state
+    financesFilters: { type: 'all', category: 'all', date: 'all', search: '' }, // Current filter state
+    // Docs state
+    docs: [], // Team documents
+    activeDocId: null, // Currently open doc ID
+    docsUnsub: null, // Firestore listener cleanup function
+    docSaveTimer: null, // Debounce timer for autosave
+    isDocDirty: false, // Whether doc has unsaved changes
+    isDocSaving: false, // Whether doc is currently saving
+    tasksViewMode: 'sheets' // 'sheets' or 'docs' - which view is active in tasks section
 };
 
 // ===================================
@@ -2380,9 +2771,11 @@ function extractMentions(text) {
         
         // Escape special regex characters in name
         const escapedName = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        const regex = new RegExp(`@${escapedName}(?=\\s|$|[.,!?])`, 'gi');
+        // Match @Name with word boundaries: start of string or whitespace before, and whitespace/punctuation/end after
+        const regex = new RegExp(`(?:^|\\s)@${escapedName}(?=\\s|$|[.,!?;:])`, 'gi');
         
-        if (regex.test(text) && !mentions.includes(teammate.id)) {
+        // Use match() instead of test() to avoid regex state issues
+        if (text.match(regex) && !mentions.includes(teammate.id)) {
             mentions.push(teammate.id);
         }
     }
@@ -3359,20 +3752,6 @@ function renderWeekView(titleEl, daysEl) {
     
     titleEl.textContent = `${startOfWeek.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })} - ${endOfWeek.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}`;
     
-    // Read CSS variables for positioning (single source of truth)
-    const styles = getComputedStyle(document.documentElement);
-    const HEADER_HEIGHT = parseInt(styles.getPropertyValue('--week-header-h')) || 60;
-    const ALLDAY_HEIGHT = parseInt(styles.getPropertyValue('--week-allday-h')) || 40;
-    const SLOT_HEIGHT = parseInt(styles.getPropertyValue('--week-slot-h')) || 48;
-    
-    // Full 24-hour range with default focus on 08:00-18:00
-    const START_HOUR = 0;
-    const END_HOUR = 23;
-    const DEFAULT_SCROLL_HOUR = 8;
-    
-    // Total offset = header + all-day strip
-    const GRID_START = HEADER_HEIGHT + ALLDAY_HEIGHT;
-    
     // Generate occurrences for the week range
     const rangeStart = new Date(startOfWeek);
     rangeStart.setHours(0, 0, 0, 0);
@@ -3380,111 +3759,73 @@ function renderWeekView(titleEl, daysEl) {
     rangeEnd.setHours(23, 59, 59, 999);
     const allOccurrences = getAllEventOccurrences(appState.events, rangeStart, rangeEnd);
     
-    // Wrap in scrollable container
-    let html = '<div class="week-view-scroll-container">';
-    html += '<div class="week-view">';
+    // Check if mobile view
+    const isMobile = window.innerWidth < 900;
     
-    // Time column with header and all-day label
-    html += '<div class="week-time-column">';
-    html += '<div class="week-time-header"></div>';
-    html += '<div class="week-time-allday">Tasks</div>';
+    if (isMobile) {
+        renderMobileDayAgenda(titleEl, daysEl, startOfWeek, allOccurrences);
+    } else {
+        renderDesktopColumnWeek(titleEl, daysEl, startOfWeek, allOccurrences);
+    }
+}
+
+// Desktop: Column-based week view (>= 900px)
+function renderDesktopColumnWeek(titleEl, daysEl, startOfWeek, allOccurrences) {
+    const START_HOUR = 6;
+    const END_HOUR = 22;
+    const SLOT_HEIGHT = 60; // px per hour
+    const TIME_COL_WIDTH = 64; // px for time column
+    const DEFAULT_SCROLL_HOUR = 8;
+    
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const currentHour = today.getHours();
+    const currentMinute = today.getMinutes();
+    
+    // Build column week HTML with scrollable container
+    let html = '<div class="week-view-scroll-container">';
+    html += '<div class="week-colview">';
+    
+    // Time scaffold column (sticky left)
+    html += '<div class="week-time-scaffold">';
+    html += '<div class="week-time-header"></div>'; // Empty corner for header row
     for (let hour = START_HOUR; hour <= END_HOUR; hour++) {
         const hourFormatted = formatTime24(hour, 0);
-        html += `<div class="week-time-slot">${hourFormatted}</div>`;
+        html += `<div class="week-time-label">${hourFormatted}</div>`;
     }
     html += '</div>';
     
     // Day columns
-    const today = new Date();
-    const currentHour = today.getHours();
-    const currentMinute = today.getMinutes();
-    
     for (let i = 0; i < 7; i++) {
         const date = new Date(startOfWeek);
         date.setDate(date.getDate() + i);
         const isToday = date.toDateString() === today.toDateString();
+        const dayName = date.toLocaleDateString('en-US', { weekday: 'short' });
+        const dayNum = date.getDate();
         
-        html += `<div class="week-day-column ${isToday ? 'today-column' : ''}" data-date="${date.toISOString()}" style="position: relative;">`;
+        html += `<div class="week-day-column ${isToday ? 'today-column' : ''}" data-date="${date.toISOString()}">`;
         
-        // Day header
-        html += `<div class="week-day-header ${isToday ? 'today' : ''}">
-            <div class="week-day-name">${date.toLocaleDateString('en-US', { weekday: 'short' })}</div>
-            <div class="week-day-number">${date.getDate()}</div>
-        </div>`;
-        
-        // Get tasks with due dates for this day (only if showOnCalendar is not false)
-        const dayTasks = appState.tasks.filter(t => {
-            if (!t.dueDate || t.status === 'done') return false;
-            if (t.hasOwnProperty('showOnCalendar') && t.showOnCalendar === false) return false;
-            const taskDate = new Date(t.dueDate);
-            return taskDate.toDateString() === date.toDateString();
-        });
-        
-        // All-day strip for tasks with improved hover dropdown showing all tasks
-        html += `<div class="week-allday-strip" data-date="${date.toISOString()}">`;
-        
-        if (dayTasks.length > 0) {
-            // Show first 2 tasks
-            const maxVisible = 2;
-            dayTasks.slice(0, maxVisible).forEach((task) => {
-                html += `
-                    <div class="week-allday-task" 
-                         onclick="event.stopPropagation(); navigateToTaskSheet('${escapeHtml(task.id)}')"
-                         title="${escapeHtml(task.title)}">
-                        <i class="fas fa-check-circle"></i>
-                        <span>${escapeHtml(task.title.length > 12 ? task.title.substring(0, 12) + '…' : task.title)}</span>
-                    </div>
-                `;
-            });
-            
-            // If more than 2 tasks, show hover indicator
-            if (dayTasks.length > maxVisible) {
-                html += `<div class="week-allday-more">+${dayTasks.length - maxVisible}</div>`;
-            }
-            
-            // Create hover dropdown with ALL tasks for this day
-            const allTasksHtml = dayTasks.map(t => `
-                <div class="week-task-dropdown-item" onclick="event.stopPropagation(); navigateToTaskSheet('${escapeHtml(t.id)}')">
-                    <div class="task-dropdown-checkbox">
-                        <i class="fas fa-${t.status === 'done' ? 'check-circle' : 'circle'}"></i>
-                    </div>
-                    <div class="task-dropdown-content">
-                        <div class="task-dropdown-title">${escapeHtml(t.title)}</div>
-                        ${t.priority ? `<span class="task-dropdown-priority priority-${t.priority}">${t.priority}</span>` : ''}
-                    </div>
-                </div>
-            `).join('');
-            
-            html += `
-                <div class="week-task-dropdown">
-                    <div class="week-task-dropdown-header">
-                        <i class="fas fa-calendar-check"></i>
-                        ${dayTasks.length} task${dayTasks.length !== 1 ? 's' : ''} due today
-                    </div>
-                    ${allTasksHtml}
-                </div>
-            `;
-        }
-        
+        // Day header (sticky top)
+        html += `<div class="week-day-header ${isToday ? 'is-today' : ''}">`;
+        html += `<span class="week-day-name">${dayName}</span>`;
+        html += `<span class="week-day-number">${dayNum}</span>`;
         html += '</div>';
+        
+        // Time grid (for visual rows)
+        html += '<div class="week-day-grid">';
+        for (let hour = START_HOUR; hour <= END_HOUR; hour++) {
+            html += `<div class="week-grid-cell" data-hour="${hour}"></div>`;
+        }
+        html += '</div>';
+        
+        // Events container (absolute positioning)
+        html += '<div class="week-events-container">';
         
         // Get all event occurrences for this day
         const dayEvents = allOccurrences.filter(e => {
             const eventDate = e.date instanceof Date ? e.date : new Date(e.date);
             return eventDate.toDateString() === date.toDateString();
         });
-        
-        if (i === 0 || dayEvents.length > 0 || dayTasks.length > 0) {
-            if (DEBUG) {
-                console.log(`Day ${i} (${date.toDateString()}): ${dayEvents.length} events, ${dayTasks.length} tasks`);
-            }
-        }
-        
-        // Time slots (cells for grid)
-        for (let hour = START_HOUR; hour <= END_HOUR; hour++) {
-            const isCurrent = isToday && hour === currentHour;
-            html += `<div class="week-time-cell ${isCurrent ? 'current-hour' : ''}" data-hour="${hour}" data-date="${date.toISOString()}"></div>`;
-        }
         
         // Calculate overlapping events and assign lanes
         const eventsWithTimes = dayEvents.map(event => {
@@ -3499,7 +3840,7 @@ function renderWeekView(titleEl, daysEl) {
             };
         }).sort((a, b) => a.startMinutes - b.startMinutes);
         
-        // Assign lanes for overlapping events
+        // Assign lanes for overlapping events within this day only
         const lanes = [];
         eventsWithTimes.forEach(event => {
             let laneIndex = 0;
@@ -3509,66 +3850,80 @@ function renderWeekView(titleEl, daysEl) {
             event.laneIndex = laneIndex;
             lanes[laneIndex] = event;
         });
-        const totalLanes = lanes.length || 1;
+        const totalLanes = Math.max(lanes.filter(l => l).length, 1);
         
-        // Render events as absolutely positioned blocks with lane support
+        // Render events as absolutely positioned blocks
         eventsWithTimes.forEach(event => {
             const startHour = event.startDate.getHours();
             const startMinute = event.startDate.getMinutes();
             
             const minutesSinceStart = (startHour - START_HOUR) * 60 + startMinute;
-            const topPosition = GRID_START + (minutesSinceStart * SLOT_HEIGHT / 60);
+            const topPosition = (minutesSinceStart * SLOT_HEIGHT / 60);
             const durationMinutes = event.endMinutes - event.startMinutes;
-            const height = Math.max((durationMinutes * SLOT_HEIGHT / 60), 24);
+            const height = Math.max((durationMinutes * SLOT_HEIGHT / 60), 30);
             
             const eventColor = event.color || '#007AFF';
-            const shortEvent = height < 40;
+            const shortEvent = height < 50;
             
             // Calculate width and left position based on lanes
-            const laneWidth = (100 - 4) / totalLanes; // 4% for gaps
-            const leftPercent = 2 + (event.laneIndex * laneWidth);
-            const widthPercent = laneWidth - 1;
+            const laneWidth = 100 / totalLanes;
+            const leftPercent = event.laneIndex * laneWidth;
+            const widthPercent = laneWidth - 2; // 2% gap
             
             // Format times in 24h format
             const startTimeStr = formatTime24(event.startDate.getHours(), event.startDate.getMinutes());
             const endTimeStr = formatTime24(event.endDate.getHours(), event.endDate.getMinutes());
             
-            // Check for privacy indicators
-            const isPrivate = event.visibility === 'private' || event.visibility === 'admins';
-            const lockIcon = isPrivate ? '<i class="fas fa-lock week-event-lock"></i>' : '';
-            const repeatIcon = event.isRecurrence ? '<i class="fas fa-redo week-event-repeat"></i>' : '';
+            // Check for visibility badges
+            const isPrivate = event.visibility === 'private';
+            const isAdmins = event.visibility === 'admins';
+            const lockIcon = isPrivate ? '<i class="fas fa-lock"></i>' : '';
+            const shieldIcon = isAdmins ? '<i class="fas fa-shield-alt"></i>' : '';
+            const repeatIcon = event.isRecurrence ? '<i class="fas fa-redo"></i>' : '';
             const eventId = event.masterId || event.id;
             const occurrenceDateStr = event.occurrenceDate ? event.occurrenceDate.toISOString() : '';
             
             html += `
-                <div class="week-event-block ${shortEvent ? 'short-event' : ''} ${isPrivate ? 'private-event' : ''}" 
+                <div class="week-col-event ${shortEvent ? 'short-event' : ''}" 
                      draggable="true"
                      data-event-id="${escapeHtml(eventId)}"
+                     data-occurrence-date="${occurrenceDateStr}"
+                     data-time-range="${startTimeStr}–${endTimeStr}"
+                     data-visibility="${event.visibility || 'team'}"
                      onclick="event.stopPropagation(); viewEventDetails('${escapeHtml(eventId)}', '${occurrenceDateStr}')" 
-                     style="top: ${topPosition}px; height: ${height}px; left: ${leftPercent}%; width: ${widthPercent}%; border-left-color: ${escapeHtml(eventColor)};">
-                    <div class="week-event-title">${escapeHtml(event.title)}${lockIcon}${repeatIcon}</div>
-                    <div class="week-event-time">${startTimeStr}–${endTimeStr}</div>
+                     style="top: ${topPosition}px; height: ${height}px; left: ${leftPercent}%; width: ${widthPercent}%; border-left: 4px solid ${escapeHtml(eventColor)};">
+                    <div class="week-event-content">
+                        <div class="week-event-title">${escapeHtml(event.title)}</div>
+                        ${!shortEvent ? `<div class="week-event-time-inline">${startTimeStr}</div>` : ''}
+                        <div class="week-event-icons">${lockIcon}${shieldIcon}${repeatIcon}</div>
+                    </div>
+                    <div class="week-event-hover-details">
+                        <div class="hover-time">${startTimeStr}–${endTimeStr}</div>
+                        ${isPrivate ? '<span class="hover-badge private-badge">Private</span>' : ''}
+                        ${isAdmins ? '<span class="hover-badge admins-badge">Admins</span>' : ''}
+                    </div>
                 </div>
             `;
         });
         
-        html += '</div>';
+        html += '</div>'; // Close .week-events-container
+        html += '</div>'; // Close .week-day-column
     }
     
-    html += '</div>'; // Close .week-view
+    html += '</div>'; // Close .week-colview
     
-    // Current time indicator spanning all days (outside day columns)
+    // Current time indicator (red line across today's column)
     const todayIndex = [...Array(7)].findIndex((_, i) => {
         const date = new Date(startOfWeek);
         date.setDate(date.getDate() + i);
         return date.toDateString() === today.toDateString();
     });
     
-    if (todayIndex !== -1) {
+    if (todayIndex !== -1 && currentHour >= START_HOUR && currentHour <= END_HOUR) {
         const minutesSinceStart = (currentHour - START_HOUR) * 60 + currentMinute;
-        const topPosition = GRID_START + (minutesSinceStart * SLOT_HEIGHT / 60);
+        const topPosition = (minutesSinceStart * SLOT_HEIGHT / 60);
         const timeLabel = formatTime24(currentHour, currentMinute);
-        html += `<div class="week-current-time-line" style="top: ${topPosition}px;" data-time="${timeLabel}"></div>`;
+        html += `<div class="week-now-line" style="top: ${topPosition}px;" data-time="${timeLabel}"></div>`;
     }
     
     html += '</div>'; // Close .week-view-scroll-container
@@ -3585,6 +3940,146 @@ function renderWeekView(titleEl, daysEl) {
     
     // Initialize drag-and-drop for events
     initCalendarDragDrop();
+}
+
+// Mobile: Day agenda view (< 900px)
+function renderMobileDayAgenda(titleEl, daysEl, startOfWeek, allOccurrences) {
+    // Use currently selected day or default to today
+    if (!appState.selectedMobileDay) {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        // Check if today is in this week
+        const todayInWeek = [...Array(7)].some((_, i) => {
+            const date = new Date(startOfWeek);
+            date.setDate(date.getDate() + i);
+            return date.toDateString() === today.toDateString();
+        });
+        appState.selectedMobileDay = todayInWeek ? today : startOfWeek;
+    }
+    
+    const selectedDay = new Date(appState.selectedMobileDay);
+    selectedDay.setHours(0, 0, 0, 0);
+    
+    let html = '<div class="day-agenda">';
+    
+    // Day strip (horizontal scrollable day selector)
+    html += '<div class="day-strip">';
+    for (let i = 0; i < 7; i++) {
+        const date = new Date(startOfWeek);
+        date.setDate(date.getDate() + i);
+        const isSelected = date.toDateString() === selectedDay.toDateString();
+        const dayName = date.toLocaleDateString('en-US', { weekday: 'short' });
+        const dayNum = date.getDate();
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const isToday = date.toDateString() === today.toDateString();
+        
+        html += `<div class="day-strip-item ${isSelected ? 'selected' : ''} ${isToday ? 'is-today' : ''}" 
+                      onclick="selectMobileDay('${date.toISOString()}')">
+            <div class="day-strip-name">${dayName}</div>
+            <div class="day-strip-number">${dayNum}</div>
+        </div>`;
+    }
+    html += '</div>';
+    
+    // Event list for selected day
+    html += '<div class="day-agenda-list">';
+    
+    const dayEvents = allOccurrences.filter(e => {
+        const eventDate = e.date instanceof Date ? e.date : new Date(e.date);
+        return eventDate.toDateString() === selectedDay.toDateString();
+    }).sort((a, b) => {
+        const aDate = new Date(a.date);
+        const bDate = new Date(b.date);
+        return aDate - bDate;
+    });
+    
+    if (dayEvents.length === 0) {
+        html += '<div class="day-agenda-empty">';
+        html += '<i class="fas fa-calendar-day"></i>';
+        html += '<p>No events today</p>';
+        html += '</div>';
+    } else {
+        dayEvents.forEach(event => {
+            const eventStartDate = new Date(event.date);
+            const eventEndDate = event.endDate ? new Date(event.endDate) : new Date(eventStartDate.getTime() + 60*60*1000);
+            const startTimeStr = formatTime24(eventStartDate.getHours(), eventStartDate.getMinutes());
+            const endTimeStr = formatTime24(eventEndDate.getHours(), eventEndDate.getMinutes());
+            const eventColor = event.color || '#007AFF';
+            
+            const isPrivate = event.visibility === 'private';
+            const isAdmins = event.visibility === 'admins';
+            const eventId = event.masterId || event.id;
+            const occurrenceDateStr = event.occurrenceDate ? event.occurrenceDate.toISOString() : '';
+            
+            html += `
+                <div class="day-event-row" 
+                     onclick="viewEventDetails('${escapeHtml(eventId)}', '${occurrenceDateStr}')"
+                     style="border-left-color: ${escapeHtml(eventColor)};">
+                    <div class="day-event-time">${startTimeStr}</div>
+                    <div class="day-event-content">
+                        <div class="day-event-title">${escapeHtml(event.title)}</div>
+                        <div class="day-event-duration">${startTimeStr} – ${endTimeStr}</div>
+                    </div>
+                    <div class="day-event-badges">
+                        ${isPrivate ? '<span class="event-badge private-badge"><i class="fas fa-lock"></i></span>' : ''}
+                        ${isAdmins ? '<span class="event-badge admins-badge"><i class="fas fa-shield-alt"></i></span>' : ''}
+                        ${event.isRecurrence ? '<span class="event-badge repeat-badge"><i class="fas fa-redo"></i></span>' : ''}
+                    </div>
+                </div>
+            `;
+        });
+    }
+    
+    html += '</div>'; // Close .day-agenda-list
+    html += '</div>'; // Close .day-agenda
+    
+    daysEl.innerHTML = html;
+    
+    // Swipe detection for mobile day navigation
+    let touchStartX = 0;
+    let touchEndX = 0;
+    
+    const dayAgenda = daysEl.querySelector('.day-agenda-list');
+    if (dayAgenda) {
+        dayAgenda.addEventListener('touchstart', (e) => {
+            touchStartX = e.changedTouches[0].screenX;
+        }, { passive: true });
+        
+        dayAgenda.addEventListener('touchend', (e) => {
+            touchEndX = e.changedTouches[0].screenX;
+            handleSwipe();
+        }, { passive: true });
+    }
+    
+    function handleSwipe() {
+        const threshold = 50;
+        if (touchEndX < touchStartX - threshold) {
+            // Swipe left - next day
+            const nextDay = new Date(selectedDay);
+            nextDay.setDate(nextDay.getDate() + 1);
+            const endOfWeek = new Date(startOfWeek);
+            endOfWeek.setDate(endOfWeek.getDate() + 6);
+            if (nextDay <= endOfWeek) {
+                selectMobileDay(nextDay.toISOString());
+            }
+        }
+        
+        if (touchEndX > touchStartX + threshold) {
+            // Swipe right - previous day
+            const prevDay = new Date(selectedDay);
+            prevDay.setDate(prevDay.getDate() - 1);
+            if (prevDay >= startOfWeek) {
+                selectMobileDay(prevDay.toISOString());
+            }
+        }
+    }
+}
+
+// Helper function to select a day in mobile view
+function selectMobileDay(dateISOString) {
+    appState.selectedMobileDay = new Date(dateISOString);
+    renderCalendar();
 }
 
 // Format time in 24-hour format (HH:MM)
@@ -3785,7 +4280,70 @@ window.toggleTaskOverflowPopover = function(element) {
 };
 
 // Navigate to the sheet containing a specific task
-window.navigateToTaskSheet = function(taskId) {
+/**
+ * SINGLE SOURCE OF TRUTH: Navigate to a spreadsheet from anywhere
+ * This function ensures proper cleanup and consistent navigation behavior
+ */
+async function navigateToSpreadsheet(spreadsheetId, options = {}) {
+    const { highlightTaskId } = options;
+    
+    // Find the spreadsheet
+    const spreadsheet = appState.spreadsheets.find(s => s.id === spreadsheetId);
+    if (!spreadsheet) {
+        showToast('Sheet not found', 'error');
+        console.error('Spreadsheet not found:', spreadsheetId);
+        return;
+    }
+    
+    // 1. Close doc panel if open (with full cleanup)
+    if (appState.activeDocId && window.closeDocPanel) {
+        await window.closeDocPanel();
+    }
+    
+    // 2. Close any sheet preview overlays/drawers
+    if (window.closeSheetPreview) {
+        window.closeSheetPreview();
+    }
+    
+    // 3. Ensure we're on the tasks tab
+    if (typeof window.switchTab === 'function') {
+        window.switchTab('tasks');
+    }
+    
+    // 4. Switch tasks view to sheets (not docs)
+    if (typeof switchTasksView === 'function') {
+        switchTasksView('sheets');
+    }
+    
+    // 5. Close any previously open spreadsheet cleanly
+    const tasksSection = document.getElementById('tasks-section');
+    if (tasksSection) {
+        tasksSection.classList.remove('spreadsheet-open');
+        tasksSection.classList.remove('doc-open');
+    }
+    
+    // 6. Open the target spreadsheet using canonical function
+    await openSpreadsheetPanel(spreadsheet);
+    
+    // 7. Highlight task row if requested
+    if (highlightTaskId) {
+        setTimeout(() => {
+            const taskRow = document.querySelector(`tr[data-task-id="${highlightTaskId}"]`);
+            if (taskRow) {
+                taskRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                taskRow.classList.add('highlight-row');
+                setTimeout(() => taskRow.classList.remove('highlight-row'), 2000);
+            }
+        }, 300);
+    }
+}
+
+window.navigateToSpreadsheet = navigateToSpreadsheet;
+
+/**
+ * Navigate to a task's sheet (calls navigateToSpreadsheet internally)
+ */
+window.navigateToTaskSheet = async function(taskId) {
     const task = appState.tasks.find(t => t.id === taskId);
     if (!task) {
         showToast('Task not found', 'error');
@@ -3793,48 +4351,17 @@ window.navigateToTaskSheet = function(taskId) {
         return;
     }
     
-    console.log('Task found:', task);
-    
-    // Check if task has sheetId
-    if (!task.sheetId) {
-        showToast('This task is not associated with a sheet', 'info');
-        console.log('Task has no sheetId, opening task details instead');
-        // Just open the task details modal instead
+    const sheetId = task.sheetId || task.spreadsheetId;
+    if (!sheetId) {
+        showToast('Opening task details...', 'info');
         if (window.viewTaskDetails) {
             window.viewTaskDetails(taskId);
         }
         return;
     }
     
-    // Find the spreadsheet that contains this task
-    const spreadsheet = appState.spreadsheets.find(s => s.id === task.sheetId);
-    if (!spreadsheet) {
-        showToast('Sheet not found', 'info');
-        console.error('Sheet not found for sheetId:', task.sheetId);
-        // Fallback to opening task details
-        if (window.viewTaskDetails) {
-            window.viewTaskDetails(taskId);
-        }
-        return;
-    }
-    
-    // Switch to tasks tab first
-    window.switchTab('tasks');
-    
-    // Open the spreadsheet panel
-    setTimeout(() => {
-        openSpreadsheetPanel(spreadsheet);
-        
-        // Highlight the task row
-        setTimeout(() => {
-            const taskRow = document.querySelector(`tr[data-task-id="${taskId}"]`);
-            if (taskRow) {
-                taskRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                taskRow.classList.add('highlight-row');
-                setTimeout(() => taskRow.classList.remove('highlight-row'), 2000);
-            }
-        }, 300);
-    }, 100);
+    // Use the single source of truth
+    await navigateToSpreadsheet(sheetId, { highlightTaskId: taskId });
 };
 
 // Close popovers when clicking outside
@@ -3858,9 +4385,11 @@ function getStartOfWeek(date) {
 // CALENDAR DRAG AND DROP
 // ===================================
 function initCalendarDragDrop() {
-    const eventBlocks = document.querySelectorAll('.week-event-block[draggable="true"]');
+    // Support both old (.week-event-block) and new (.week-col-event) event selectors
+    const eventBlocks = document.querySelectorAll('.week-event-block[draggable="true"], .week-col-event[draggable="true"]');
     const dayColumns = document.querySelectorAll('.week-day-column');
     const timeCells = document.querySelectorAll('.week-time-cell');
+    const gridCells = document.querySelectorAll('.week-grid-cell'); // New column view cells
     
     eventBlocks.forEach(block => {
         block.addEventListener('dragstart', handleEventDragStart);
@@ -3873,7 +4402,14 @@ function initCalendarDragDrop() {
         column.addEventListener('drop', handleEventDrop);
     });
     
+    // Support both old time cells and new grid cells
     timeCells.forEach(cell => {
+        cell.addEventListener('dragover', handleCellDragOver);
+        cell.addEventListener('dragleave', handleCellDragLeave);
+        cell.addEventListener('drop', handleCellDrop);
+    });
+    
+    gridCells.forEach(cell => {
         cell.addEventListener('dragover', handleCellDragOver);
         cell.addEventListener('dragleave', handleCellDragLeave);
         cell.addEventListener('drop', handleCellDrop);
@@ -3940,8 +4476,38 @@ async function handleCellDrop(e) {
     
     if (!draggedEventId) return;
     
-    const hour = parseInt(cell.dataset.hour);
-    const dateStr = cell.dataset.date;
+    // Try to get hour from cell dataset (old week view: .week-time-cell)
+    let hour = parseInt(cell.dataset.hour);
+    let dateStr = cell.dataset.date;
+    
+    // If no hour, try to get from parent column and calculate from mouse position (new column view: .week-grid-cell)
+    if (isNaN(hour)) {
+        const column = cell.closest('.week-day-column');
+        if (!column) return;
+        
+        dateStr = column.dataset.date;
+        const cellRect = cell.getBoundingClientRect();
+        const mouseY = e.clientY - cellRect.top;
+        const cellIndex = Array.from(column.querySelectorAll('.week-grid-cell')).indexOf(cell);
+        
+        // Each cell represents 1 hour starting from hour 6
+        const START_HOUR = 6;
+        hour = START_HOUR + cellIndex;
+        
+        // Calculate minute based on mouse position within cell (snap to 15-minute intervals)
+        const minuteFraction = mouseY / cellRect.height;
+        const minute = Math.round(minuteFraction * 4) * 15; // 0, 15, 30, or 45
+        
+        if (!dateStr) return;
+        
+        const newDate = new Date(dateStr);
+        newDate.setHours(hour, minute, 0, 0);
+        
+        await rescheduleEvent(draggedEventId, newDate, hour, minute);
+        return;
+    }
+    
+    // Old behavior for .week-time-cell
     if (isNaN(hour) || !dateStr) return;
     
     const newDate = new Date(dateStr);
@@ -3950,7 +4516,7 @@ async function handleCellDrop(e) {
     await rescheduleEvent(draggedEventId, newDate, hour);
 }
 
-async function rescheduleEvent(eventId, newDate, newHour = null) {
+async function rescheduleEvent(eventId, newDate, newHour = null, newMinute = 0) {
     const event = appState.events.find(e => e.id === eventId);
     if (!event) {
         showToast('Event not found', 'error');
@@ -3965,7 +4531,7 @@ async function rescheduleEvent(eventId, newDate, newHour = null) {
     // Create new date preserving original time unless hour is specified
     const newStartDate = new Date(newDate);
     if (newHour !== null) {
-        newStartDate.setHours(newHour, 0, 0, 0);
+        newStartDate.setHours(newHour, newMinute, 0, 0);
     } else {
         newStartDate.setHours(oldDate.getHours(), oldDate.getMinutes(), 0, 0);
     }
@@ -4096,11 +4662,6 @@ function initTasks() {
             progressSlider.value = value;
             updateProgressVisuals(value);
         });
-    }
-
-    function loadTasks() {
-        // Deprecated - kept for compatibility but not used
-        // Tasks are now loaded from Firestore real-time listener
     }
 
     // ===================================
@@ -4515,7 +5076,12 @@ function initTasks() {
     // ===================================
     // SPREADSHEET PANEL
     // ===================================
-    function openSpreadsheetPanel(spreadsheet) {
+    async function openSpreadsheetPanel(spreadsheet) {
+        // Close doc panel if open to prevent overlay issues
+        if (appState.activeDocId && window.closeDocPanel) {
+            await window.closeDocPanel();
+        }
+        
         appState.currentSpreadsheet = spreadsheet;
         
         const panel = document.getElementById('spreadsheetPanel');
@@ -8525,6 +9091,1891 @@ function initTasks() {
     window.openSpreadsheetPanel = openSpreadsheetPanel;
     window.saveSpreadsheetToFirestore = saveSpreadsheetToFirestore;
 
+    // ===================================
+    // DOCS MODULE
+    // Simple document storage + editing
+    // ===================================
+    
+    /**
+     * Initialize Docs feature - toggle, cards, panel, editor
+     */
+    function initDocsModule() {
+        debugLog('📄 Initializing Docs module...');
+        
+        // Initialize toggle between Sheets and Docs
+        initSheetsDocsToggle();
+        
+        // Initialize doc cards click handlers
+        initDocCards();
+        
+        // Initialize doc panel
+        initDocPanel();
+        
+        // Initialize doc editor
+        initDocEditor();
+        
+        // Initialize new features
+        initDocFormatDropdown();
+        initDocCommandPopover();
+    }
+    
+    /**
+     * Initialize Sheets/Docs toggle in tasks section header
+     */
+    function initSheetsDocsToggle() {
+        const toggleBtns = document.querySelectorAll('.sheets-docs-toggle .toggle-btn');
+        
+        toggleBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const view = btn.dataset.view;
+                switchTasksView(view);
+            });
+        });
+        
+        // Restore last view from localStorage
+        const savedView = localStorage.getItem('teamster_tasks_view') || 'sheets';
+        // Don't auto-switch on init - keep default to sheets
+    }
+    
+    /**
+     * Switch between Sheets and Docs views
+     */
+    function switchTasksView(view) {
+        appState.tasksViewMode = view;
+        localStorage.setItem('teamster_tasks_view', view);
+        
+        // Update toggle buttons
+        const toggleBtns = document.querySelectorAll('.sheets-docs-toggle .toggle-btn');
+        toggleBtns.forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.view === view);
+        });
+        
+        // Show/hide the appropriate containers
+        const spreadsheetHeader = document.getElementById('spreadsheetsViewHeader');
+        const spreadsheetCards = document.getElementById('spreadsheetCards');
+        const docsHeader = document.getElementById('docsViewHeader');
+        const docCards = document.getElementById('docCards');
+        
+        if (view === 'sheets') {
+            if (spreadsheetHeader) spreadsheetHeader.style.display = '';
+            if (spreadsheetCards) spreadsheetCards.style.display = '';
+            if (docsHeader) docsHeader.style.display = 'none';
+            if (docCards) docCards.style.display = 'none';
+        } else if (view === 'docs') {
+            if (spreadsheetHeader) spreadsheetHeader.style.display = 'none';
+            if (spreadsheetCards) spreadsheetCards.style.display = 'none';
+            if (docsHeader) docsHeader.style.display = '';
+            if (docCards) docCards.style.display = '';
+            
+            // Load docs if not already loaded
+            if (appState.currentTeamId && appState.docs.length === 0) {
+                loadDocsFromFirestore();
+            }
+        }
+    }
+    
+    /**
+     * Initialize doc cards click handlers
+     */
+    function initDocCards() {
+        // Create Doc button
+        const createDocBtn = document.getElementById('createDocBtn');
+        if (createDocBtn) {
+            createDocBtn.addEventListener('click', () => openCreateDocModal());
+        }
+        
+        // Create Doc card
+        const createDocCard = document.getElementById('createDocCard');
+        if (createDocCard) {
+            createDocCard.addEventListener('click', () => openCreateDocModal());
+        }
+    }
+    
+    /**
+     * Initialize doc panel (back button, title, etc)
+     */
+    function initDocPanel() {
+        const backBtn = document.getElementById('docBackBtn');
+        if (backBtn) {
+            backBtn.addEventListener('click', () => closeDocPanel());
+        }
+        
+        // Title input - save on blur
+        const titleInput = document.getElementById('docTitleInput');
+        if (titleInput) {
+            titleInput.addEventListener('blur', () => {
+                if (appState.activeDocId) {
+                    scheduleDocSave();
+                }
+            });
+            titleInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    titleInput.blur();
+                    document.getElementById('docEditor')?.focus();
+                }
+            });
+        }
+        
+        // Insert Link button
+        const insertLinkBtn = document.getElementById('insertLinkBtn');
+        if (insertLinkBtn) {
+            insertLinkBtn.addEventListener('click', () => openLinkModal());
+        }
+    }
+    
+    /**
+     * Initialize doc editor with toolbar commands
+     */
+    function initDocEditor() {
+        const editor = document.getElementById('docEditor');
+        const toolbar = document.getElementById('docToolbar');
+        
+        if (!editor || !toolbar) return;
+        
+        // Prevent caret from entering chips on mousedown
+        editor.addEventListener('mousedown', (e) => {
+            const chip = e.target.closest('.doc-chip');
+            if (chip) {
+                e.preventDefault();
+                // Move caret after the chip instead of inside it
+                moveCaretAfterElement(chip);
+            }
+        });
+        
+        // Toolbar button clicks
+        toolbar.querySelectorAll('.toolbar-btn[data-command]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const command = btn.dataset.command;
+                document.execCommand(command, false, null);
+                editor.focus();
+                updateToolbarState();
+            });
+        });
+        
+        // Editor input - schedule autosave
+        editor.addEventListener('input', () => {
+            appState.isDocDirty = true;
+            scheduleDocSave();
+        });
+        
+        // Editor keydown - keyboard shortcuts
+        editor.addEventListener('keydown', (e) => {
+            // Handle Backspace/Delete for chips and embeds
+            if (e.key === 'Backspace' || e.key === 'Delete') {
+                const selection = window.getSelection();
+                if (selection.rangeCount === 0) return;
+                
+                const range = selection.getRangeAt(0);
+                
+                // Check if caret is at a position adjacent to a chip/embed
+                if (range.collapsed) {
+                    const container = range.startContainer;
+                    const offset = range.startOffset;
+                    
+                    // For Backspace: check element before caret
+                    if (e.key === 'Backspace') {
+                        let prevElement = null;
+                        
+                        if (container.nodeType === Node.TEXT_NODE) {
+                            // If at start of text node, check previous sibling
+                            if (offset === 0) {
+                                prevElement = container.previousSibling;
+                            }
+                        } else if (container.nodeType === Node.ELEMENT_NODE) {
+                            // Check child before offset
+                            if (offset > 0) {
+                                prevElement = container.childNodes[offset - 1];
+                            }
+                        }
+                        
+                        // Check if previous element is a chip or embed
+                        if (prevElement) {
+                            const isChip = prevElement.nodeType === Node.ELEMENT_NODE && 
+                                          prevElement.classList?.contains('doc-chip');
+                            const isEmbed = prevElement.nodeType === Node.ELEMENT_NODE && 
+                                           prevElement.classList?.contains('doc-embed');
+                            
+                            if (isChip || isEmbed) {
+                                e.preventDefault();
+                                prevElement.remove();
+                                appState.isDocDirty = true;
+                                scheduleDocSave();
+                                return;
+                            }
+                        }
+                    }
+                    
+                    // For Delete: check element after caret
+                    if (e.key === 'Delete') {
+                        let nextElement = null;
+                        
+                        if (container.nodeType === Node.TEXT_NODE) {
+                            // If at end of text node, check next sibling
+                            if (offset === container.textContent.length) {
+                                nextElement = container.nextSibling;
+                            }
+                        } else if (container.nodeType === Node.ELEMENT_NODE) {
+                            // Check child at offset
+                            nextElement = container.childNodes[offset];
+                        }
+                        
+                        // Check if next element is a chip or embed
+                        if (nextElement) {
+                            const isChip = nextElement.nodeType === Node.ELEMENT_NODE && 
+                                          nextElement.classList?.contains('doc-chip');
+                            const isEmbed = nextElement.nodeType === Node.ELEMENT_NODE && 
+                                           nextElement.classList?.contains('doc-embed');
+                            
+                            if (isChip || isEmbed) {
+                                e.preventDefault();
+                                nextElement.remove();
+                                appState.isDocDirty = true;
+                                scheduleDocSave();
+                                return;
+                            }
+                        }
+                    }
+                }
+            }
+            
+            if ((e.ctrlKey || e.metaKey) && !e.shiftKey) {
+                switch (e.key.toLowerCase()) {
+                    case 'b':
+                        e.preventDefault();
+                        document.execCommand('bold', false, null);
+                        updateToolbarState();
+                        break;
+                    case 'i':
+                        e.preventDefault();
+                        document.execCommand('italic', false, null);
+                        updateToolbarState();
+                        break;
+                    case 'u':
+                        e.preventDefault();
+                        document.execCommand('underline', false, null);
+                        updateToolbarState();
+                        break;
+                    case 's':
+                        e.preventDefault();
+                        saveDocNow();
+                        break;
+                }
+            }
+        });
+        
+        // Update toolbar state on selection change
+        document.addEventListener('selectionchange', () => {
+            if (document.activeElement === editor) {
+                updateToolbarState();
+            }
+        });
+        
+        // Handle paste - sanitize content
+        editor.addEventListener('paste', (e) => {
+            e.preventDefault();
+            const text = e.clipboardData?.getData('text/plain') || '';
+            document.execCommand('insertText', false, text);
+        });
+    }
+    
+    /**
+     * Update toolbar button active states based on current selection
+     */
+    function updateToolbarState() {
+        const toolbar = document.getElementById('docToolbar');
+        if (!toolbar) return;
+        
+        toolbar.querySelectorAll('.toolbar-btn[data-command]').forEach(btn => {
+            const command = btn.dataset.command;
+            let isActive = false;
+            
+            try {
+                isActive = document.queryCommandState(command);
+            } catch (e) {
+                // Some commands don't support queryCommandState
+            }
+            
+            btn.classList.toggle('active', isActive);
+        });
+    }
+    
+    /**
+     * Load docs from Firestore with real-time listener
+     */
+    async function loadDocsFromFirestore() {
+        if (!appState.currentTeamId || !db || !currentAuthUser) {
+            console.warn('Cannot load docs: missing team, db, or user');
+            return;
+        }
+        
+        // Clean up existing listener
+        if (appState.docsUnsub) {
+            appState.docsUnsub();
+            appState.docsUnsub = null;
+        }
+        
+        try {
+            const { collection, query, orderBy, onSnapshot } = 
+                await import('https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js');
+            
+            const docsRef = collection(db, 'teams', appState.currentTeamId, 'docs');
+            const q = query(docsRef, orderBy('updatedAt', 'desc'));
+            
+            // Real-time listener
+            appState.docsUnsub = onSnapshot(q, (snapshot) => {
+                appState.docs = [];
+                snapshot.forEach(doc => {
+                    appState.docs.push({ id: doc.id, ...doc.data() });
+                });
+                
+                debugLog(`📄 Loaded ${appState.docs.length} docs`);
+                renderDocCards();
+            }, (error) => {
+                console.error('Error loading docs:', error);
+                if (error.code === 'permission-denied') {
+                    showToast("You don't have permission to view docs", 'error');
+                }
+            });
+        } catch (error) {
+            console.error('Error setting up docs listener:', error);
+        }
+    }
+    
+    /**
+     * Render doc cards in the grid
+     */
+    function renderDocCards() {
+        const container = document.getElementById('docCards');
+        if (!container) return;
+        
+        // Keep the create card
+        const createCard = container.querySelector('.create-new');
+        container.innerHTML = '';
+        if (createCard) container.appendChild(createCard);
+        
+        // Check if no docs
+        if (appState.docs.length === 0) {
+            const emptyState = document.createElement('div');
+            emptyState.className = 'doc-empty-state';
+            emptyState.innerHTML = `
+                <i class="fas fa-file-lines"></i>
+                <h4>No documents yet</h4>
+                <p>Create your first doc to get started</p>
+            `;
+            container.insertBefore(emptyState, createCard);
+            return;
+        }
+        
+        // Render doc cards
+        appState.docs.forEach(doc => {
+            const card = buildDocCard(doc);
+            container.insertBefore(card, createCard);
+        });
+    }
+    
+    /**
+     * Build a doc card element
+     */
+    function buildDocCard(doc) {
+        const card = document.createElement('div');
+        card.className = 'doc-card';
+        card.dataset.docId = doc.id;
+        
+        // Extract preview text (first 80 chars of plain text)
+        const preview = (doc.contentText || '').substring(0, 80) || 'Empty document';
+        
+        // Format updated time
+        let updatedStr = '';
+        if (doc.updatedAt) {
+            const updatedDate = doc.updatedAt.toDate ? doc.updatedAt.toDate() : new Date(doc.updatedAt);
+            updatedStr = formatRelativeTime(updatedDate);
+        }
+        
+        // Privacy badge
+        const privateBadge = doc.visibility === 'private' 
+            ? '<span class="doc-private-badge" title="Private"><i class="fas fa-lock"></i></span>'
+            : '';
+        
+        card.innerHTML = `
+            <button class="doc-card-menu-btn" title="More options">
+                <i class="fas fa-ellipsis-v"></i>
+            </button>
+            <div class="doc-card-icon">
+                <i class="fas fa-file-lines"></i>
+            </div>
+            <div class="doc-card-content">
+                <h4 class="doc-card-title">${escapeHtml(doc.title || 'Untitled')} ${privateBadge}</h4>
+                <p class="doc-card-preview">${escapeHtml(preview)}</p>
+            </div>
+            <div class="doc-card-meta">
+                <i class="fas fa-clock"></i>
+                <span>${updatedStr || 'Just now'}</span>
+            </div>
+        `;
+        
+        // Click handler - open doc
+        card.addEventListener('click', (e) => {
+            if (e.target.closest('.doc-card-menu-btn')) return;
+            openDoc(doc.id);
+        });
+        
+        // Menu button
+        const menuBtn = card.querySelector('.doc-card-menu-btn');
+        if (menuBtn) {
+            menuBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                showDocContextMenu(doc, menuBtn);
+            });
+        }
+        
+        return card;
+    }
+    
+    /**
+     * Format relative time (e.g., "2 hours ago")
+     */
+    function formatRelativeTime(date) {
+        const now = new Date();
+        const diff = now - date;
+        const seconds = Math.floor(diff / 1000);
+        const minutes = Math.floor(seconds / 60);
+        const hours = Math.floor(minutes / 60);
+        const days = Math.floor(hours / 24);
+        
+        if (seconds < 60) return 'Just now';
+        if (minutes < 60) return `${minutes}m ago`;
+        if (hours < 24) return `${hours}h ago`;
+        if (days < 7) return `${days}d ago`;
+        return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    }
+    
+    /**
+     * Show context menu for doc card
+     */
+    function showDocContextMenu(doc, anchorEl) {
+        const htmlMenu = document.getElementById('docContextMenu');
+        if (!htmlMenu) return;
+        
+        // Store doc for handlers
+        htmlMenu.dataset.docId = doc.id;
+        
+        // Setup action handlers (replace to remove old listeners)
+        const actions = [
+            { id: 'docContextMenuOpen', handler: () => { closeFloatingMenu(); openDoc(doc.id); } },
+            { id: 'docContextMenuRename', handler: () => { closeFloatingMenu(); renameDoc(doc); } },
+            { id: 'docContextMenuPrivacy', handler: () => { closeFloatingMenu(); openDocVisibilityModal(doc); } },
+            { id: 'docContextMenuDelete', handler: () => { closeFloatingMenu(); deleteDoc(doc); } }
+        ];
+        
+        actions.forEach(({ id, handler }) => {
+            const btn = document.getElementById(id);
+            if (btn) {
+                const newBtn = btn.cloneNode(true);
+                btn.replaceWith(newBtn);
+                document.getElementById(id).addEventListener('click', handler);
+            }
+        });
+        
+        // Toggle menu using unified helper
+        toggleFloatingMenu(htmlMenu, anchorEl);
+    }
+    
+    /**
+     * Open Create Doc modal
+     */
+    function openCreateDocModal() {
+        // Modern minimal create doc modal
+        const modalHTML = `
+            <div class="unified-modal active" id="createDocModal" style="display: flex;">
+                <div class="create-doc-modal-content">
+                    <button class="create-doc-close" onclick="closeCreateDocModal()">
+                        <i class="fas fa-times"></i>
+                    </button>
+                    <div class="create-doc-icon">
+                        <i class="fas fa-file-lines"></i>
+                    </div>
+                    <h2 class="create-doc-title">New Document</h2>
+                    <input type="text" id="newDocTitle" class="create-doc-input" placeholder="Document title" autofocus>
+                    <div class="create-doc-actions">
+                        <button class="btn-secondary" onclick="closeCreateDocModal()">Cancel</button>
+                        <button class="btn-primary" onclick="createNewDoc()">Create</button>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        document.body.insertAdjacentHTML('beforeend', modalHTML);
+        
+        // Focus input
+        setTimeout(() => {
+            document.getElementById('newDocTitle')?.focus();
+        }, 100);
+        
+        // Enter key to create
+        document.getElementById('newDocTitle')?.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                createNewDoc();
+            }
+        });
+        
+        // Click outside to close
+        document.getElementById('createDocModal')?.addEventListener('click', (e) => {
+            if (e.target.id === 'createDocModal') {
+                closeCreateDocModal();
+            }
+        });
+    }
+    
+    window.closeCreateDocModal = function() {
+        const modal = document.getElementById('createDocModal');
+        if (modal) modal.remove();
+    };
+    
+    window.createNewDoc = async function() {
+        const titleInput = document.getElementById('newDocTitle');
+        const title = titleInput?.value.trim() || 'Untitled';
+        
+        if (!appState.currentTeamId || !currentAuthUser) {
+            showToast('Please select a team first', 'error');
+            return;
+        }
+        
+        try {
+            const { collection, addDoc, serverTimestamp } = 
+                await import('https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js');
+            
+            const docsRef = collection(db, 'teams', appState.currentTeamId, 'docs');
+            
+            const docData = {
+                title: title,
+                contentHtml: '<p></p>',
+                contentText: '',
+                teamId: appState.currentTeamId,
+                createdBy: currentAuthUser.uid,
+                createdAt: serverTimestamp(),
+                updatedAt: serverTimestamp(),
+                updatedBy: currentAuthUser.uid
+            };
+            
+            const docRef = await addDoc(docsRef, docData);
+            
+            closeCreateDocModal();
+            showToast('Document created', 'success');
+            
+            // Open the new doc
+            openDoc(docRef.id);
+            
+        } catch (error) {
+            console.error('Error creating doc:', error);
+            showToast('Failed to create document', 'error');
+        }
+    };
+    
+    /**
+     * Open a doc in the editor panel
+     */
+    async function openDoc(docId) {
+        // Save current doc if dirty
+        if (appState.activeDocId && appState.isDocDirty) {
+            await saveDocNow();
+        }
+        
+        // Find doc in state
+        const doc = appState.docs.find(d => d.id === docId);
+        if (!doc) {
+            showToast('Document not found', 'error');
+            return;
+        }
+        
+        appState.activeDocId = docId;
+        appState.isDocDirty = false;
+        
+        // Update panel UI
+        const titleInput = document.getElementById('docTitleInput');
+        const editor = document.getElementById('docEditor');
+        const saveStatus = document.getElementById('docSaveStatus');
+        
+        if (titleInput) titleInput.value = doc.title || 'Untitled';
+        if (editor) editor.innerHTML = doc.contentHtml || '<p></p>';
+        if (saveStatus) {
+            saveStatus.textContent = 'Saved';
+            saveStatus.className = 'doc-save-status';
+        }
+        
+        // Hydrate chips and embeds
+        setTimeout(() => {
+            hydrateDocChips();
+            hydrateDocEmbeds();
+        }, 100);
+        
+        // Show panel
+        const tasksSection = document.getElementById('tasks-section');
+        if (tasksSection) {
+            tasksSection.classList.add('doc-open');
+        }
+        
+        // Focus editor
+        setTimeout(() => editor?.focus(), 100);
+    }
+    
+    /**
+     * Close doc panel
+     */
+    async function closeDocPanel() {
+        // Save if dirty
+        if (appState.activeDocId && appState.isDocDirty) {
+            await saveDocNow();
+        }
+        
+        appState.activeDocId = null;
+        appState.isDocDirty = false;
+        
+        // Clear save timer
+        if (appState.docSaveTimer) {
+            clearTimeout(appState.docSaveTimer);
+            appState.docSaveTimer = null;
+        }
+        
+        // Hide panel
+        const tasksSection = document.getElementById('tasks-section');
+        if (tasksSection) {
+            tasksSection.classList.remove('doc-open');
+        }
+    }
+    
+    /**
+     * Schedule a doc save with debounce
+     */
+    function scheduleDocSave() {
+        // Update save status
+        const saveStatus = document.getElementById('docSaveStatus');
+        if (saveStatus) {
+            saveStatus.textContent = 'Saving...';
+            saveStatus.className = 'doc-save-status saving';
+        }
+        
+        // Clear existing timer
+        if (appState.docSaveTimer) {
+            clearTimeout(appState.docSaveTimer);
+        }
+        
+        // Schedule save after 800ms of no typing
+        appState.docSaveTimer = setTimeout(() => {
+            saveDocNow();
+        }, 800);
+    }
+    
+    /**
+     * Save doc immediately
+     */
+    async function saveDocNow() {
+        if (!appState.activeDocId || appState.isDocSaving) return;
+        
+        const editor = document.getElementById('docEditor');
+        const titleInput = document.getElementById('docTitleInput');
+        const saveStatus = document.getElementById('docSaveStatus');
+        
+        if (!editor || !titleInput) return;
+        
+        appState.isDocSaving = true;
+        
+        try {
+            const { doc, updateDoc, serverTimestamp } = 
+                await import('https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js');
+            
+            const contentHtml = sanitizeDocHtml(editor.innerHTML);
+            const contentText = extractPlainText(contentHtml);
+            const title = titleInput.value.trim() || 'Untitled';
+            
+            // Size limit check (50KB for contentHtml)
+            if (contentHtml.length > 50000) {
+                showToast('Document too large. Please reduce content.', 'error');
+                if (saveStatus) {
+                    saveStatus.textContent = 'Too large';
+                    saveStatus.className = 'doc-save-status error';
+                }
+                appState.isDocSaving = false;
+                return;
+            }
+            
+            const docRef = doc(db, 'teams', appState.currentTeamId, 'docs', appState.activeDocId);
+            
+            await updateDoc(docRef, {
+                title: title,
+                contentHtml: contentHtml,
+                contentText: contentText.substring(0, 500), // Limit preview text
+                updatedAt: serverTimestamp(),
+                updatedBy: currentAuthUser.uid
+            });
+            
+            appState.isDocDirty = false;
+            
+            if (saveStatus) {
+                saveStatus.textContent = 'Saved';
+                saveStatus.className = 'doc-save-status';
+            }
+            
+            debugLog('📄 Doc saved:', appState.activeDocId);
+            
+        } catch (error) {
+            console.error('Error saving doc:', error);
+            if (saveStatus) {
+                saveStatus.textContent = "Couldn't save";
+                saveStatus.className = 'doc-save-status error';
+            }
+            showToast('Failed to save document', 'error');
+        } finally {
+            appState.isDocSaving = false;
+        }
+    }
+    
+    /**
+     * Sanitize HTML content - whitelist safe tags
+     * Allowed: p, br, b, strong, i, em, u, a, ul, ol, li, div, span
+     */
+    function sanitizeDocHtml(html) {
+        const temp = document.createElement('div');
+        temp.innerHTML = html;
+        
+        // Remove script tags and event handlers
+        temp.querySelectorAll('script, style, iframe, object, embed').forEach(el => el.remove());
+        
+        // Strip hydrated content from embeds - save only the shell with data attributes
+        temp.querySelectorAll('.doc-embed').forEach(embed => {
+            embed.innerHTML = ''; // Clear hydrated content
+            embed.classList.remove('hydrated', 'unavailable');
+        });
+        
+        // Strip hydrated content from chips - save only the shell with data attributes
+        // BUT preserve link chip content (favicon and text)
+        temp.querySelectorAll('.doc-chip').forEach(chip => {
+            if (chip.dataset.chipType !== 'link') {
+                chip.innerHTML = ''; // Clear hydrated content only for task/sheet chips
+            }
+            chip.classList.remove('hydrated', 'unavailable');
+            chip.onclick = null;
+        });
+        
+        // Process all elements
+        const allElements = temp.querySelectorAll('*');
+        const allowedTags = ['P', 'BR', 'B', 'STRONG', 'I', 'EM', 'U', 'A', 'UL', 'OL', 'LI', 'DIV', 'SPAN', 'H1', 'H2', 'H3', 'TABLE', 'THEAD', 'TBODY', 'TR', 'TH', 'TD', 'BUTTON', 'IMG'];
+        
+        allElements.forEach(el => {
+            // Remove disallowed tags (keep content)
+            if (!allowedTags.includes(el.tagName)) {
+                const parent = el.parentNode;
+                while (el.firstChild) {
+                    parent.insertBefore(el.firstChild, el);
+                }
+                parent.removeChild(el);
+                return;
+            }
+            
+            // Check if this is a chip or embed - preserve special attributes
+            const isChip = el.classList.contains('doc-chip');
+            const isEmbed = el.classList.contains('doc-embed');
+            const isLinkChip = isChip && el.dataset.chipType === 'link';
+            
+            // Remove all attributes except allowed ones
+            const attrsToRemove = [];
+            for (let attr of el.attributes) {
+                // Links: keep href, target, rel
+                if (el.tagName === 'A' && attr.name === 'href') {
+                    // Validate href - only http, https, mailto
+                    const href = attr.value.toLowerCase();
+                    if (!href.startsWith('http://') && !href.startsWith('https://') && !href.startsWith('mailto:')) {
+                        attrsToRemove.push(attr.name);
+                    }
+                } else if (el.tagName === 'A' && (attr.name === 'target' || attr.name === 'rel')) {
+                    // Keep target and rel for links
+                } 
+                // Link chips: keep everything (href, class, data-chip-type, contenteditable)
+                else if (isLinkChip && (attr.name === 'class' || attr.name === 'href' || attr.name === 'target' || 
+                                         attr.name === 'rel' || attr.name === 'data-chip-type' || attr.name === 'contenteditable')) {
+                    // Keep these
+                }
+                // Images in link chips: keep src, class, onerror
+                else if (el.tagName === 'IMG' && el.parentElement?.classList?.contains('doc-chip') && 
+                         (attr.name === 'src' || attr.name === 'class' || attr.name === 'onerror' || attr.name === 'alt')) {
+                    // Keep these
+                } 
+                // Chips: keep class, contenteditable, data-chip-type, data-id
+                else if (isChip && (attr.name === 'class' || attr.name === 'contenteditable' || 
+                                     attr.name === 'data-chip-type' || attr.name === 'data-id')) {
+                    // Keep these
+                } 
+                // Embeds: keep class, data-embed-type, data-id
+                else if (isEmbed && (attr.name === 'class' || attr.name === 'data-embed-type' || attr.name === 'data-id')) {
+                    // Keep these
+                }
+                else {
+                    attrsToRemove.push(attr.name);
+                }
+            }
+            attrsToRemove.forEach(name => el.removeAttribute(name));
+            
+            // Ensure links open in new tab safely
+            if (el.tagName === 'A') {
+                el.setAttribute('target', '_blank');
+                el.setAttribute('rel', 'noopener noreferrer');
+            }
+        });
+        
+        return temp.innerHTML;
+    }
+    
+    /**
+     * Extract plain text from HTML
+     */
+    function extractPlainText(html) {
+        const temp = document.createElement('div');
+        temp.innerHTML = html;
+        return temp.textContent || temp.innerText || '';
+    }
+    
+    /**
+     * Rename a doc
+     */
+    function renameDoc(doc) {
+        const newTitle = prompt('Enter new title:', doc.title || 'Untitled');
+        if (newTitle === null || newTitle.trim() === '') return;
+        
+        (async () => {
+            try {
+                const { doc: docRef, updateDoc, serverTimestamp } = 
+                    await import('https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js');
+                
+                const ref = docRef(db, 'teams', appState.currentTeamId, 'docs', doc.id);
+                await updateDoc(ref, {
+                    title: newTitle.trim(),
+                    updatedAt: serverTimestamp(),
+                    updatedBy: currentAuthUser.uid
+                });
+                
+                showToast('Document renamed', 'success');
+            } catch (error) {
+                console.error('Error renaming doc:', error);
+                showToast('Failed to rename document', 'error');
+            }
+        })();
+    }
+    
+    /**
+     * Delete a doc
+     */
+    function deleteDoc(doc) {
+        if (!confirm(`Delete "${doc.title || 'Untitled'}"? This cannot be undone.`)) return;
+        
+        (async () => {
+            try {
+                const { doc: docRef, deleteDoc: delDoc } = 
+                    await import('https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js');
+                
+                const ref = docRef(db, 'teams', appState.currentTeamId, 'docs', doc.id);
+                await delDoc(ref);
+                
+                showToast('Document deleted', 'success');
+            } catch (error) {
+                console.error('Error deleting doc:', error);
+                showToast('Failed to delete document', 'error');
+            }
+        })();
+    }
+    
+    /**
+     * Helper: Move caret immediately after an element
+     * Ensures typing happens outside the element, not inside it
+     */
+    function moveCaretAfterElement(element) {
+        if (!element) return;
+        
+        const editor = document.getElementById('docEditor');
+        if (!editor) return;
+        
+        // Ensure there's a text node after the element
+        let nextNode = element.nextSibling;
+        if (!nextNode || nextNode.nodeType !== Node.TEXT_NODE) {
+            // Insert a zero-width space after the element
+            const textNode = document.createTextNode('\u200B');
+            if (element.nextSibling) {
+                element.parentNode.insertBefore(textNode, element.nextSibling);
+            } else {
+                element.parentNode.appendChild(textNode);
+            }
+            nextNode = textNode;
+        }
+        
+        // Move caret to after the element
+        const selection = window.getSelection();
+        const range = document.createRange();
+        range.setStartAfter(element);
+        range.setEndAfter(element);
+        selection.removeAllRanges();
+        selection.addRange(range);
+    }
+    
+    /**
+     * Open link insertion modal
+     */
+    function openLinkModal() {
+        // Save selection before opening modal
+        const selection = window.getSelection();
+        const range = selection && selection.rangeCount > 0 ? selection.getRangeAt(0).cloneRange() : null;
+        
+        // Get selected text to pre-fill
+        let selectedText = '';
+        if (range && !range.collapsed) {
+            selectedText = range.toString().trim();
+        }
+        
+        const modalHTML = `
+            <div class="doc-link-modal" id="docLinkModal">
+                <div class="doc-link-modal-header">
+                    <h4>Insert Link</h4>
+                    <button class="doc-link-modal-close" onclick="closeLinkModal()">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <input type="text" id="linkTextInput" placeholder="Link text" value="${escapeHtml(selectedText)}" autofocus>
+                <input type="text" id="linkUrlInput" placeholder="https://example.com">
+                <div class="doc-link-modal-actions">
+                    <button class="btn-secondary" onclick="closeLinkModal()">Cancel</button>
+                    <button class="btn-primary" onclick="insertLink()">Insert</button>
+                </div>
+            </div>
+            <div class="modal-overlay" id="linkModalOverlay" onclick="closeLinkModal()"></div>
+        `;
+        
+        document.body.insertAdjacentHTML('beforeend', modalHTML);
+        
+        // Store range for later
+        window._savedRange = range;
+        
+        // Focus text input
+        setTimeout(() => {
+            const textInput = document.getElementById('linkTextInput');
+            textInput?.focus();
+            // Select all if pre-filled
+            if (selectedText) {
+                textInput?.select();
+            }
+        }, 100);
+        
+        // Tab from text to URL input, Enter to insert from both
+        document.getElementById('linkTextInput')?.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                insertLink();
+            } else if (e.key === 'Tab' && !e.shiftKey) {
+                e.preventDefault();
+                document.getElementById('linkUrlInput')?.focus();
+            }
+        });
+        
+        document.getElementById('linkUrlInput')?.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                insertLink();
+            }
+        });
+    }
+    
+    window.closeLinkModal = function() {
+        document.getElementById('docLinkModal')?.remove();
+        document.getElementById('linkModalOverlay')?.remove();
+        window._savedRange = null;
+    };
+    
+    window.insertLink = function() {
+        const textInput = document.getElementById('linkTextInput');
+        const urlInput = document.getElementById('linkUrlInput');
+        const linkText = textInput?.value.trim() || '';
+        let url = urlInput?.value.trim() || '';
+        
+        if (!url || !linkText) {
+            closeLinkModal();
+            return;
+        }
+        
+        // Add https if no protocol
+        if (!url.startsWith('http://') && !url.startsWith('https://') && !url.startsWith('mailto:')) {
+            url = 'https://' + url;
+        }
+        
+        closeLinkModal();
+        
+        const editor = document.getElementById('docEditor');
+        if (!editor) return;
+        
+        // Get favicon URL
+        let faviconUrl = '';
+        try {
+            const urlObj = new URL(url);
+            faviconUrl = `https://www.google.com/s2/favicons?domain=${urlObj.hostname}&sz=32`;
+        } catch (e) {
+            console.warn('Invalid URL for favicon:', url);
+        }
+        
+        // Restore selection
+        if (window._savedRange) {
+            const selection = window.getSelection();
+            selection.removeAllRanges();
+            selection.addRange(window._savedRange);
+        }
+        
+        editor.focus();
+        
+        // Create link chip HTML
+        const chipHTML = `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" class="doc-chip" data-chip-type="link" contenteditable="false"><img src="${escapeHtml(faviconUrl)}" class="chip-favicon" onerror="this.style.display='none'" alt="">${escapeHtml(linkText)}</a>`;
+        
+        // Insert the chip
+        document.execCommand('insertHTML', false, chipHTML);
+        
+        // Move caret after the chip so typing happens on same line
+        const insertedChip = editor.querySelector('.doc-chip[data-chip-type="link"]:not(.hydrated)');
+        if (insertedChip) {
+            moveCaretAfterElement(insertedChip);
+        }
+        
+        appState.isDocDirty = true;
+        scheduleDocSave();
+        
+        // Clear saved range
+        window._savedRange = null;
+    };
+    
+    // ===================================
+    // DOC INTEGRATIONS: FORMAT DROPDOWN, COMMAND POPOVER, CHIPS, EMBEDS, TAGS
+    // ===================================
+    
+    /**
+     * Initialize format dropdown (heading selector)
+     */
+    function initDocFormatDropdown() {
+        const trigger = document.getElementById('docFormatTrigger');
+        const dropdown = document.getElementById('docFormatDropdown');
+        const label = document.getElementById('docFormatLabel');
+        
+        if (!trigger || !dropdown) return;
+        
+        // Store saved selection for format dropdown
+        let savedFormatRange = null;
+        
+        // Helper to check if range is inside editor
+        function isRangeInsideEditor(range, editor) {
+            if (!range || !editor) return false;
+            const container = range.commonAncestorContainer;
+            return editor.contains(container.nodeType === Node.TEXT_NODE ? container.parentNode : container);
+        }
+        
+        // Toggle dropdown and save selection
+        trigger.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const editor = document.getElementById('docEditor');
+            
+            // Save current selection if inside editor
+            const sel = window.getSelection();
+            if (sel.rangeCount > 0) {
+                const range = sel.getRangeAt(0);
+                if (isRangeInsideEditor(range, editor)) {
+                    savedFormatRange = range.cloneRange();
+                }
+            }
+            
+            dropdown.classList.toggle('visible');
+        });
+        
+        // Close on outside click (clear saved range)
+        document.addEventListener('click', (e) => {
+            if (!dropdown.contains(e.target) && !trigger.contains(e.target)) {
+                dropdown.classList.remove('visible');
+                savedFormatRange = null;
+            }
+        });
+        
+        // Format options
+        dropdown.querySelectorAll('.doc-format-option').forEach(option => {
+            option.addEventListener('click', () => {
+                const format = option.dataset.format;
+                const editor = document.getElementById('docEditor');
+                
+                if (!editor) return;
+                
+                // Restore saved selection
+                if (savedFormatRange) {
+                    const sel = window.getSelection();
+                    sel.removeAllRanges();
+                    sel.addRange(savedFormatRange);
+                }
+                
+                editor.focus();
+                
+                // Apply formatting
+                let success = false;
+                try {
+                    success = document.execCommand('formatBlock', false, format === 'p' ? '<p>' : `<${format}>`);
+                } catch (e) {
+                    console.warn('Format command failed:', e);
+                }
+                
+                // Update label only if command succeeded
+                if (success && label) {
+                    if (format === 'p') {
+                        label.textContent = 'Normal';
+                    } else {
+                        label.textContent = `Heading ${format.charAt(1)}`;
+                    }
+                }
+                
+                dropdown.classList.remove('visible');
+                savedFormatRange = null;
+                appState.isDocDirty = true;
+                scheduleDocSave();
+            });
+        });
+    }
+    
+    /**
+     * Initialize command popover (/ trigger for references, embeds, etc.)
+     */
+    function initDocCommandPopover() {
+        const editor = document.getElementById('docEditor');
+        const popover = document.getElementById('docCommandPopover');
+        const commandBtn = document.getElementById('insertCommandBtn');
+        
+        if (!editor || !popover) return;
+        
+        // Clear any existing state
+        window._commandRange = null;
+        window._commandTriggerInfo = null;
+        window._slashInsertRange = null;
+        
+        // Show popover on / key
+        editor.addEventListener('keydown', (e) => {
+            if (e.key === '/') {
+                // Store the range BEFORE the slash is typed (we'll capture after with keyup)
+                const sel = window.getSelection();
+                if (sel.rangeCount > 0) {
+                    window._preSlashRange = sel.getRangeAt(0).cloneRange();
+                }
+            } else if (e.key === 'Escape') {
+                hideCommandPopover();
+            }
+        });
+        
+        editor.addEventListener('keyup', (e) => {
+            if (e.key === '/') {
+                // After the slash is typed, store the exact range (pointing at the slash location)
+                const sel = window.getSelection();
+                if (sel.rangeCount > 0) {
+                    // The caret is now AFTER the slash
+                    window._slashInsertRange = sel.getRangeAt(0).cloneRange();
+                }
+                showCommandPopover('slash');
+            }
+        });
+        
+        // Also show on button click
+        if (commandBtn) {
+            commandBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                // Focus editor and capture current selection
+                editor.focus();
+                const sel = window.getSelection();
+                if (sel.rangeCount > 0) {
+                    window._commandRange = sel.getRangeAt(0).cloneRange();
+                }
+                showCommandPopover('button');
+            });
+        }
+        
+        /**
+         * Show the command popover anchored to the caret position
+         */
+        function showCommandPopover(triggerType) {
+            const selection = window.getSelection();
+            if (!selection.rangeCount) return;
+            
+            const range = selection.getRangeAt(0);
+            
+            // Store range for later use (DO NOT CLEAR until action completes)
+            window._commandRange = range.cloneRange();
+            window._commandTriggerInfo = {
+                type: triggerType,
+                timestamp: Date.now(),
+                editorId: 'docEditor'
+            };
+            
+            // Get caret position in viewport
+            const caretRect = range.getBoundingClientRect();
+            
+            // Use the unified floating menu helper for proper positioning
+            openFloatingMenu(popover, caretRect, {
+                margin: 10,
+                onClose: () => {
+                    // Clear state when closed via click-away or Escape
+                    window._commandRange = null;
+                    window._commandTriggerInfo = null;
+                    window._slashInsertRange = null;
+                }
+            });
+        }
+        
+        /**
+         * Remove the slash character that triggered the popover
+         */
+        function removeSlashAtTrigger() {
+            if (!window._slashInsertRange) return;
+            
+            const range = window._slashInsertRange;
+            const editor = document.getElementById('docEditor');
+            if (!editor) return;
+            
+            try {
+                // Focus editor and restore selection
+                editor.focus();
+                
+                // The range points to where the caret was AFTER typing '/'
+                // We need to select and delete the '/' character before the caret
+                const container = range.startContainer;
+                const offset = range.startOffset;
+                
+                if (container.nodeType === Node.TEXT_NODE && offset > 0) {
+                    // Check if the character before caret is '/'
+                    const text = container.textContent;
+                    if (text.charAt(offset - 1) === '/') {
+                        // Create range to select the slash
+                        const deleteRange = document.createRange();
+                        deleteRange.setStart(container, offset - 1);
+                        deleteRange.setEnd(container, offset);
+                        deleteRange.deleteContents();
+                        
+                        // Update stored command range to point to same spot (now without slash)
+                        if (window._commandRange) {
+                            const newRange = document.createRange();
+                            newRange.setStart(container, Math.max(0, offset - 1));
+                            newRange.setEnd(container, Math.max(0, offset - 1));
+                            window._commandRange = newRange;
+                        }
+                    }
+                }
+            } catch (e) {
+                console.warn('Could not remove slash:', e);
+            }
+            
+            // Clear slash range
+            window._slashInsertRange = null;
+        }
+        
+        /**
+         * Hide the command popover and optionally clear state
+         */
+        function hideCommandPopover(clearState = false) {
+            // Use the unified close if this popover is active
+            if (floatingMenuState.activeMenu === popover) {
+                closeFloatingMenu();
+            } else {
+                popover.style.display = 'none';
+            }
+            
+            // Only clear state when explicitly requested (after action completes or on cancel)
+            if (clearState) {
+                window._commandRange = null;
+                window._commandTriggerInfo = null;
+                window._slashInsertRange = null;
+            }
+        }
+        
+        // Command option clicks
+        popover.querySelectorAll('.command-option').forEach(option => {
+            option.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                const command = option.dataset.command;
+                
+                // Remove slash if triggered by '/' key
+                if (window._commandTriggerInfo?.type === 'slash') {
+                    removeSlashAtTrigger();
+                }
+                
+                // Hide popover but DO NOT clear the stored range yet
+                hideCommandPopover(false);
+                
+                // Execute command
+                switch (command) {
+                    case 'task-ref':
+                        openReferencePickerModal('task');
+                        break;
+                    case 'sheet-ref':
+                        openReferencePickerModal('sheet');
+                        break;
+                    case 'sheet-embed':
+                        openReferencePickerModal('sheet-embed');
+                        break;
+                    // convert-tasks feature removed
+                }
+            });
+        });
+        
+        // Scroll handler: hide popover if caret scrolls out of view
+        const editorContainer = document.querySelector('.doc-panel-body');
+        if (editorContainer) {
+            editorContainer.addEventListener('scroll', () => {
+                if (popover.style.display !== 'none' && window._commandRange) {
+                    try {
+                        const caretRect = window._commandRange.getBoundingClientRect();
+                        const containerRect = editorContainer.getBoundingClientRect();
+                        
+                        // If caret scrolled out of view, hide popover
+                        if (caretRect.top < containerRect.top || caretRect.bottom > containerRect.bottom) {
+                            hideCommandPopover(true);
+                        }
+                    } catch (e) {
+                        hideCommandPopover(true);
+                    }
+                }
+            });
+        }
+        
+        // Make hideCommandPopover accessible for external calls
+        window._hideCommandPopover = hideCommandPopover;
+    }
+    
+    /**
+     * Open reference picker modal
+     */
+    window.openReferencePickerModal = function(type) {
+        const modal = document.getElementById('referencePickerModal');
+        const title = document.getElementById('referencePickerTitle');
+        const subtitle = document.getElementById('referencePickerSubtitle');
+        const list = document.getElementById('referencePickerList');
+        const search = document.getElementById('referencePickerSearch');
+        
+        if (!modal || !list) return;
+        
+        // Set title based on type
+        const titles = {
+            'task': { title: '<i class="fas fa-check-circle"></i> Insert Task Reference', subtitle: 'Select a task to reference' },
+            'sheet': { title: '<i class="fas fa-table"></i> Insert Sheet Reference', subtitle: 'Select a spreadsheet to reference' },
+            'sheet-embed': { title: '<i class="fas fa-table-cells"></i> Embed Sheet', subtitle: 'Select a spreadsheet to embed (read-only)' }
+        };
+        
+        if (title) title.innerHTML = titles[type].title;
+        if (subtitle) subtitle.textContent = titles[type].subtitle;
+        
+        // Store type for later
+        modal.dataset.referenceType = type;
+        
+        // Populate list
+        const isEmbed = type === 'sheet-embed';
+        const isSheet = type === 'sheet' || isEmbed;
+        
+        if (isSheet) {
+            // Show spreadsheets
+            const spreadsheets = appState.spreadsheets.filter(s => {
+                // Filter by visibility
+                if (s.visibility === 'private') {
+                    return s.createdBy === currentAuthUser?.uid;
+                }
+                return true;
+            });
+            
+            list.innerHTML = spreadsheets.map(sheet => `
+                <div class="reference-picker-item" data-id="${escapeHtml(sheet.id)}">
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                        <div class="reference-item-icon sheet">
+                            <i class="fas ${escapeHtml(sheet.icon || 'fa-table')}"></i>
+                        </div>
+                        <div style="flex: 1;">
+                            <div class="reference-item-title">${escapeHtml(sheet.name)}</div>
+                            <div class="reference-item-meta">
+                                ${sheet.visibility === 'private' ? '<i class="fas fa-lock"></i> Private' : '<i class="fas fa-users"></i> Team'}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        } else {
+            // Show tasks
+            const tasks = appState.tasks.filter(t => {
+                // Filter by spreadsheet visibility
+                const taskSpreadsheet = appState.spreadsheets.find(s => s.id === t.spreadsheetId);
+                if (taskSpreadsheet?.visibility === 'private') {
+                    return taskSpreadsheet.createdBy === currentAuthUser?.uid;
+                }
+                return true;
+            });
+            
+            list.innerHTML = tasks.map(task => {
+                const statusIcons = {
+                    'todo': '<i class="fas fa-circle" style="color: #8E8E93;"></i>',
+                    'in-progress': '<i class="fas fa-circle-half-stroke" style="color: #FF9500;"></i>',
+                    'done': '<i class="fas fa-check-circle" style="color: #34C759;"></i>'
+                };
+                
+                return `
+                    <div class="reference-picker-item" data-id="${escapeHtml(task.id)}">
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            <div class="reference-item-icon task">
+                                ${statusIcons[task.status] || statusIcons['todo']}
+                            </div>
+                            <div style="flex: 1;">
+                                <div class="reference-item-title">${escapeHtml(task.title)}</div>
+                                <div class="reference-item-meta">
+                                    ${task.status || 'To Do'} 
+                                    ${task.assignee ? `• ${getIdentity(task.assignee).displayName}` : ''}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+        
+        // Search functionality
+        if (search) {
+            search.value = '';
+            search.addEventListener('input', () => {
+                const query = search.value.toLowerCase();
+                list.querySelectorAll('.reference-picker-item').forEach(item => {
+                    const title = item.querySelector('.reference-item-title')?.textContent.toLowerCase() || '';
+                    item.style.display = title.includes(query) ? 'block' : 'none';
+                });
+            });
+        }
+        
+        // Item clicks
+        list.querySelectorAll('.reference-picker-item').forEach(item => {
+            item.addEventListener('click', () => {
+                const id = item.dataset.id;
+                insertReference(type, id);
+                closeReferencePickerModal();
+            });
+        });
+        
+        modal.style.display = 'flex';
+    };
+    
+    window.closeReferencePickerModal = function() {
+        const modal = document.getElementById('referencePickerModal');
+        if (modal) modal.style.display = 'none';
+    };
+    
+    /**
+     * Insert reference chip or embed into editor
+     */
+    function insertReference(type, id) {
+        const editor = document.getElementById('docEditor');
+        if (!editor) return;
+        
+        editor.focus();
+        
+        // Restore selection from stored range
+        if (window._commandRange) {
+            try {
+                const selection = window.getSelection();
+                selection.removeAllRanges();
+                selection.addRange(window._commandRange);
+            } catch (e) {
+                console.warn('Could not restore selection:', e);
+            }
+        }
+        
+        if (type === 'sheet-embed') {
+            // Insert embed block
+            const embedHTML = `<div class="doc-embed" data-embed-type="sheet" data-id="${escapeHtml(id)}"></div><p></p>`;
+            document.execCommand('insertHTML', false, embedHTML);
+            
+            // Hydrate embed immediately
+            setTimeout(() => hydrateDocEmbeds(), 100);
+        } else {
+            // Insert chip
+            const chipType = type === 'task' ? 'task' : 'sheet';
+            const chipHTML = `<span class="doc-chip" contenteditable="false" data-chip-type="${chipType}" data-id="${escapeHtml(id)}"></span>`;
+            document.execCommand('insertHTML', false, chipHTML);
+            
+            // Move caret after the chip so typing happens on same line
+            const insertedChip = editor.querySelector(`.doc-chip[data-chip-type="${chipType}"][data-id="${escapeHtml(id)}"]:not(.hydrated)`);
+            if (insertedChip) {
+                moveCaretAfterElement(insertedChip);
+            }
+            
+            // Hydrate chip immediately
+            setTimeout(() => hydrateDocChips(), 100);
+        }
+        
+        // Clear command state now that insertion is complete
+        window._commandRange = null;
+        window._commandTriggerInfo = null;
+        window._slashInsertRange = null;
+        
+        appState.isDocDirty = true;
+        scheduleDocSave();
+    }
+    
+    /**
+     * Add delete button to chip element
+     */
+    function addChipDeleteButton(chip) {
+        // Remove existing delete button if any
+        chip.querySelector('.chip-delete-btn')?.remove();
+        
+        const deleteBtn = document.createElement('button');
+        deleteBtn.className = 'chip-delete-btn';
+        deleteBtn.innerHTML = '<i class="fas fa-times"></i>';
+        deleteBtn.onclick = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            chip.remove();
+            appState.isDocDirty = true;
+            scheduleDocSave();
+        };
+        chip.appendChild(deleteBtn);
+    }
+    
+    /**
+     * Add delete button to embed element
+     */
+    function addEmbedDeleteButton(embed) {
+        // Remove existing delete button if any
+        embed.querySelector('.embed-delete-btn')?.remove();
+        
+        const deleteBtn = document.createElement('button');
+        deleteBtn.className = 'embed-delete-btn';
+        deleteBtn.innerHTML = '<i class="fas fa-times"></i>';
+        deleteBtn.onclick = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            embed.remove();
+            appState.isDocDirty = true;
+            scheduleDocSave();
+        };
+        embed.appendChild(deleteBtn);
+    }
+    
+    /**
+     * Hydrate doc chips with live data
+     */
+    function hydrateDocChips() {
+        const editor = document.getElementById('docEditor');
+        if (!editor) return;
+        
+        const chips = editor.querySelectorAll('.doc-chip:not(.hydrated)');
+        
+        chips.forEach(chip => {
+            const chipType = chip.dataset.chipType;
+            const id = chip.dataset.id;
+            
+            // Skip link chips - they don't need hydration
+            if (chipType === 'link') {
+                // Ensure link chip stays non-editable
+                chip.setAttribute('contenteditable', 'false');
+                chip.classList.add('hydrated');
+                addChipDeleteButton(chip);
+                return;
+            }
+            
+            if (chipType === 'task') {
+                // Ensure chip stays non-editable
+                chip.setAttribute('contenteditable', 'false');
+                
+                const task = appState.tasks.find(t => t.id === id);
+                if (task) {
+                    // Check visibility
+                    const taskSpreadsheet = appState.spreadsheets.find(s => s.id === task.spreadsheetId);
+                    if (taskSpreadsheet?.visibility === 'private' && taskSpreadsheet.createdBy !== currentAuthUser?.uid) {
+                        chip.classList.add('unavailable');
+                        chip.innerHTML = '<i class="fas fa-lock chip-icon"></i><span>Unavailable</span>';
+                    } else {
+                        const statusDots = {
+                            'todo': 'todo',
+                            'in-progress': 'in-progress',
+                            'done': 'done'
+                        };
+                        const dotClass = statusDots[task.status] || 'todo';
+                        chip.innerHTML = `<span class="chip-status-dot ${dotClass}"></span><span>${escapeHtml(task.title)}</span>`;
+                        chip.onclick = (e) => {
+                            e.stopPropagation();
+                            e.preventDefault();
+                            navigateToTaskSheet(id);
+                        };
+                    }
+                } else {
+                    chip.classList.add('unavailable');
+                    chip.innerHTML = '<i class="fas fa-exclamation-triangle chip-icon"></i><span>Task not found</span>';
+                }
+            } else if (chipType === 'sheet') {
+                // Ensure chip stays non-editable
+                chip.setAttribute('contenteditable', 'false');
+                
+                const sheet = appState.spreadsheets.find(s => s.id === id);
+                if (sheet) {
+                    // Check visibility
+                    if (sheet.visibility === 'private' && sheet.createdBy !== currentAuthUser?.uid) {
+                        chip.classList.add('unavailable');
+                        chip.innerHTML = '<i class="fas fa-lock chip-icon"></i><span>Unavailable</span>';
+                    } else {
+                        chip.innerHTML = `<i class="fas ${escapeHtml(sheet.icon || 'fa-table')} chip-icon"></i><span>${escapeHtml(sheet.name)}</span>`;
+                        chip.onclick = async (e) => {
+                            e.stopPropagation();
+                            e.preventDefault();
+                            // Use single source of truth navigation
+                            await navigateToSpreadsheet(sheet.id);
+                        };
+                    }
+                } else {
+                    chip.classList.add('unavailable');
+                    chip.innerHTML = '<i class="fas fa-exclamation-triangle chip-icon"></i><span>Sheet not found</span>';
+                }
+            }
+            
+            // Add delete button
+            addChipDeleteButton(chip);
+            
+            chip.classList.add('hydrated');
+        });
+    }
+    
+    /**
+     * Hydrate doc embeds with sheet data
+     */
+    function hydrateDocEmbeds() {
+        const editor = document.getElementById('docEditor');
+        if (!editor) return;
+        
+        const embeds = editor.querySelectorAll('.doc-embed:not(.hydrated)');
+        
+        embeds.forEach(embed => {
+            const embedType = embed.dataset.embedType;
+            const id = embed.dataset.id;
+            
+            if (embedType === 'sheet') {
+                const sheet = appState.spreadsheets.find(s => s.id === id);
+                
+                if (!sheet) {
+                    embed.classList.add('unavailable');
+                    embed.innerHTML = `
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <p>Sheet not found</p>
+                    `;
+                    embed.classList.add('hydrated');
+                    return;
+                }
+                
+                // Check visibility
+                if (sheet.visibility === 'private' && sheet.createdBy !== currentAuthUser?.uid) {
+                    embed.classList.add('unavailable');
+                    embed.innerHTML = `
+                        <i class="fas fa-lock"></i>
+                        <p>This sheet is private</p>
+                    `;
+                    addEmbedDeleteButton(embed);
+                    embed.classList.add('hydrated');
+                    return;
+                }
+                
+                // Get OPEN tasks only (filter out done/complete), limit to 6 rows
+                const allTasks = getTasksForSpreadsheet(sheet);
+                const openTasks = allTasks.filter(t => t.status !== 'done' && t.status !== 'complete');
+                const displayTasks = openTasks.slice(0, 6);
+                const hasMore = openTasks.length > 6;
+                
+                // Build compact table (fewer columns for tighter layout)
+                const columns = ['title', 'status', 'priority'];
+                const columnLabels = { title: 'Task', status: 'Status', priority: 'Priority' };
+                
+                let tableHTML = '<div class="doc-embed-header doc-embed-header-compact">';
+                tableHTML += `<div class="doc-embed-title"><i class="fas ${escapeHtml(sheet.icon || 'fa-table')}"></i> ${escapeHtml(sheet.name)}</div>`;
+                tableHTML += `<button class="doc-embed-open-btn" onclick="navigateToSpreadsheet('${escapeHtml(id)}')">Open full sheet</button>`;
+                tableHTML += '</div>';
+                tableHTML += '<div class="doc-embed-table-wrapper doc-embed-table-wrapper-compact">';
+                tableHTML += '<table class="doc-embed-table doc-embed-table-compact">';
+                tableHTML += '<thead><tr>';
+                columns.forEach(col => {
+                    tableHTML += `<th>${columnLabels[col]}</th>`;
+                });
+                tableHTML += '</tr></thead><tbody>';
+                
+                displayTasks.forEach(task => {
+                    tableHTML += '<tr>';
+                    columns.forEach(col => {
+                        let value = '';
+                        if (col === 'title') {
+                            value = escapeHtml(task.title || '');
+                        } else if (col === 'status') {
+                            const statusClass = (task.status || 'todo').replace(/\s+/g, '-');
+                            value = `<span class="embed-status-pill embed-status-${statusClass}">${escapeHtml(task.status || 'todo')}</span>`;
+                        } else if (col === 'priority') {
+                            if (task.priority) {
+                                value = `<span class="embed-priority-pill embed-priority-${task.priority}">${escapeHtml(task.priority)}</span>`;
+                            } else {
+                                value = '<span class="embed-priority-pill embed-priority-none">—</span>';
+                            }
+                        } else {
+                            value = escapeHtml(task[col] || '');
+                        }
+                        tableHTML += `<td>${value}</td>`;
+                    });
+                    tableHTML += '</tr>';
+                });
+                
+                if (displayTasks.length === 0) {
+                    tableHTML += '<tr><td colspan="3" style="text-align: center; color: var(--text-muted); padding: 16px;">No open tasks</td></tr>';
+                }
+                
+                tableHTML += '</tbody></table></div>';
+                
+                // Add "See all" footer if there are more tasks
+                if (hasMore) {
+                    tableHTML += `<div class="doc-embed-footer">
+                        <button class="doc-embed-see-all" onclick="navigateToSpreadsheet('${escapeHtml(id)}')">
+                            <i class="fas fa-arrow-right"></i> See all ${openTasks.length} tasks
+                        </button>
+                    </div>`;
+                }
+                
+                embed.innerHTML = tableHTML;
+                
+                // Add delete button after setting innerHTML
+                addEmbedDeleteButton(embed);
+                
+                embed.classList.add('hydrated');
+            }
+        });
+    }
+    
+    /**
+     * Deprecated: Sheet preview removed
+     * Now redirects to proper navigation function
+     */
+    function openSheetPreview(sheetId) {
+        navigateToSpreadsheet(sheetId);
+    }
+    
+    window.closeSheetPreview = function() {
+        document.getElementById('sheetPreviewDrawer')?.remove();
+    };
+    
+    /**
+     * Doc visibility management
+     */
+    window.openDocVisibilityModal = function(doc) {
+        const modal = document.getElementById('docVisibilityModal');
+        const subtitle = document.getElementById('docVisibilitySubtitle');
+        const options = modal?.querySelectorAll('.visibility-pill-compact');
+        
+        if (!modal || !doc) return;
+        
+        // Store doc ID
+        modal.dataset.docId = doc.id;
+        
+        if (subtitle) {
+            subtitle.textContent = `Who can see "${doc.title || 'Untitled'}"`;
+        }
+        
+        // Set current selection
+        const currentVisibility = doc.visibility || 'team';
+        options?.forEach(option => {
+            const isSelected = option.dataset.visibility === currentVisibility;
+            option.classList.toggle('selected', isSelected);
+            const radio = option.querySelector('input[type=\"radio\"]');
+            if (radio) radio.checked = isSelected;
+        });
+        
+        // Click handlers
+        options?.forEach(option => {
+            option.onclick = () => {
+                options.forEach(o => o.classList.remove('selected'));
+                option.classList.add('selected');
+                const radio = option.querySelector('input[type=\"radio\"]');
+                if (radio) radio.checked = true;
+            };
+        });
+        
+        modal.style.display = 'flex';
+    };
+    
+    window.closeDocVisibilityModal = function() {
+        const modal = document.getElementById('docVisibilityModal');
+        if (modal) modal.style.display = 'none';
+    };
+    
+    document.getElementById('saveDocVisibility')?.addEventListener('click', async () => {
+        const modal = document.getElementById('docVisibilityModal');
+        const docId = modal?.dataset.docId;
+        
+        if (!docId) return;
+        
+        const selectedOption = modal?.querySelector('.visibility-pill-compact.selected');
+        const visibility = selectedOption?.dataset.visibility || 'team';
+        
+        try {
+            const { doc: docRef, updateDoc, serverTimestamp } = 
+                await import('https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js');
+            
+            const ref = docRef(db, 'teams', appState.currentTeamId, 'docs', docId);
+            await updateDoc(ref, {
+                visibility,
+                updatedAt: serverTimestamp(),
+                updatedBy: currentAuthUser.uid
+            });
+            
+            showToast('Visibility updated', 'success');
+            closeDocVisibilityModal();
+            
+        } catch (error) {
+            console.error('Error updating doc visibility:', error);
+            showToast('Failed to update visibility', 'error');
+        }
+    });
+    
+    // navigateToTaskSheet is defined earlier in the file (line ~4295) with proper async handling
+    // No need to redefine it here - just ensure window reference exists
+    if (!window.navigateToTaskSheet) {
+        window.navigateToTaskSheet = navigateToTaskSheet;
+    }
+    
+    /**
+     * Clean up docs when switching teams
+     */
+    function cleanupDocsState() {
+        // Cleanup listener
+        if (appState.docsUnsub) {
+            appState.docsUnsub();
+            appState.docsUnsub = null;
+        }
+        
+        // Clear timer
+        if (appState.docSaveTimer) {
+            clearTimeout(appState.docSaveTimer);
+            appState.docSaveTimer = null;
+        }
+        
+        // Reset state
+        appState.docs = [];
+        appState.activeDocId = null;
+        appState.isDocDirty = false;
+        appState.isDocSaving = false;
+        
+        // Close panel if open
+        const tasksSection = document.getElementById('tasks-section');
+        if (tasksSection) {
+            tasksSection.classList.remove('doc-open');
+        }
+    }
+    
+    // Expose docs functions globally
+    window.initDocsModule = initDocsModule;
+    window.loadDocsFromFirestore = loadDocsFromFirestore;
+    window.switchTasksView = switchTasksView;
+    window.openDoc = openDoc;
+    window.closeDocPanel = closeDocPanel;
+    window.cleanupDocsState = cleanupDocsState;
+    window.openCreateDocModal = openCreateDocModal;
+
     // Show task details in a clean modal
     window.showTaskDetails = function(task) {
         // Find creator info using unified identity resolver
@@ -9686,8 +12137,12 @@ function updateOverviewTasks() {
         const dueDateText = task.dueDate ? formatDueDate(task.dueDate) : 'No date';
         
         taskEl.innerHTML = `
-            <div class="ov-task-title">${escapeHtml(task.title)}</div>
-            <div class="ov-task-priority ov-priority-${priority}">${priorityLabel}</div>
+            <div class="ov-task-content">
+                <div class="ov-task-title">${escapeHtml(task.title)}</div>
+                <div class="ov-task-meta">
+                    <div class="ov-task-priority ov-priority-${priority}">${priorityLabel}</div>
+                </div>
+            </div>
             <div class="ov-task-date">${dueDateText}</div>
         `;
         container.appendChild(taskEl);
@@ -15385,6 +17840,15 @@ async function loadTeamData() {
             await window.loadSpreadsheetsFromFirestore();
         }
         
+        // Clean up docs state from previous team and load docs for new team
+        if (window.cleanupDocsState) {
+            window.cleanupDocsState();
+        }
+        // Only load docs if we're in docs view (lazy loading)
+        if (appState.tasksViewMode === 'docs' && window.loadDocsFromFirestore) {
+            await window.loadDocsFromFirestore();
+        }
+        
         // Load messages
         await loadMessagesFromFirestore();
         
@@ -16944,6 +19408,17 @@ const SEARCH_INDEX = [
         keywords: ['sheets', 'sheet', 'tasks', 'taks', 'task', 'tsks', 'todo', 'to-do', 'todos', 'checklist', 'work', 'items', 'assignments', 'spreadsheet', 'table', 'leads']
     },
     {
+        id: 'docs-main',
+        type: 'navigation',
+        label: 'Docs',
+        description: 'Create and collaborate on documents',
+        route: 'tasks',
+        sectionId: 'tasks-section',
+        icon: 'fa-file-lines',
+        keywords: ['docs', 'documents', 'notes', 'note', 'doc', 'write', 'writing', 'text', 'documentation'],
+        afterNav: () => { if (window.switchTasksView) window.switchTasksView('docs'); }
+    },
+    {
         id: 'metrics-main',
         type: 'navigation',
         label: 'Metrics',
@@ -17045,6 +19520,14 @@ const SEARCH_INDEX = [
         description: 'Create a new tasks spreadsheet',
         icon: 'fa-table',
         keywords: ['create spreadsheet', 'new spreadsheet', 'add spreadsheet', 'creat spreadsheet', 'table', 'tasks table', 'spreadsheet']
+    },
+    {
+        id: 'cmd-create-doc',
+        type: 'command',
+        label: 'Create document',
+        description: 'Create a new document',
+        icon: 'fa-file-lines',
+        keywords: ['create doc', 'new doc', 'create document', 'new document', 'add doc', 'add document', 'write', 'note']
     },
     {
         id: 'cmd-delete-messages',
@@ -17426,6 +19909,14 @@ function executeSearchResult(resultId, type, route, sectionId) {
     } else {
         // Default: navigation
         navigateToSection(route, sectionId);
+        
+        // Check for afterNav callback in SEARCH_INDEX entry
+        if (resultId) {
+            const entry = SEARCH_INDEX.find(e => e.id === resultId);
+            if (entry && typeof entry.afterNav === 'function') {
+                setTimeout(() => entry.afterNav(), 100);
+            }
+        }
     }
 }
 
@@ -17452,7 +19943,19 @@ function executeSearchCommand(commandId) {
             // Navigate to Sheets and open Create Spreadsheet modal
             switchTab('tasks');
             setTimeout(() => {
+                switchTasksView('sheets');
                 openModal('spreadsheetModal');
+            }, 100);
+            break;
+
+        case 'cmd-create-doc':
+            // Navigate to Docs and open Create Doc modal
+            switchTab('tasks');
+            setTimeout(() => {
+                switchTasksView('docs');
+                if (window.openCreateDocModal) {
+                    window.openCreateDocModal();
+                }
             }, 100);
             break;
 
@@ -21699,7 +24202,7 @@ async function saveMessageToFirestore(message) {
         const resolvedUsername = identity.displayName;
         
         // SECURITY: Schema must match rules exactly
-        // Allowed fields: userId, userName, message, timestamp, createdAt, edited, editedAt, teamId, userEmail, photoURL
+        // Allowed fields: userId, userName, message, timestamp, createdAt, edited, editedAt, teamId, userEmail, photoURL, mentions, repliedTo
         // SECURITY: userEmail must match request.auth.token.email if provided
         const messageDoc = {
             userId: currentAuthUser.uid,
@@ -21712,9 +24215,15 @@ async function saveMessageToFirestore(message) {
             createdAt: serverTimestamp()
         };
         
-        // NOTE: repliedTo, mentions, avatarColor, encrypted flag are NOT stored in Firestore
-        // They are either derived client-side or stored in separate subcollections if needed
-        // The message text is pre-encrypted before reaching this function
+        // Add mentions array if present
+        if (message.mentions && message.mentions.length > 0) {
+            messageDoc.mentions = message.mentions;
+        }
+        
+        // Add repliedTo data if present
+        if (message.repliedTo) {
+            messageDoc.repliedTo = message.repliedTo;
+        }
         
         // Use addDoc to let Firestore generate the document ID
         const docRef = await addDoc(messagesRef, messageDoc);
@@ -24086,10 +26595,9 @@ function openNewEventModal() {
  * Focus the chat input and navigate to chat section if needed
  */
 function focusChatInput() {
-    // Navigate to chat section first
-    const chatNav = document.querySelector('[data-section="chat-section"]');
-    if (chatNav) {
-        chatNav.click();
+    // Navigate to chat section using switchTab
+    if (typeof window.switchTab === 'function') {
+        window.switchTab('chat');
     }
     
     // Focus the chat input after a short delay to allow navigation
@@ -24097,8 +26605,9 @@ function focusChatInput() {
         const chatInput = document.getElementById('chatInput');
         if (chatInput) {
             chatInput.focus();
+            chatInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
-    }, 100);
+    }, 150);
 }
 
 /**
@@ -24145,6 +26654,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     initJoinTeamModal(); // Initialize join team modal
     initLinkLobby(); // Initialize Link Lobby
     initFinances(); // Initialize Finances tab
+    initDocsModule(); // Initialize Docs feature
     initGlobalKeyboardShortcuts(); // Initialize keyboard shortcuts (t/e/m//)
     startActivityRefreshTimer(); // Start periodic refresh of activity times
     
