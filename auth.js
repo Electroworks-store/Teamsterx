@@ -5,6 +5,16 @@
 // Wait for Firebase to be initialized
 let auth, googleProvider;
 
+/**
+ * Get the correct app URL for redirects
+ * Works with GitHub Pages subdirectories (e.g., /Teamsterx/)
+ */
+function getAppUrl() {
+    // For hash-based routing (GitHub Pages compatible)
+    const basePath = window.location.pathname.replace(/\/[^/]*$/, '');
+    return `${basePath}/index.html#/app`;
+}
+
 // Initialize when DOM is loaded
 document.addEventListener('DOMContentLoaded', async () => {
     // Wait for Firebase initialization
@@ -136,7 +146,7 @@ async function handleEmailSignIn(e) {
 
         // Redirect to main app after short delay
         setTimeout(() => {
-            window.location.href = '/app';
+            window.location.href = getAppUrl();
         }, 1500);
 
     } catch (error) {
@@ -203,7 +213,7 @@ async function handleEmailSignUp(e) {
 
         // Redirect to main app after short delay
         setTimeout(() => {
-            window.location.href = '/app';
+            window.location.href = getAppUrl();
         }, 1500);
 
     } catch (error) {
@@ -233,7 +243,7 @@ async function handleGoogleSignIn() {
 
         // Redirect to main app after short delay
         setTimeout(() => {
-            window.location.href = '/app';
+            window.location.href = getAppUrl();
         }, 1500);
 
     } catch (error) {
