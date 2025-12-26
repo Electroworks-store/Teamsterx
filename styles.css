@@ -7,10 +7,10 @@
     box-sizing: border-box;
 }
 
-/* Slim scrollbars */
+/* Subtle thin scrollbars */
 ::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
+    width: 6px;
+    height: 6px;
 }
 
 ::-webkit-scrollbar-track {
@@ -18,12 +18,50 @@
 }
 
 ::-webkit-scrollbar-thumb {
-    background: rgba(0, 0, 0, 0.15);
-    border-radius: 4px;
+    background: rgba(0, 0, 0, 0.1);
+    border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-    background: rgba(0, 0, 0, 0.25);
+    background: rgba(0, 0, 0, 0.2);
+}
+
+/* Firefox scrollbar styling */
+* {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(0, 0, 0, 0.1) transparent;
+}
+
+/* Docs and Sheets specific ultra-thin scrollbars */
+.doc-panel-body,
+.doc-editor-container,
+.spreadsheet-panel-body,
+.spreadsheet-table-container {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(0, 0, 0, 0.08) transparent;
+}
+
+.doc-panel-body::-webkit-scrollbar,
+.doc-editor-container::-webkit-scrollbar,
+.spreadsheet-panel-body::-webkit-scrollbar,
+.spreadsheet-table-container::-webkit-scrollbar {
+    width: 5px;
+    height: 5px;
+}
+
+.doc-panel-body::-webkit-scrollbar-thumb,
+.doc-editor-container::-webkit-scrollbar-thumb,
+.spreadsheet-panel-body::-webkit-scrollbar-thumb,
+.spreadsheet-table-container::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.08);
+    border-radius: 3px;
+}
+
+.doc-panel-body::-webkit-scrollbar-thumb:hover,
+.doc-editor-container::-webkit-scrollbar-thumb:hover,
+.spreadsheet-panel-body::-webkit-scrollbar-thumb:hover,
+.spreadsheet-table-container::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 0, 0, 0.15);
 }
 
 /* Hide scrollbar but allow scrolling */
@@ -171,11 +209,37 @@ body.dark-mode {
 
 /* Dark mode scrollbars */
 body.dark-mode ::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.15);
+    background: rgba(255, 255, 255, 0.1);
 }
 
 body.dark-mode ::-webkit-scrollbar-thumb:hover {
-    background: rgba(255, 255, 255, 0.25);
+    background: rgba(255, 255, 255, 0.18);
+}
+
+body.dark-mode * {
+    scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
+}
+
+/* Dark mode docs/sheets scrollbars */
+body.dark-mode .doc-panel-body::-webkit-scrollbar-thumb,
+body.dark-mode .doc-editor-container::-webkit-scrollbar-thumb,
+body.dark-mode .spreadsheet-panel-body::-webkit-scrollbar-thumb,
+body.dark-mode .spreadsheet-table-container::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.06);
+}
+
+body.dark-mode .doc-panel-body::-webkit-scrollbar-thumb:hover,
+body.dark-mode .doc-editor-container::-webkit-scrollbar-thumb:hover,
+body.dark-mode .spreadsheet-panel-body::-webkit-scrollbar-thumb:hover,
+body.dark-mode .spreadsheet-table-container::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.12);
+}
+
+body.dark-mode .doc-panel-body,
+body.dark-mode .doc-editor-container,
+body.dark-mode .spreadsheet-panel-body,
+body.dark-mode .spreadsheet-table-container {
+    scrollbar-color: rgba(255, 255, 255, 0.06) transparent;
 }
 
 /* Dark Mode Specific Overrides */
@@ -1820,6 +1884,56 @@ body.dark-mode .search-highlight {
 .send-btn:active {
     transform: translateY(0);
     box-shadow: var(--shadow-subtle);
+}
+
+/* Chat Emoji Button */
+.chat-emoji-btn {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    border: 1px solid var(--border-subtle);
+    background: var(--bg-surface);
+    color: var(--text-muted);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    transition: all var(--transition-fast);
+    flex-shrink: 0;
+}
+
+.chat-emoji-btn:hover {
+    background: var(--bg-surface-soft);
+    color: var(--text-main);
+    border-color: var(--border-medium);
+}
+
+.chat-emoji-btn:active {
+    transform: scale(0.95);
+}
+
+/* Chat Emoji Popover */
+.chat-emoji-popover {
+    position: absolute;
+    bottom: 100%;
+    left: 0;
+    margin-bottom: 8px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-medium);
+    border-radius: 12px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+    width: 320px;
+    max-height: 360px;
+    z-index: 10002;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+body.dark-mode .chat-emoji-popover {
+    background: var(--bg-elevated);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
 }
 
 /* ===================================
@@ -15965,6 +16079,141 @@ body.dark-mode .column-drag-handle:hover {
     color: #EF4444;
 }
 
+.doc-save-status.read-only {
+    color: var(--text-muted);
+    background: transparent;
+}
+
+/* Doc Read-Only Badge */
+.doc-readonly-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 10px;
+    background: var(--accent-soft);
+    color: var(--accent);
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.doc-readonly-badge i {
+    font-size: 11px;
+}
+
+/* Doc Editor Read-Only State */
+.doc-editor.read-only {
+    background: var(--bg-surface-soft);
+    cursor: default;
+}
+
+.doc-editor.read-only:focus {
+    outline: none;
+    box-shadow: none;
+}
+
+/* Doc Read-Only Toggle in Visibility Modal */
+.doc-readonly-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 16px;
+    background: var(--bg-surface-soft);
+    border-radius: var(--radius-md);
+    margin-top: 12px;
+}
+
+.toggle-switch-label {
+    display: flex;
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 4px;
+    flex: 1;
+    min-width: 0;
+}
+
+.toggle-label-text {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-main);
+}
+
+.toggle-label-desc {
+    font-size: 12px;
+    color: var(--text-muted);
+    line-height: 1.4;
+}
+
+/* Pill Toggle Switch (compact version) */
+.pill-toggle {
+    position: relative;
+    width: 44px;
+    height: 24px;
+    flex-shrink: 0;
+}
+
+.pill-toggle input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+    position: absolute;
+}
+
+.pill-toggle-slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: #e5e5ea;
+    transition: all 0.3s ease;
+    border-radius: 24px;
+}
+
+.pill-toggle-slider::before {
+    position: absolute;
+    content: "";
+    height: 18px;
+    width: 18px;
+    left: 3px;
+    top: 3px;
+    background: white;
+    transition: all 0.3s ease;
+    border-radius: 50%;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+}
+
+.pill-toggle input:checked + .pill-toggle-slider {
+    background: var(--accent);
+}
+
+.pill-toggle input:checked + .pill-toggle-slider::before {
+    transform: translateX(20px);
+}
+
+.pill-toggle:hover .pill-toggle-slider {
+    background: #d1d1d6;
+}
+
+.pill-toggle:hover input:checked + .pill-toggle-slider {
+    background: var(--accent-hover);
+}
+
+/* Dark mode for pill toggle */
+body.dark-mode .pill-toggle-slider {
+    background: #48484a;
+}
+
+body.dark-mode .pill-toggle-slider::before {
+    background: #f5f5f5;
+}
+
+body.dark-mode .pill-toggle:hover .pill-toggle-slider {
+    background: #5a5a5c;
+}
+
 /* ===================================
    DOC TOOLBAR
    =================================== */
@@ -16372,6 +16621,129 @@ body.dark-mode .doc-command-popover {
 .command-option-desc {
     font-size: 11px;
     color: var(--text-muted);
+}
+
+/* ===================================
+   DOC EMOJI POPOVER
+   =================================== */
+.doc-emoji-popover {
+    position: fixed;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-medium);
+    border-radius: 12px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+    width: 320px;
+    max-height: 360px;
+    z-index: 10002;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+body.dark-mode .doc-emoji-popover {
+    background: var(--bg-elevated);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+.emoji-popover-header {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border-subtle);
+}
+
+.emoji-search-input {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid var(--border-subtle);
+    border-radius: 8px;
+    background: var(--bg-input);
+    font-size: 13px;
+    color: var(--text-main);
+    outline: none;
+    transition: border-color 0.2s ease;
+}
+
+.emoji-search-input:focus {
+    border-color: var(--accent);
+}
+
+.emoji-search-input::placeholder {
+    color: var(--text-muted);
+}
+
+.emoji-category-tabs {
+    display: flex;
+    gap: 4px;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border-subtle);
+    overflow-x: auto;
+    scrollbar-width: none;
+}
+
+.emoji-category-tabs::-webkit-scrollbar {
+    display: none;
+}
+
+.emoji-tab {
+    padding: 6px 8px;
+    border: none;
+    background: transparent;
+    border-radius: 6px;
+    font-size: 18px;
+    cursor: pointer;
+    opacity: 0.5;
+    transition: all 0.15s ease;
+    flex-shrink: 0;
+}
+
+.emoji-tab:hover {
+    background: var(--bg-surface-soft);
+    opacity: 0.8;
+}
+
+.emoji-tab.active {
+    background: var(--accent-soft);
+    opacity: 1;
+}
+
+.emoji-grid {
+    display: grid;
+    grid-template-columns: repeat(8, 1fr);
+    gap: 2px;
+    padding: 10px;
+    overflow-y: auto;
+    flex: 1;
+    max-height: 220px;
+}
+
+.emoji-item {
+    width: 34px;
+    height: 34px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+
+.emoji-item:hover {
+    background: var(--accent-soft);
+    transform: scale(1.1);
+}
+
+.emoji-grid-label {
+    grid-column: 1 / -1;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    padding: 8px 4px 4px;
+    letter-spacing: 0.5px;
+}
+
+.emoji-grid-label:first-child {
+    padding-top: 0;
 }
 
 /* ===================================

@@ -580,24 +580,17 @@ async function logFirestoreError(op, path, payload, extraContext, error) {
 // ===================================
 window.generateJoinLink = function() {
     if (!appState?.currentTeamData?.teamCode) {
-        if (typeof showToast === 'function') {
-            showToast('No team code available', 'error');
-        } else {
-            alert('No team code available');
-        }
+        showToast('No team code available', 'error');
         return;
     }
     const baseUrl = window.location.origin + window.location.pathname.replace(/\/[^\/]*$/, '');
     const joinUrl = `${baseUrl}/index.html?join=${appState.currentTeamData.teamCode}`;
     
     navigator.clipboard.writeText(joinUrl).then(() => {
-        if (typeof showToast === 'function') {
-            showToast('Join link copied to clipboard!', 'success');
-        } else {
-            alert('Join link copied!');
-        }
+        showToast('Join link copied to clipboard!', 'success');
     }).catch(() => {
-        prompt('Copy this join link:', joinUrl);
+        // Show link in toast with longer duration
+        showToast('Copy this join link: ' + joinUrl, 'info', 10000);
     });
 };
 
@@ -1556,6 +1549,178 @@ function showToast(message, type = 'info', duration = 4000, title = '') {
     }, duration);
 }
 
+// ===================================
+// CUSTOM CONFIRMATION MODAL
+// ===================================
+/**
+ * Show a custom confirmation modal instead of browser's confirm()
+ * @param {string} message - The confirmation message
+ * @param {Object} options - Optional settings
+ * @param {string} options.title - Modal title (default: 'Confirm')
+ * @param {string} options.confirmText - Confirm button text (default: 'Confirm')
+ * @param {string} options.cancelText - Cancel button text (default: 'Cancel')
+ * @param {string} options.type - 'danger' for destructive actions
+ * @returns {Promise<boolean>} - true if confirmed, false if cancelled
+ */
+function showConfirmModal(message, options = {}) {
+    return new Promise((resolve) => {
+        const {
+            title = 'Confirm',
+            confirmText = 'Confirm',
+            cancelText = 'Cancel',
+            type = 'default'
+        } = options;
+        
+        // Remove any existing confirm modal
+        const existing = document.getElementById('customConfirmModal');
+        if (existing) existing.remove();
+        
+        const isDanger = type === 'danger';
+        const modal = document.createElement('div');
+        modal.id = 'customConfirmModal';
+        modal.className = 'modal active';
+        modal.innerHTML = `
+            <div class="modal-content" style="max-width: 420px; border-radius: 16px; padding: 0; overflow: hidden;">
+                <div style="padding: 24px 24px 16px; background: ${isDanger ? 'linear-gradient(135deg, #FF3B30 0%, #FF453A 100%)' : 'linear-gradient(135deg, #0078D4 0%, #005A9E 100%)'}; color: white;">
+                    <h3 style="margin: 0; font-size: 18px; font-weight: 600; display: flex; align-items: center; gap: 10px;">
+                        <i class="fas ${isDanger ? 'fa-exclamation-triangle' : 'fa-question-circle'}"></i>
+                        ${escapeHtml(title)}
+                    </h3>
+                </div>
+                <div style="padding: 20px 24px;">
+                    <p style="color: var(--text-main); margin: 0 0 20px; line-height: 1.5; font-size: 15px;">${escapeHtml(message)}</p>
+                    <div style="display: flex; gap: 12px; justify-content: flex-end;">
+                        <button id="confirmModalCancel" class="unified-btn unified-btn-secondary" style="padding: 10px 20px; border-radius: 8px;">
+                            ${escapeHtml(cancelText)}
+                        </button>
+                        <button id="confirmModalConfirm" class="unified-btn ${isDanger ? 'unified-btn-danger' : 'unified-btn-primary'}" style="padding: 10px 20px; border-radius: 8px;">
+                            ${escapeHtml(confirmText)}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+        
+        const cancelBtn = document.getElementById('confirmModalCancel');
+        const confirmBtn = document.getElementById('confirmModalConfirm');
+        
+        const cleanup = (result) => {
+            modal.remove();
+            resolve(result);
+        };
+        
+        cancelBtn.addEventListener('click', () => cleanup(false));
+        confirmBtn.addEventListener('click', () => cleanup(true));
+        
+        // Close on backdrop click
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) cleanup(false);
+        });
+        
+        // Close on Escape key
+        const handleEscape = (e) => {
+            if (e.key === 'Escape') {
+                document.removeEventListener('keydown', handleEscape);
+                cleanup(false);
+            }
+        };
+        document.addEventListener('keydown', handleEscape);
+        
+        // Focus confirm button
+        confirmBtn.focus();
+    });
+}
+
+/**
+ * Show a custom input modal instead of browser's prompt()
+ * @param {string} message - The prompt message
+ * @param {string} defaultValue - Default input value
+ * @param {Object} options - Optional settings
+ * @returns {Promise<string|null>} - Input value or null if cancelled
+ */
+function showInputModal(message, defaultValue = '', options = {}) {
+    return new Promise((resolve) => {
+        const {
+            title = 'Input',
+            confirmText = 'OK',
+            cancelText = 'Cancel',
+            placeholder = ''
+        } = options;
+        
+        // Remove any existing input modal
+        const existing = document.getElementById('customInputModal');
+        if (existing) existing.remove();
+        
+        const modal = document.createElement('div');
+        modal.id = 'customInputModal';
+        modal.className = 'modal active';
+        modal.innerHTML = `
+            <div class="modal-content" style="max-width: 420px; border-radius: 16px; padding: 0; overflow: hidden;">
+                <div style="padding: 24px 24px 16px; background: linear-gradient(135deg, #0078D4 0%, #005A9E 100%); color: white;">
+                    <h3 style="margin: 0; font-size: 18px; font-weight: 600; display: flex; align-items: center; gap: 10px;">
+                        <i class="fas fa-edit"></i>
+                        ${escapeHtml(title)}
+                    </h3>
+                </div>
+                <div style="padding: 20px 24px;">
+                    <p style="color: var(--text-main); margin: 0 0 16px; line-height: 1.5; font-size: 15px;">${escapeHtml(message)}</p>
+                    <input type="text" id="inputModalValue" class="unified-input" style="width: 100%; padding: 12px; border-radius: 8px; margin-bottom: 20px;" placeholder="${escapeHtml(placeholder)}" value="${escapeHtml(defaultValue)}">
+                    <div style="display: flex; gap: 12px; justify-content: flex-end;">
+                        <button id="inputModalCancel" class="unified-btn unified-btn-secondary" style="padding: 10px 20px; border-radius: 8px;">
+                            ${escapeHtml(cancelText)}
+                        </button>
+                        <button id="inputModalConfirm" class="unified-btn unified-btn-primary" style="padding: 10px 20px; border-radius: 8px;">
+                            ${escapeHtml(confirmText)}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+        
+        const input = document.getElementById('inputModalValue');
+        const cancelBtn = document.getElementById('inputModalCancel');
+        const confirmBtn = document.getElementById('inputModalConfirm');
+        
+        const cleanup = (result) => {
+            modal.remove();
+            resolve(result);
+        };
+        
+        cancelBtn.addEventListener('click', () => cleanup(null));
+        confirmBtn.addEventListener('click', () => cleanup(input.value));
+        
+        // Submit on Enter
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                cleanup(input.value);
+            }
+        });
+        
+        // Close on backdrop click
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) cleanup(null);
+        });
+        
+        // Close on Escape key
+        const handleEscape = (e) => {
+            if (e.key === 'Escape') {
+                document.removeEventListener('keydown', handleEscape);
+                cleanup(null);
+            }
+        };
+        document.addEventListener('keydown', handleEscape);
+        
+        // Focus and select input
+        input.focus();
+        input.select();
+    });
+}
+
 // Sign out function
 async function signOutUser() {
     try {
@@ -1648,6 +1813,37 @@ const appState = {
     isDocSaving: false, // Whether doc is currently saving
     tasksViewMode: 'sheets' // 'sheets' or 'docs' - which view is active in tasks section
 };
+
+// ===================================
+// RATE LIMITING STATE
+// ===================================
+const rateLimitState = {
+    lastTaskCreation: 0,
+    taskCreationCooldown: 1500, // 1.5 second cooldown between task creations
+    isCreatingTask: false // Prevents double-submit
+};
+
+/**
+ * Check if task creation is allowed (rate limiting)
+ * @returns {Object} { allowed: boolean, reason?: string }
+ */
+function canCreateTask() {
+    const now = Date.now();
+    
+    // Check if already creating a task
+    if (rateLimitState.isCreatingTask) {
+        return { allowed: false, reason: 'Task creation in progress...' };
+    }
+    
+    // Check cooldown period
+    const timeSinceLastCreation = now - rateLimitState.lastTaskCreation;
+    if (timeSinceLastCreation < rateLimitState.taskCreationCooldown) {
+        const remaining = Math.ceil((rateLimitState.taskCreationCooldown - timeSinceLastCreation) / 1000);
+        return { allowed: false, reason: `Please wait ${remaining}s before creating another task` };
+    }
+    
+    return { allowed: true };
+}
 
 // ===================================
 // NAVIGATION
@@ -2050,6 +2246,9 @@ function initChat() {
 
     // Initialize reactions system listeners
     initReactionsListeners();
+
+    // Initialize chat emoji picker
+    initChatEmojiPicker();
 
     async function sendMessage() {
         const messageText = chatInput.value.trim();
@@ -3401,6 +3600,198 @@ function initReactionsListeners() {
             closeReactionsBar();
         }
     });
+}
+
+/**
+ * Initialize chat emoji picker
+ */
+function initChatEmojiPicker() {
+    const chatInput = document.getElementById('chatInput');
+    const emojiBtn = document.getElementById('chatEmojiBtn');
+    const popover = document.getElementById('chatEmojiPopover');
+    const searchInput = document.getElementById('chatEmojiSearch');
+    const emojiGrid = document.getElementById('chatEmojiGrid');
+    const categoryTabs = document.getElementById('chatEmojiCategoryTabs');
+    
+    if (!chatInput || !emojiBtn || !popover || !emojiGrid) return;
+    
+    // Reuse emoji data from doc emoji picker (or define separately)
+    const emojiData = {
+        smileys: ['😀', '😃', '😄', '😁', '😆', '😅', '🤣', '😂', '🙂', '🙃', '😉', '😊', '😇', '🥰', '😍', '🤩', '😘', '😗', '😚', '😙', '🥲', '😋', '😛', '😜', '🤪', '😝', '🤑', '🤗', '🤭', '🤫', '🤔', '🤐', '🤨', '😐', '😑', '😶', '😏', '😒', '🙄', '😬', '🤥', '😌', '😔', '😪', '🤤', '😴', '😷', '🤒', '🤕', '🤢', '🤮', '🤧', '🥵', '🥶', '🥴', '😵', '🤯', '🤠', '🥳', '🥸', '😎', '🤓', '🧐', '😕', '😟', '🙁', '☹️', '😮', '😯', '😲', '😳', '🥺', '😦', '😧', '😨', '😰', '😥', '😢', '😭', '😱', '😖', '😣', '😞', '😓', '😩', '😫', '🥱', '😤', '😡', '😠', '🤬', '😈', '👿', '💀', '☠️', '💩', '🤡', '👹', '👺', '👻', '👽', '👾', '🤖'],
+        people: ['👋', '🤚', '🖐️', '✋', '🖖', '👌', '🤌', '🤏', '✌️', '🤞', '🤟', '🤘', '🤙', '👈', '👉', '👆', '🖕', '👇', '☝️', '👍', '👎', '✊', '👊', '🤛', '🤜', '👏', '🙌', '👐', '🤲', '🤝', '🙏', '✍️', '💅', '🤳', '💪', '🦾', '🦿', '🦵', '🦶', '👂', '🦻', '👃', '🧠', '🫀', '🫁', '🦷', '🦴', '👀', '👁️', '👅', '👄', '👶', '🧒', '👦', '👧', '🧑', '👱', '👨', '🧔', '👩', '🧓', '👴', '👵', '🙍', '🙎', '🙅', '🙆', '💁', '🙋', '🧏', '🙇', '🤦', '🤷', '👮', '🕵️', '💂', '🥷', '👷', '🤴', '👸', '👳', '👲', '🧕', '🤵', '👰', '🤰', '🤱', '👼', '🎅', '🤶', '🦸', '🦹', '🧙', '🧚', '🧛', '🧜', '🧝', '🧞', '🧟', '💆', '💇', '🚶', '🧍', '🧎', '🏃', '💃', '🕺', '🕴️', '👯', '🧖', '🧗', '🤸', '🏌️', '🏇', '⛷️', '🏂', '🏋️', '🤼', '🤽', '🤾', '🤺', '⛹️', '🏊', '🚣', '🧘', '🛀', '🛌'],
+        nature: ['🐶', '🐱', '🐭', '🐹', '🐰', '🦊', '🐻', '🐼', '🐻‍❄️', '🐨', '🐯', '🦁', '🐮', '🐷', '🐽', '🐸', '🐵', '🙈', '🙉', '🙊', '🐒', '🐔', '🐧', '🐦', '🐤', '🐣', '🐥', '🦆', '🦅', '🦉', '🦇', '🐺', '🐗', '🐴', '🦄', '🐝', '🪱', '🐛', '🦋', '🐌', '🐞', '🐜', '🪰', '🪲', '🪳', '🦟', '🦗', '🕷️', '🕸️', '🦂', '🐢', '🐍', '🦎', '🦖', '🦕', '🐙', '🦑', '🦐', '🦞', '🦀', '🐡', '🐠', '🐟', '🐬', '🐳', '🐋', '🦈', '🐊', '🐅', '🐆', '🦓', '🦍', '🦧', '🦣', '🐘', '🦛', '🦏', '🐪', '🐫', '🦒', '🦘', '🦬', '🐃', '🐂', '🐄', '🐎', '🐖', '🐏', '🐑', '🦙', '🐐', '🦌', '🐕', '🐩', '🦮', '🐕‍🦺', '🐈', '🐈‍⬛', '🪶', '🐓', '🦃', '🦤', '🦚', '🦜', '🦢', '🦩', '🕊️', '🐇', '🦝', '🦨', '🦡', '🦫', '🦦', '🦥', '🐁', '🐀', '🐿️', '🦔', '🌵', '🎄', '🌲', '🌳', '🌴', '🪵', '🌱', '🌿', '☘️', '🍀', '🎍', '🪴', '🎋', '🍃', '🍂', '🍁', '🪺', '🪹', '🍄', '🐚', '🪸', '🪨', '🌾', '💐', '🌷', '🌹', '🥀', '🌺', '🌸', '🌼', '🌻', '🌞', '🌝', '🌛', '🌜', '🌚', '🌕', '🌖', '🌗', '🌘', '🌑', '🌒', '🌓', '🌔', '🌙', '🌎', '🌍', '🌏', '🪐', '💫', '⭐', '🌟', '✨', '⚡', '☄️', '💥', '🔥', '🌪️', '🌈', '☀️', '🌤️', '⛅', '🌥️', '☁️', '🌦️', '🌧️', '⛈️', '🌩️', '🌨️', '❄️', '☃️', '⛄', '🌬️', '💨', '💧', '💦', '🌊'],
+        food: ['🍏', '🍎', '🍐', '🍊', '🍋', '🍌', '🍉', '🍇', '🍓', '🫐', '🍈', '🍒', '🍑', '🥭', '🍍', '🥥', '🥝', '🍅', '🍆', '🥑', '🥦', '🥬', '🥒', '🌶️', '🫑', '🌽', '🥕', '🫒', '🧄', '🧅', '🥔', '🍠', '🥐', '🥯', '🍞', '🥖', '🥨', '🧀', '🥚', '🍳', '🧈', '🥞', '🧇', '🥓', '🥩', '🍗', '🍖', '🦴', '🌭', '🍔', '🍟', '🍕', '🫓', '🥪', '🥙', '🧆', '🌮', '🌯', '🫔', '🥗', '🥘', '🫕', '🍝', '🍜', '🍲', '🍛', '🍣', '🍱', '🥟', '🦪', '🍤', '🍙', '🍚', '🍘', '🍥', '🥠', '🥮', '🍢', '🍡', '🍧', '🍨', '🍦', '🥧', '🧁', '🍰', '🎂', '🍮', '🍭', '🍬', '🍫', '🍿', '🍩', '🍪', '🌰', '🥜', '🍯', '🥛', '🍼', '🫖', '☕', '🍵', '🧃', '🥤', '🧋', '🍶', '🍺', '🍻', '🥂', '🍷', '🥃', '🍸', '🍹', '🧉', '🍾', '🧊', '🥄', '🍴', '🍽️', '🥣', '🥡', '🥢', '🧂'],
+        activities: ['⚽', '🏀', '🏈', '⚾', '🥎', '🎾', '🏐', '🏉', '🥏', '🎱', '🪀', '🏓', '🏸', '🏒', '🏑', '🥍', '🏏', '🪃', '🥅', '⛳', '🪁', '🏹', '🎣', '🤿', '🥊', '🥋', '🎽', '🛹', '🛼', '🛷', '⛸️', '🥌', '🎿', '⛷️', '🏂', '🪂', '🏋️', '🤼', '🤸', '⛹️', '🤺', '🤾', '🏌️', '🏇', '🧘', '🏄', '🏊', '🤽', '🚣', '🧗', '🚵', '🚴', '🏆', '🥇', '🥈', '🥉', '🏅', '🎖️', '🏵️', '🎗️', '🎫', '🎟️', '🎪', '🤹', '🎭', '🩰', '🎨', '🎬', '🎤', '🎧', '🎼', '🎹', '🥁', '🪘', '🎷', '🎺', '🪗', '🎸', '🪕', '🎻', '🎲', '♟️', '🎯', '🎳', '🎮', '🎰', '🧩'],
+        travel: ['🚗', '🚕', '🚙', '🚌', '🚎', '🏎️', '🚓', '🚑', '🚒', '🚐', '🛻', '🚚', '🚛', '🚜', '🦯', '🦽', '🦼', '🛴', '🚲', '🛵', '🏍️', '🛺', '🚨', '🚔', '🚍', '🚘', '🚖', '🚡', '🚠', '🚟', '🚃', '🚋', '🚞', '🚝', '🚄', '🚅', '🚈', '🚂', '🚆', '🚇', '🚊', '🚉', '✈️', '🛫', '🛬', '🛩️', '💺', '🛰️', '🚀', '🛸', '🚁', '🛶', '⛵', '🚤', '🛥️', '🛳️', '⛴️', '🚢', '⚓', '🪝', '⛽', '🚧', '🚦', '🚥', '🚏', '🗺️', '🗿', '🗽', '🗼', '🏰', '🏯', '🏟️', '🎡', '🎢', '🎠', '⛲', '⛱️', '🏖️', '🏝️', '🏜️', '🌋', '⛰️', '🏔️', '🗻', '🏕️', '⛺', '🛖', '🏠', '🏡', '🏘️', '🏚️', '🏗️', '🏭', '🏢', '🏬', '🏣', '🏤', '🏥', '🏦', '🏨', '🏪', '🏫', '🏩', '💒', '🏛️', '⛪', '🕌', '🕍', '🛕', '🕋', '⛩️', '🛤️', '🛣️', '🗾', '🎑', '🏞️', '🌅', '🌄', '🌠', '🎇', '🎆', '🌇', '🌆', '🏙️', '🌃', '🌌', '🌉', '🌁'],
+        objects: ['💡', '🔦', '🏮', '🪔', '📱', '📲', '💻', '🖥️', '🖨️', '⌨️', '🖱️', '🖲️', '💽', '💾', '💿', '📀', '🧮', '🎥', '🎞️', '📽️', '🎬', '📺', '📷', '📸', '📹', '📼', '🔍', '🔎', '🕯️', '💡', '🔦', '🏮', '🪔', '📔', '📕', '📖', '📗', '📘', '📙', '📚', '📓', '📒', '📃', '📜', '📄', '📰', '🗞️', '📑', '🔖', '🏷️', '💰', '🪙', '💴', '💵', '💶', '💷', '💸', '💳', '🧾', '💹', '✉️', '📧', '📨', '📩', '📤', '📥', '📦', '📫', '📪', '📬', '📭', '📮', '🗳️', '✏️', '✒️', '🖋️', '🖊️', '🖌️', '🖍️', '📝', '💼', '📁', '📂', '🗂️', '📅', '📆', '🗒️', '🗓️', '📇', '📈', '📉', '📊', '📋', '📌', '📍', '📎', '🖇️', '📏', '📐', '✂️', '🗃️', '🗄️', '🗑️', '🔒', '🔓', '🔏', '🔐', '🔑', '🗝️', '🔨', '🪓', '⛏️', '⚒️', '🛠️', '🗡️', '⚔️', '🔫', '🪃', '🏹', '🛡️', '🪚', '🔧', '🪛', '🔩', '⚙️', '🗜️', '⚖️', '🦯', '🔗', '⛓️', '🪝', '🧰', '🧲', '🪜', '⚗️', '🧪', '🧫', '🧬', '🔬', '🔭', '📡', '💉', '🩸', '💊', '🩹', '🩺', '🚪', '🛗', '🪞', '🪟', '🛏️', '🛋️', '🪑', '🚽', '🪠', '🚿', '🛁', '🪤', '🪒', '🧴', '🧷', '🧹', '🧺', '🧻', '🪣', '🧼', '🪥', '🧽', '🧯', '🛒', '🚬', '⚰️', '🪦', '⚱️', '🗿', '🪧', '🏧'],
+        symbols: ['❤️', '🧡', '💛', '💚', '💙', '💜', '🖤', '🤍', '🤎', '💔', '❣️', '💕', '💞', '💓', '💗', '💖', '💘', '💝', '💟', '☮️', '✝️', '☪️', '🕉️', '☸️', '✡️', '🔯', '🕎', '☯️', '☦️', '🛐', '⛎', '♈', '♉', '♊', '♋', '♌', '♍', '♎', '♏', '♐', '♑', '♒', '♓', '🆔', '⚛️', '🉑', '☢️', '☣️', '📴', '📳', '🈶', '🈚', '🈸', '🈺', '🈷️', '✴️', '🆚', '💮', '🉐', '㊙️', '㊗️', '🈴', '🈵', '🈹', '🈲', '🅰️', '🅱️', '🆎', '🆑', '🅾️', '🆘', '❌', '⭕', '🛑', '⛔', '📛', '🚫', '💯', '💢', '♨️', '🚷', '🚯', '🚳', '🚱', '🔞', '📵', '🚭', '❗', '❕', '❓', '❔', '‼️', '⁉️', '🔅', '🔆', '〽️', '⚠️', '🚸', '🔱', '⚜️', '🔰', '♻️', '✅', '🈯', '💹', '❇️', '✳️', '❎', '🌐', '💠', 'Ⓜ️', '🌀', '💤', '🏧', '🚾', '♿', '🅿️', '🛗', '🈳', '🈂️', '🛂', '🛃', '🛄', '🛅', '🚹', '🚺', '🚼', '⚧️', '🚻', '🚮', '🎦', '📶', '🈁', '🔣', 'ℹ️', '🔤', '🔡', '🔠', '🆖', '🆗', '🆙', '🆒', '🆕', '🆓', '0️⃣', '1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣', '🔟', '🔢', '#️⃣', '*️⃣', '⏏️', '▶️', '⏸️', '⏯️', '⏹️', '⏺️', '⏭️', '⏮️', '⏩', '⏪', '⏫', '⏬', '◀️', '🔼', '🔽', '➡️', '⬅️', '⬆️', '⬇️', '↗️', '↘️', '↙️', '↖️', '↕️', '↔️', '↪️', '↩️', '⤴️', '⤵️', '🔀', '🔁', '🔂', '🔄', '🔃', '🎵', '🎶', '➕', '➖', '➗', '✖️', '🟰', '♾️', '💲', '💱', '™️', '©️', '®️', '〰️', '➰', '➿', '🔚', '🔙', '🔛', '🔝', '🔜', '✔️', '☑️', '🔘', '🔴', '🟠', '🟡', '🟢', '🔵', '🟣', '⚫', '⚪', '🟤', '🔺', '🔻', '🔸', '🔹', '🔶', '🔷', '🔳', '🔲', '▪️', '▫️', '◾', '◽', '◼️', '◻️', '🟥', '🟧', '🟨', '🟩', '🟦', '🟪', '⬛', '⬜', '🟫', '🔈', '🔇', '🔉', '🔊', '🔔', '🔕', '📣', '📢', '👁️‍🗨️', '💬', '💭', '🗯️', '♠️', '♣️', '♥️', '♦️', '🃏', '🎴', '🀄', '🕐', '🕑', '🕒', '🕓', '🕔', '🕕', '🕖', '🕗', '🕘', '🕙', '🕚', '🕛', '🕜', '🕝', '🕞', '🕟', '🕠', '🕡', '🕢', '🕣', '🕤', '🕥', '🕦', '🕧']
+    };
+    
+    let currentCategory = 'smileys';
+    let isOpen = false;
+    
+    /**
+     * Render emoji grid
+     */
+    function renderEmojiGrid(category) {
+        const emojis = emojiData[category] || [];
+        emojiGrid.innerHTML = emojis.map(emoji => `
+            <div class="emoji-item" data-emoji="${emoji}">${emoji}</div>
+        `).join('');
+    }
+    
+    /**
+     * Position and show the popover
+     */
+    function showPopover() {
+        if (isOpen) {
+            hidePopover();
+            return;
+        }
+        
+        // Position relative to emoji button
+        const btnRect = emojiBtn.getBoundingClientRect();
+        const inputContainer = emojiBtn.closest('.chat-input-footer') || emojiBtn.closest('.chat-input-container');
+        const containerRect = inputContainer?.getBoundingClientRect() || btnRect;
+        
+        popover.style.display = 'flex';
+        popover.style.position = 'absolute';
+        
+        // Get popover dimensions
+        const popoverRect = popover.getBoundingClientRect();
+        
+        // Position above the button, aligned to left of container
+        popover.style.bottom = '100%';
+        popover.style.left = '0';
+        popover.style.marginBottom = '8px';
+        
+        // Render current category
+        renderEmojiGrid(currentCategory);
+        
+        // Reset search
+        if (searchInput) searchInput.value = '';
+        
+        isOpen = true;
+        
+        // Focus search input
+        setTimeout(() => searchInput?.focus(), 50);
+        
+        // Add click-away listener
+        setTimeout(() => {
+            document.addEventListener('click', handleClickAway);
+        }, 10);
+    }
+    
+    /**
+     * Hide the popover
+     */
+    function hidePopover() {
+        popover.style.display = 'none';
+        isOpen = false;
+        document.removeEventListener('click', handleClickAway);
+    }
+    
+    /**
+     * Handle click away to close popover
+     */
+    function handleClickAway(e) {
+        if (!popover.contains(e.target) && !emojiBtn.contains(e.target)) {
+            hidePopover();
+        }
+    }
+    
+    /**
+     * Insert emoji into chat input
+     */
+    function insertEmoji(emoji) {
+        const start = chatInput.selectionStart;
+        const end = chatInput.selectionEnd;
+        const text = chatInput.value;
+        
+        chatInput.value = text.substring(0, start) + emoji + text.substring(end);
+        
+        // Move cursor after emoji
+        const newPos = start + emoji.length;
+        chatInput.setSelectionRange(newPos, newPos);
+        
+        // Focus the input
+        chatInput.focus();
+        
+        hidePopover();
+    }
+    
+    // Emoji button click
+    emojiBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        showPopover();
+    });
+    
+    // Category tab clicks
+    if (categoryTabs) {
+        categoryTabs.addEventListener('click', (e) => {
+            const tab = e.target.closest('.emoji-tab');
+            if (!tab) return;
+            
+            const category = tab.dataset.category;
+            if (!category) return;
+            
+            // Update active tab
+            categoryTabs.querySelectorAll('.emoji-tab').forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+            
+            // Render new category
+            currentCategory = category;
+            renderEmojiGrid(category);
+            
+            // Clear search
+            if (searchInput) searchInput.value = '';
+        });
+    }
+    
+    // Emoji grid clicks
+    emojiGrid.addEventListener('click', (e) => {
+        const item = e.target.closest('.emoji-item');
+        if (!item) return;
+        
+        const emoji = item.dataset.emoji;
+        if (emoji) {
+            insertEmoji(emoji);
+        }
+    });
+    
+    // Search input
+    if (searchInput) {
+        searchInput.addEventListener('input', (e) => {
+            const term = e.target.value.trim().toLowerCase();
+            if (term) {
+                // Show all emojis for search (simplified - would need keyword database for real search)
+                let allEmojis = [];
+                Object.values(emojiData).forEach(arr => allEmojis.push(...arr));
+                emojiGrid.innerHTML = allEmojis.map(emoji => `
+                    <div class="emoji-item" data-emoji="${emoji}">${emoji}</div>
+                `).join('');
+            } else {
+                renderEmojiGrid(currentCategory);
+            }
+        });
+        
+        // Keyboard navigation
+        searchInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                e.preventDefault();
+                hidePopover();
+                chatInput.focus();
+            } else if (e.key === 'Enter') {
+                e.preventDefault();
+                // Select first emoji
+                const firstEmoji = emojiGrid.querySelector('.emoji-item');
+                if (firstEmoji) {
+                    insertEmoji(firstEmoji.dataset.emoji);
+                }
+            }
+        });
+    }
 }
 
 // ===================================
@@ -5055,7 +5446,12 @@ function initTasks() {
             ? `Delete "${spreadsheet.name}"? This will also delete ${taskCount} task(s) in this spreadsheet.`
             : `Delete "${spreadsheet.name}"?`;
         
-        if (!confirm(message)) return;
+        const confirmed = await showConfirmModal(message, {
+            title: 'Delete Spreadsheet',
+            confirmText: 'Delete',
+            type: 'danger'
+        });
+        if (!confirmed) return;
         
         try {
             // Delete from Firestore
@@ -5480,9 +5876,12 @@ function initTasks() {
             menu.remove();
             
             // Confirm deletion
-            if (!confirm(`Delete column "${columnName}"? This will remove the column and all its data from tasks.`)) {
-                return;
-            }
+            const confirmed = await showConfirmModal(`Delete column "${columnName}"? This will remove the column and all its data from tasks.`, {
+                title: 'Delete Column',
+                confirmText: 'Delete',
+                type: 'danger'
+            });
+            if (!confirmed) return;
             
             try {
                 // Remove from customColumns array
@@ -8151,7 +8550,12 @@ function initTasks() {
 
     window.batchDelete = async function() {
         const taskIds = Array.from(spreadsheetState.selectedTasks);
-        if (!confirm(`Are you sure you want to delete ${taskIds.length} tasks?`)) return;
+        const confirmed = await showConfirmModal(`Are you sure you want to delete ${taskIds.length} tasks?`, {
+            title: 'Delete Tasks',
+            confirmText: 'Delete',
+            type: 'danger'
+        });
+        if (!confirmed) return;
         
         for (const taskId of taskIds) {
             await deleteTask(taskId);
@@ -9137,6 +9541,7 @@ function initTasks() {
         // Initialize new features
         initDocFormatDropdown();
         initDocCommandPopover();
+        initDocEmojiPicker();
     }
     
     /**
@@ -9712,17 +10117,41 @@ function initTasks() {
         appState.activeDocId = docId;
         appState.isDocDirty = false;
         
+        // Check if current user is the owner of this doc
+        const isDocOwner = doc.createdBy === currentAuthUser?.uid;
+        
+        // Determine if editor should be read-only
+        // Read-only if: isReadOnly is true AND user is NOT the owner
+        const isReadOnly = doc.isReadOnly === true && !isDocOwner;
+        
         // Update panel UI
         const titleInput = document.getElementById('docTitleInput');
         const editor = document.getElementById('docEditor');
         const saveStatus = document.getElementById('docSaveStatus');
         
-        if (titleInput) titleInput.value = doc.title || 'Untitled';
-        if (editor) editor.innerHTML = doc.contentHtml || '<p></p>';
-        if (saveStatus) {
-            saveStatus.textContent = 'Saved';
-            saveStatus.className = 'doc-save-status';
+        if (titleInput) {
+            titleInput.value = doc.title || 'Untitled';
+            titleInput.readOnly = isReadOnly;
         }
+        
+        if (editor) {
+            editor.innerHTML = doc.contentHtml || '<p></p>';
+            editor.contentEditable = !isReadOnly;
+            editor.classList.toggle('read-only', isReadOnly);
+        }
+        
+        if (saveStatus) {
+            if (isReadOnly) {
+                saveStatus.textContent = 'View Only';
+                saveStatus.className = 'doc-save-status read-only';
+            } else {
+                saveStatus.textContent = 'Saved';
+                saveStatus.className = 'doc-save-status';
+            }
+        }
+        
+        // Show/hide read-only indicator
+        updateDocReadOnlyIndicator(isReadOnly);
         
         // Hydrate chips and embeds
         setTimeout(() => {
@@ -9736,8 +10165,36 @@ function initTasks() {
             tasksSection.classList.add('doc-open');
         }
         
-        // Focus editor
-        setTimeout(() => editor?.focus(), 100);
+        // Focus editor only if not read-only
+        if (!isReadOnly) {
+            setTimeout(() => editor?.focus(), 100);
+        }
+    }
+    
+    /**
+     * Update read-only indicator in the doc panel header
+     */
+    function updateDocReadOnlyIndicator(isReadOnly) {
+        // Find or create read-only badge in doc panel header
+        let indicator = document.getElementById('docReadOnlyIndicator');
+        const header = document.querySelector('.doc-panel-header');
+        
+        if (isReadOnly) {
+            if (!indicator && header) {
+                indicator = document.createElement('span');
+                indicator.id = 'docReadOnlyIndicator';
+                indicator.className = 'doc-readonly-badge';
+                indicator.innerHTML = '<i class="fas fa-lock"></i> View Only';
+                // Insert after title input
+                const titleInput = header.querySelector('.doc-title-input');
+                if (titleInput) {
+                    titleInput.after(indicator);
+                }
+            }
+            if (indicator) indicator.style.display = 'inline-flex';
+        } else {
+            if (indicator) indicator.style.display = 'none';
+        }
     }
     
     /**
@@ -9958,50 +10415,53 @@ function initTasks() {
     /**
      * Rename a doc
      */
-    function renameDoc(doc) {
-        const newTitle = prompt('Enter new title:', doc.title || 'Untitled');
+    async function renameDoc(doc) {
+        const newTitle = await showInputModal('Enter new title:', doc.title || 'Untitled', {
+            title: 'Rename Document'
+        });
         if (newTitle === null || newTitle.trim() === '') return;
         
-        (async () => {
-            try {
-                const { doc: docRef, updateDoc, serverTimestamp } = 
-                    await import('https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js');
-                
-                const ref = docRef(db, 'teams', appState.currentTeamId, 'docs', doc.id);
-                await updateDoc(ref, {
-                    title: newTitle.trim(),
-                    updatedAt: serverTimestamp(),
-                    updatedBy: currentAuthUser.uid
-                });
-                
-                showToast('Document renamed', 'success');
-            } catch (error) {
-                console.error('Error renaming doc:', error);
-                showToast('Failed to rename document', 'error');
-            }
-        })();
+        try {
+            const { doc: docRef, updateDoc, serverTimestamp } = 
+                await import('https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js');
+            
+            const ref = docRef(db, 'teams', appState.currentTeamId, 'docs', doc.id);
+            await updateDoc(ref, {
+                title: newTitle.trim(),
+                updatedAt: serverTimestamp(),
+                updatedBy: currentAuthUser.uid
+            });
+            
+            showToast('Document renamed', 'success');
+        } catch (error) {
+            console.error('Error renaming doc:', error);
+            showToast('Failed to rename document', 'error');
+        }
     }
     
     /**
      * Delete a doc
      */
-    function deleteDoc(doc) {
-        if (!confirm(`Delete "${doc.title || 'Untitled'}"? This cannot be undone.`)) return;
+    async function deleteDoc(doc) {
+        const confirmed = await showConfirmModal(`Delete "${doc.title || 'Untitled'}"? This cannot be undone.`, {
+            title: 'Delete Document',
+            confirmText: 'Delete',
+            type: 'danger'
+        });
+        if (!confirmed) return;
         
-        (async () => {
-            try {
-                const { doc: docRef, deleteDoc: delDoc } = 
-                    await import('https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js');
-                
-                const ref = docRef(db, 'teams', appState.currentTeamId, 'docs', doc.id);
-                await delDoc(ref);
-                
-                showToast('Document deleted', 'success');
-            } catch (error) {
-                console.error('Error deleting doc:', error);
-                showToast('Failed to delete document', 'error');
-            }
-        })();
+        try {
+            const { doc: docRef, deleteDoc: delDoc } = 
+                await import('https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js');
+            
+            const ref = docRef(db, 'teams', appState.currentTeamId, 'docs', doc.id);
+            await delDoc(ref);
+            
+            showToast('Document deleted', 'success');
+        } catch (error) {
+            console.error('Error deleting doc:', error);
+            showToast('Failed to delete document', 'error');
+        }
     }
     
     /**
@@ -10465,6 +10925,275 @@ function initTasks() {
     }
     
     /**
+     * Initialize emoji picker for doc editor (triggered by '#' key)
+     */
+    function initDocEmojiPicker() {
+        const editor = document.getElementById('docEditor');
+        const popover = document.getElementById('docEmojiPopover');
+        const searchInput = document.getElementById('docEmojiSearch');
+        const emojiGrid = document.getElementById('docEmojiGrid');
+        const categoryTabs = document.getElementById('emojiCategoryTabs');
+        
+        if (!editor || !popover || !emojiGrid) return;
+        
+        // Emoji data organized by category
+        const emojiData = {
+            smileys: ['😀', '😃', '😄', '😁', '😆', '😅', '🤣', '😂', '🙂', '🙃', '😉', '😊', '😇', '🥰', '😍', '🤩', '😘', '😗', '😚', '😙', '🥲', '😋', '😛', '😜', '🤪', '😝', '🤑', '🤗', '🤭', '🤫', '🤔', '🤐', '🤨', '😐', '😑', '😶', '😏', '😒', '🙄', '😬', '🤥', '😌', '😔', '😪', '🤤', '😴', '😷', '🤒', '🤕', '🤢', '🤮', '🤧', '🥵', '🥶', '🥴', '😵', '🤯', '🤠', '🥳', '🥸', '😎', '🤓', '🧐', '😕', '😟', '🙁', '☹️', '😮', '😯', '😲', '😳', '🥺', '😦', '😧', '😨', '😰', '😥', '😢', '😭', '😱', '😖', '😣', '😞', '😓', '😩', '😫', '🥱', '😤', '😡', '😠', '🤬', '😈', '👿', '💀', '☠️', '💩', '🤡', '👹', '👺', '👻', '👽', '👾', '🤖'],
+            people: ['👋', '🤚', '🖐️', '✋', '🖖', '👌', '🤌', '🤏', '✌️', '🤞', '🤟', '🤘', '🤙', '👈', '👉', '👆', '🖕', '👇', '☝️', '👍', '👎', '✊', '👊', '🤛', '🤜', '👏', '🙌', '👐', '🤲', '🤝', '🙏', '✍️', '💅', '🤳', '💪', '🦾', '🦿', '🦵', '🦶', '👂', '🦻', '👃', '🧠', '🫀', '🫁', '🦷', '🦴', '👀', '👁️', '👅', '👄', '👶', '🧒', '👦', '👧', '🧑', '👱', '👨', '🧔', '👩', '🧓', '👴', '👵', '🙍', '🙎', '🙅', '🙆', '💁', '🙋', '🧏', '🙇', '🤦', '🤷', '👮', '🕵️', '💂', '🥷', '👷', '🤴', '👸', '👳', '👲', '🧕', '🤵', '👰', '🤰', '🤱', '👼', '🎅', '🤶', '🦸', '🦹', '🧙', '🧚', '🧛', '🧜', '🧝', '🧞', '🧟', '💆', '💇', '🚶', '🧍', '🧎', '🏃', '💃', '🕺', '🕴️', '👯', '🧖', '🧗', '🤸', '🏌️', '🏇', '⛷️', '🏂', '🏋️', '🤼', '🤽', '🤾', '🤺', '⛹️', '🏊', '🚣', '🧘', '🛀', '🛌'],
+            nature: ['🐶', '🐱', '🐭', '🐹', '🐰', '🦊', '🐻', '🐼', '🐻‍❄️', '🐨', '🐯', '🦁', '🐮', '🐷', '🐽', '🐸', '🐵', '🙈', '🙉', '🙊', '🐒', '🐔', '🐧', '🐦', '🐤', '🐣', '🐥', '🦆', '🦅', '🦉', '🦇', '🐺', '🐗', '🐴', '🦄', '🐝', '🪱', '🐛', '🦋', '🐌', '🐞', '🐜', '🪰', '🪲', '🪳', '🦟', '🦗', '🕷️', '🕸️', '🦂', '🐢', '🐍', '🦎', '🦖', '🦕', '🐙', '🦑', '🦐', '🦞', '🦀', '🐡', '🐠', '🐟', '🐬', '🐳', '🐋', '🦈', '🐊', '🐅', '🐆', '🦓', '🦍', '🦧', '🦣', '🐘', '🦛', '🦏', '🐪', '🐫', '🦒', '🦘', '🦬', '🐃', '🐂', '🐄', '🐎', '🐖', '🐏', '🐑', '🦙', '🐐', '🦌', '🐕', '🐩', '🦮', '🐕‍🦺', '🐈', '🐈‍⬛', '🪶', '🐓', '🦃', '🦤', '🦚', '🦜', '🦢', '🦩', '🕊️', '🐇', '🦝', '🦨', '🦡', '🦫', '🦦', '🦥', '🐁', '🐀', '🐿️', '🦔', '🌵', '🎄', '🌲', '🌳', '🌴', '🪵', '🌱', '🌿', '☘️', '🍀', '🎍', '🪴', '🎋', '🍃', '🍂', '🍁', '🪺', '🪹', '🍄', '🐚', '🪸', '🪨', '🌾', '💐', '🌷', '🌹', '🥀', '🌺', '🌸', '🌼', '🌻', '🌞', '🌝', '🌛', '🌜', '🌚', '🌕', '🌖', '🌗', '🌘', '🌑', '🌒', '🌓', '🌔', '🌙', '🌎', '🌍', '🌏', '🪐', '💫', '⭐', '🌟', '✨', '⚡', '☄️', '💥', '🔥', '🌪️', '🌈', '☀️', '🌤️', '⛅', '🌥️', '☁️', '🌦️', '🌧️', '⛈️', '🌩️', '🌨️', '❄️', '☃️', '⛄', '🌬️', '💨', '💧', '💦', '🌊'],
+            food: ['🍏', '🍎', '🍐', '🍊', '🍋', '🍌', '🍉', '🍇', '🍓', '🫐', '🍈', '🍒', '🍑', '🥭', '🍍', '🥥', '🥝', '🍅', '🍆', '🥑', '🥦', '🥬', '🥒', '🌶️', '🫑', '🌽', '🥕', '🫒', '🧄', '🧅', '🥔', '🍠', '🥐', '🥯', '🍞', '🥖', '🥨', '🧀', '🥚', '🍳', '🧈', '🥞', '🧇', '🥓', '🥩', '🍗', '🍖', '🦴', '🌭', '🍔', '🍟', '🍕', '🫓', '🥪', '🥙', '🧆', '🌮', '🌯', '🫔', '🥗', '🥘', '🫕', '🍝', '🍜', '🍲', '🍛', '🍣', '🍱', '🥟', '🦪', '🍤', '🍙', '🍚', '🍘', '🍥', '🥠', '🥮', '🍢', '🍡', '🍧', '🍨', '🍦', '🥧', '🧁', '🍰', '🎂', '🍮', '🍭', '🍬', '🍫', '🍿', '🍩', '🍪', '🌰', '🥜', '🍯', '🥛', '🍼', '🫖', '☕', '🍵', '🧃', '🥤', '🧋', '🍶', '🍺', '🍻', '🥂', '🍷', '🥃', '🍸', '🍹', '🧉', '🍾', '🧊', '🥄', '🍴', '🍽️', '🥣', '🥡', '🥢', '🧂'],
+            activities: ['⚽', '🏀', '🏈', '⚾', '🥎', '🎾', '🏐', '🏉', '🥏', '🎱', '🪀', '🏓', '🏸', '🏒', '🏑', '🥍', '🏏', '🪃', '🥅', '⛳', '🪁', '🏹', '🎣', '🤿', '🥊', '🥋', '🎽', '🛹', '🛼', '🛷', '⛸️', '🥌', '🎿', '⛷️', '🏂', '🪂', '🏋️', '🤼', '🤸', '⛹️', '🤺', '🤾', '🏌️', '🏇', '🧘', '🏄', '🏊', '🤽', '🚣', '🧗', '🚵', '🚴', '🏆', '🥇', '🥈', '🥉', '🏅', '🎖️', '🏵️', '🎗️', '🎫', '🎟️', '🎪', '🤹', '🎭', '🩰', '🎨', '🎬', '🎤', '🎧', '🎼', '🎹', '🥁', '🪘', '🎷', '🎺', '🪗', '🎸', '🪕', '🎻', '🎲', '♟️', '🎯', '🎳', '🎮', '🎰', '🧩'],
+            travel: ['🚗', '🚕', '🚙', '🚌', '🚎', '🏎️', '🚓', '🚑', '🚒', '🚐', '🛻', '🚚', '🚛', '🚜', '🦯', '🦽', '🦼', '🛴', '🚲', '🛵', '🏍️', '🛺', '🚨', '🚔', '🚍', '🚘', '🚖', '🚡', '🚠', '🚟', '🚃', '🚋', '🚞', '🚝', '🚄', '🚅', '🚈', '🚂', '🚆', '🚇', '🚊', '🚉', '✈️', '🛫', '🛬', '🛩️', '💺', '🛰️', '🚀', '🛸', '🚁', '🛶', '⛵', '🚤', '🛥️', '🛳️', '⛴️', '🚢', '⚓', '🪝', '⛽', '🚧', '🚦', '🚥', '🚏', '🗺️', '🗿', '🗽', '🗼', '🏰', '🏯', '🏟️', '🎡', '🎢', '🎠', '⛲', '⛱️', '🏖️', '🏝️', '🏜️', '🌋', '⛰️', '🏔️', '🗻', '🏕️', '⛺', '🛖', '🏠', '🏡', '🏘️', '🏚️', '🏗️', '🏭', '🏢', '🏬', '🏣', '🏤', '🏥', '🏦', '🏨', '🏪', '🏫', '🏩', '💒', '🏛️', '⛪', '🕌', '🕍', '🛕', '🕋', '⛩️', '🛤️', '🛣️', '🗾', '🎑', '🏞️', '🌅', '🌄', '🌠', '🎇', '🎆', '🌇', '🌆', '🏙️', '🌃', '🌌', '🌉', '🌁'],
+            objects: ['💡', '🔦', '🏮', '🪔', '📱', '📲', '💻', '🖥️', '🖨️', '⌨️', '🖱️', '🖲️', '💽', '💾', '💿', '📀', '🧮', '🎥', '🎞️', '📽️', '🎬', '📺', '📷', '📸', '📹', '📼', '🔍', '🔎', '🕯️', '💡', '🔦', '🏮', '🪔', '📔', '📕', '📖', '📗', '📘', '📙', '📚', '📓', '📒', '📃', '📜', '📄', '📰', '🗞️', '📑', '🔖', '🏷️', '💰', '🪙', '💴', '💵', '💶', '💷', '💸', '💳', '🧾', '💹', '✉️', '📧', '📨', '📩', '📤', '📥', '📦', '📫', '📪', '📬', '📭', '📮', '🗳️', '✏️', '✒️', '🖋️', '🖊️', '🖌️', '🖍️', '📝', '💼', '📁', '📂', '🗂️', '📅', '📆', '🗒️', '🗓️', '📇', '📈', '📉', '📊', '📋', '📌', '📍', '📎', '🖇️', '📏', '📐', '✂️', '🗃️', '🗄️', '🗑️', '🔒', '🔓', '🔏', '🔐', '🔑', '🗝️', '🔨', '🪓', '⛏️', '⚒️', '🛠️', '🗡️', '⚔️', '🔫', '🪃', '🏹', '🛡️', '🪚', '🔧', '🪛', '🔩', '⚙️', '🗜️', '⚖️', '🦯', '🔗', '⛓️', '🪝', '🧰', '🧲', '🪜', '⚗️', '🧪', '🧫', '🧬', '🔬', '🔭', '📡', '💉', '🩸', '💊', '🩹', '🩺', '🚪', '🛗', '🪞', '🪟', '🛏️', '🛋️', '🪑', '🚽', '🪠', '🚿', '🛁', '🪤', '🪒', '🧴', '🧷', '🧹', '🧺', '🧻', '🪣', '🧼', '🪥', '🧽', '🧯', '🛒', '🚬', '⚰️', '🪦', '⚱️', '🗿', '🪧', '🏧'],
+            symbols: ['❤️', '🧡', '💛', '💚', '💙', '💜', '🖤', '🤍', '🤎', '💔', '❣️', '💕', '💞', '💓', '💗', '💖', '💘', '💝', '💟', '☮️', '✝️', '☪️', '🕉️', '☸️', '✡️', '🔯', '🕎', '☯️', '☦️', '🛐', '⛎', '♈', '♉', '♊', '♋', '♌', '♍', '♎', '♏', '♐', '♑', '♒', '♓', '🆔', '⚛️', '🉑', '☢️', '☣️', '📴', '📳', '🈶', '🈚', '🈸', '🈺', '🈷️', '✴️', '🆚', '💮', '🉐', '㊙️', '㊗️', '🈴', '🈵', '🈹', '🈲', '🅰️', '🅱️', '🆎', '🆑', '🅾️', '🆘', '❌', '⭕', '🛑', '⛔', '📛', '🚫', '💯', '💢', '♨️', '🚷', '🚯', '🚳', '🚱', '🔞', '📵', '🚭', '❗', '❕', '❓', '❔', '‼️', '⁉️', '🔅', '🔆', '〽️', '⚠️', '🚸', '🔱', '⚜️', '🔰', '♻️', '✅', '🈯', '💹', '❇️', '✳️', '❎', '🌐', '💠', 'Ⓜ️', '🌀', '💤', '🏧', '🚾', '♿', '🅿️', '🛗', '🈳', '🈂️', '🛂', '🛃', '🛄', '🛅', '🚹', '🚺', '🚼', '⚧️', '🚻', '🚮', '🎦', '📶', '🈁', '🔣', 'ℹ️', '🔤', '🔡', '🔠', '🆖', '🆗', '🆙', '🆒', '🆕', '🆓', '0️⃣', '1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣', '🔟', '🔢', '#️⃣', '*️⃣', '⏏️', '▶️', '⏸️', '⏯️', '⏹️', '⏺️', '⏭️', '⏮️', '⏩', '⏪', '⏫', '⏬', '◀️', '🔼', '🔽', '➡️', '⬅️', '⬆️', '⬇️', '↗️', '↘️', '↙️', '↖️', '↕️', '↔️', '↪️', '↩️', '⤴️', '⤵️', '🔀', '🔁', '🔂', '🔄', '🔃', '🎵', '🎶', '➕', '➖', '➗', '✖️', '🟰', '♾️', '💲', '💱', '™️', '©️', '®️', '〰️', '➰', '➿', '🔚', '🔙', '🔛', '🔝', '🔜', '✔️', '☑️', '🔘', '🔴', '🟠', '🟡', '🟢', '🔵', '🟣', '⚫', '⚪', '🟤', '🔺', '🔻', '🔸', '🔹', '🔶', '🔷', '🔳', '🔲', '▪️', '▫️', '◾', '◽', '◼️', '◻️', '🟥', '🟧', '🟨', '🟩', '🟦', '🟪', '⬛', '⬜', '🟫', '🔈', '🔇', '🔉', '🔊', '🔔', '🔕', '📣', '📢', '👁️‍🗨️', '💬', '💭', '🗯️', '♠️', '♣️', '♥️', '♦️', '🃏', '🎴', '🀄', '🕐', '🕑', '🕒', '🕓', '🕔', '🕕', '🕖', '🕗', '🕘', '🕙', '🕚', '🕛', '🕜', '🕝', '🕞', '🕟', '🕠', '🕡', '🕢', '🕣', '🕤', '🕥', '🕦', '🕧']
+        };
+        
+        let currentCategory = 'smileys';
+        let allEmojis = [];
+        
+        // Flatten all emojis for search
+        Object.values(emojiData).forEach(arr => allEmojis.push(...arr));
+        
+        // State for emoji picker
+        window._emojiPickerRange = null;
+        window._hashInsertRange = null;
+        
+        /**
+         * Render emoji grid
+         */
+        function renderEmojiGrid(category, searchTerm = '') {
+            let emojis = [];
+            
+            if (searchTerm) {
+                // Simple search: just show all emojis that contain the search term (for now just filter by position)
+                emojis = allEmojis;
+                // For a better search, you'd need emoji names/keywords database
+            } else {
+                emojis = emojiData[category] || [];
+            }
+            
+            emojiGrid.innerHTML = emojis.map(emoji => `
+                <div class="emoji-item" data-emoji="${emoji}">${emoji}</div>
+            `).join('');
+        }
+        
+        /**
+         * Show emoji popover
+         */
+        function showEmojiPopover() {
+            const selection = window.getSelection();
+            if (!selection.rangeCount) return;
+            
+            const range = selection.getRangeAt(0);
+            window._emojiPickerRange = range.cloneRange();
+            
+            // Get caret position
+            const caretRect = range.getBoundingClientRect();
+            
+            // Render current category
+            renderEmojiGrid(currentCategory);
+            
+            // Reset search
+            if (searchInput) searchInput.value = '';
+            
+            // Use floating menu helper
+            openFloatingMenu(popover, caretRect, {
+                margin: 10,
+                onClose: () => {
+                    window._emojiPickerRange = null;
+                    window._hashInsertRange = null;
+                }
+            });
+            
+            // Focus search input
+            setTimeout(() => searchInput?.focus(), 50);
+        }
+        
+        /**
+         * Hide emoji popover
+         */
+        function hideEmojiPopover(clearState = false) {
+            if (floatingMenuState.activeMenu === popover) {
+                closeFloatingMenu();
+            } else {
+                popover.style.display = 'none';
+            }
+            
+            if (clearState) {
+                window._emojiPickerRange = null;
+                window._hashInsertRange = null;
+            }
+        }
+        
+        /**
+         * Remove the # character that triggered the popover
+         */
+        function removeHashAtTrigger() {
+            if (!window._hashInsertRange) return;
+            
+            const range = window._hashInsertRange;
+            
+            try {
+                editor.focus();
+                
+                const container = range.startContainer;
+                const offset = range.startOffset;
+                
+                if (container.nodeType === Node.TEXT_NODE && offset > 0) {
+                    const text = container.textContent;
+                    if (text.charAt(offset - 1) === '#') {
+                        const deleteRange = document.createRange();
+                        deleteRange.setStart(container, offset - 1);
+                        deleteRange.setEnd(container, offset);
+                        deleteRange.deleteContents();
+                        
+                        // Update emoji picker range
+                        if (window._emojiPickerRange) {
+                            const newRange = document.createRange();
+                            newRange.setStart(container, Math.max(0, offset - 1));
+                            newRange.setEnd(container, Math.max(0, offset - 1));
+                            window._emojiPickerRange = newRange;
+                        }
+                    }
+                }
+            } catch (e) {
+                console.warn('Could not remove hash:', e);
+            }
+            
+            window._hashInsertRange = null;
+        }
+        
+        /**
+         * Insert emoji at cursor position
+         */
+        function insertEmoji(emoji) {
+            // Remove the # trigger character first
+            removeHashAtTrigger();
+            
+            const range = window._emojiPickerRange;
+            if (!range) {
+                // Fallback: just insert at current position
+                editor.focus();
+                document.execCommand('insertText', false, emoji);
+                hideEmojiPopover(true);
+                return;
+            }
+            
+            try {
+                editor.focus();
+                
+                // Restore selection
+                const sel = window.getSelection();
+                sel.removeAllRanges();
+                sel.addRange(range);
+                
+                // Insert emoji
+                document.execCommand('insertText', false, emoji);
+                
+                // Trigger save
+                if (typeof window.triggerDocAutoSave === 'function') {
+                    window.triggerDocAutoSave();
+                }
+            } catch (e) {
+                console.warn('Could not insert emoji:', e);
+            }
+            
+            hideEmojiPopover(true);
+        }
+        
+        // Listen for # key in editor
+        editor.addEventListener('keydown', (e) => {
+            if (e.key === '#' || (e.shiftKey && e.key === '3')) {
+                // Store range before # is typed
+                const sel = window.getSelection();
+                if (sel.rangeCount > 0) {
+                    window._preHashRange = sel.getRangeAt(0).cloneRange();
+                }
+            } else if (e.key === 'Escape' && popover.style.display !== 'none') {
+                e.preventDefault();
+                hideEmojiPopover(true);
+            }
+        });
+        
+        editor.addEventListener('keyup', (e) => {
+            if (e.key === '#' || (e.shiftKey && e.key === '3' && e.code === 'Digit3')) {
+                // After # is typed, store the exact range
+                const sel = window.getSelection();
+                if (sel.rangeCount > 0) {
+                    window._hashInsertRange = sel.getRangeAt(0).cloneRange();
+                }
+                showEmojiPopover();
+            }
+        });
+        
+        // Category tab clicks
+        if (categoryTabs) {
+            categoryTabs.addEventListener('click', (e) => {
+                const tab = e.target.closest('.emoji-tab');
+                if (!tab) return;
+                
+                const category = tab.dataset.category;
+                if (!category) return;
+                
+                // Update active tab
+                categoryTabs.querySelectorAll('.emoji-tab').forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                
+                // Render new category
+                currentCategory = category;
+                renderEmojiGrid(category);
+                
+                // Clear search
+                if (searchInput) searchInput.value = '';
+            });
+        }
+        
+        // Emoji grid clicks
+        emojiGrid.addEventListener('click', (e) => {
+            const item = e.target.closest('.emoji-item');
+            if (!item) return;
+            
+            const emoji = item.dataset.emoji;
+            if (emoji) {
+                insertEmoji(emoji);
+            }
+        });
+        
+        // Search input
+        if (searchInput) {
+            searchInput.addEventListener('input', (e) => {
+                const term = e.target.value.trim().toLowerCase();
+                if (term) {
+                    // Show filtered results (simple character match for now)
+                    // A real implementation would use emoji names/keywords
+                    renderEmojiGrid(null, term);
+                } else {
+                    renderEmojiGrid(currentCategory);
+                }
+            });
+            
+            // Prevent Enter from closing on search
+            searchInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') {
+                    e.preventDefault();
+                    hideEmojiPopover(true);
+                    editor.focus();
+                } else if (e.key === 'Enter') {
+                    e.preventDefault();
+                    // Select first emoji if available
+                    const firstEmoji = emojiGrid.querySelector('.emoji-item');
+                    if (firstEmoji) {
+                        insertEmoji(firstEmoji.dataset.emoji);
+                    }
+                }
+            });
+        }
+        
+        // Make hideEmojiPopover accessible
+        window._hideDocEmojiPopover = hideEmojiPopover;
+    }
+    
+    /**
      * Open reference picker modal
      */
     window.openReferencePickerModal = function(type) {
@@ -10886,6 +11615,8 @@ function initTasks() {
         const modal = document.getElementById('docVisibilityModal');
         const subtitle = document.getElementById('docVisibilitySubtitle');
         const options = modal?.querySelectorAll('.visibility-pill-compact');
+        const readOnlySection = document.getElementById('docReadOnlySection');
+        const readOnlyToggle = document.getElementById('docReadOnlyToggle');
         
         if (!modal || !doc) return;
         
@@ -10896,7 +11627,7 @@ function initTasks() {
             subtitle.textContent = `Who can see "${doc.title || 'Untitled'}"`;
         }
         
-        // Set current selection
+        // Set current visibility selection
         const currentVisibility = doc.visibility || 'team';
         options?.forEach(option => {
             const isSelected = option.dataset.visibility === currentVisibility;
@@ -10905,7 +11636,18 @@ function initTasks() {
             if (radio) radio.checked = isSelected;
         });
         
-        // Click handlers
+        // Show read-only toggle only for doc owner
+        const isOwner = doc.createdBy === currentAuthUser?.uid;
+        if (readOnlySection) {
+            readOnlySection.style.display = isOwner ? 'block' : 'none';
+        }
+        
+        // Set current read-only state
+        if (readOnlyToggle) {
+            readOnlyToggle.checked = doc.isReadOnly === true;
+        }
+        
+        // Click handlers for visibility options
         options?.forEach(option => {
             option.onclick = () => {
                 options.forEach(o => o.classList.remove('selected'));
@@ -10931,6 +11673,8 @@ function initTasks() {
         
         const selectedOption = modal?.querySelector('.visibility-pill-compact.selected');
         const visibility = selectedOption?.dataset.visibility || 'team';
+        const readOnlyToggle = document.getElementById('docReadOnlyToggle');
+        const isReadOnly = readOnlyToggle?.checked || false;
         
         try {
             const { doc: docRef, updateDoc, serverTimestamp } = 
@@ -10939,6 +11683,7 @@ function initTasks() {
             const ref = docRef(db, 'teams', appState.currentTeamId, 'docs', docId);
             await updateDoc(ref, {
                 visibility,
+                isReadOnly,
                 updatedAt: serverTimestamp(),
                 updatedBy: currentAuthUser.uid
             });
@@ -16516,8 +17261,19 @@ function initModals() {
         const editingTaskId = taskForm.dataset.editingTaskId;
         const isEditing = !!editingTaskId;
         
+        // Rate limiting for new task creation (not edits)
+        if (!isEditing) {
+            const rateCheck = canCreateTask();
+            if (!rateCheck.allowed) {
+                showToast(rateCheck.reason, 'warning');
+                return;
+            }
+            rateLimitState.isCreatingTask = true;
+        }
+        
         // Validate assignee is a team member
         if (!assigneeId) {
+            rateLimitState.isCreatingTask = false;
             showToast('Please select a team member to assign this task to.', 'error');
             return;
         }
@@ -16525,6 +17281,7 @@ function initModals() {
         // Get assignee name using unified identity resolver
         const assigneeIdentity = getIdentity(assigneeId, null);
         if (assigneeIdentity.displayName === 'Unknown') {
+            rateLimitState.isCreatingTask = false;
             showToast('Invalid assignee. Please select a valid team member.', 'error');
             return;
         }
@@ -16645,6 +17402,17 @@ function initModals() {
 
         taskForm.reset();
         delete taskForm.dataset.editingTaskId;
+        
+        // Update rate limit state after successful creation
+        if (!isEditing) {
+            rateLimitState.lastTaskCreation = Date.now();
+            rateLimitState.isCreatingTask = false;
+        }
+        
+        // Show success toast for new tasks
+        if (!isEditing) {
+            showToast('Task created successfully', 'success');
+        }
         
         // Reset modal title and button
         const titleEl = document.querySelector('#taskModal .unified-modal-title h2');
@@ -17238,7 +18006,12 @@ async function viewEventDetails(eventId, occurrenceDateStr = '') {
         if (isAdmin) {
             deleteBtn.style.display = 'flex';
             deleteBtn.onclick = async () => {
-                if (confirm(`Are you sure you want to delete "${event.title}"?`)) {
+                const confirmed = await showConfirmModal(`Are you sure you want to delete "${event.title}"?`, {
+                    title: 'Delete Event',
+                    confirmText: 'Delete',
+                    type: 'danger'
+                });
+                if (confirmed) {
                     await deleteEvent(eventId);
                     closeModal('eventDetailsModal');
                 }
@@ -17256,14 +18029,14 @@ async function viewEventDetails(eventId, occurrenceDateStr = '') {
     
     } catch (error) {
         console.error('❌ Error in viewEventDetails:', error);
-        alert('Error loading event details: ' + error.message);
+        showToast('Error loading event details: ' + error.message, 'error');
     }
 }
 
 // Delete event
 async function deleteEvent(eventId) {
     if (!db || !currentAuthUser || !appState.currentTeamId) {
-        alert('Error: Cannot delete event');
+        showToast('Cannot delete event. Please try again.', 'error');
         return;
     }
     
@@ -17283,7 +18056,7 @@ async function deleteEvent(eventId) {
         const isCreator = event && event.createdBy === currentAuthUser.uid;
         
         if (!isAdminOrOwner && !isCreator) {
-            alert('You can only delete events you created. Admins and owners can delete any event.');
+            showToast('You can only delete events you created. Admins and owners can delete any event.', 'warning');
             return;
         }
         
@@ -17520,7 +18293,7 @@ async function initializeUserTeam() {
 async function createTeamNow() {
     if (!currentAuthUser || !db) {
         console.error('❌ Cannot create team: User not authenticated or DB not ready');
-        alert('Please sign in and try again.');
+        showToast('Please sign in and try again.', 'error');
         return;
     }
 
@@ -17727,12 +18500,12 @@ async function retryTeamCreation() {
 // Manual team creation (can be triggered from button)
 async function createNewTeamNow() {
     if (!currentAuthUser) {
-        alert('Please sign in first');
+        showToast('Please sign in first', 'error');
         return;
     }
     
     if (!db) {
-        alert('Database not initialized. Please refresh the page.');
+        showToast('Database not initialized. Please refresh the page.', 'error');
         return;
     }
     
@@ -18095,7 +18868,7 @@ function generateTeamCode() {
 // Show team code to owner
 async function showTeamCode() {
     if (!currentAuthUser) {
-        alert('Please sign in first.');
+        showToast('Please sign in first.', 'error');
         return;
     }
 
@@ -18167,7 +18940,7 @@ async function showTeamCode() {
     } catch (error) {
         console.error('Error showing team code:', error.code || error.message);
         debugError('Full error:', error);
-        alert('Failed to load team code.');
+        showToast('Failed to load team code.', 'error');
     }
 }
 
@@ -18239,7 +19012,7 @@ window.copyTeamCode = function(code) {
             btn.style.background = '';
         }, 2000);
     } catch (err) {
-        alert('Code: ' + code);
+        showToast('Code: ' + code, 'info', 8000);
     }
     
     document.body.removeChild(textarea);
@@ -18327,8 +19100,8 @@ window.generateJoinLink = function() {
     navigator.clipboard.writeText(joinUrl).then(() => {
         showToast('Join link copied to clipboard!', 'success');
     }).catch(() => {
-        // Fallback - show the link
-        prompt('Copy this join link:', joinUrl);
+        // Fallback - show the link in a toast with longer duration
+        showToast('Copy this join link: ' + joinUrl, 'info', 10000);
     });
 }
 
@@ -18360,9 +19133,12 @@ async function processJoinCode(teamCode) {
         const teamName = joinInfo.teamName;
 
         // Show confirmation dialog (we don't read team doc - use joinInfo instead)
-        const confirmJoin = confirm(
-            `You've been invited to join "${teamName}"!\n\n` +
-            `Click OK to send a join request to the team owner.`
+        const confirmJoin = await showConfirmModal(
+            `You've been invited to join "${teamName}"! Click Confirm to send a join request to the team owner.`,
+            {
+                title: 'Join Team',
+                confirmText: 'Send Request'
+            }
         );
         
         if (!confirmJoin) return;
@@ -18399,15 +19175,19 @@ async function processJoinCode(teamCode) {
 // Submit join request
 window.submitJoinRequest = async function() {
     if (!currentAuthUser) {
-        alert('Please sign in first.');
+        showToast('Please sign in first.', 'error');
         return;
     }
 
     // Check if user is already in a team
     if (appState.currentTeamId && appState.userTeams && appState.userTeams.length > 0) {
-        const confirmLeave = confirm(
-            'You are already in a team. Joining a new team will remove you from your current team.\n\n' +
-            'Do you want to continue?'
+        const confirmLeave = await showConfirmModal(
+            'You are already in a team. Joining a new team will remove you from your current team. Do you want to continue?',
+            {
+                title: 'Leave Current Team',
+                confirmText: 'Continue',
+                type: 'danger'
+            }
         );
         if (!confirmLeave) {
             closeJoinTeamModal();
@@ -18419,7 +19199,7 @@ window.submitJoinRequest = async function() {
     const teamCode = teamCodeInput.value.trim().toUpperCase();
     
     if (!teamCode) {
-        alert('Please enter a team code.');
+        showToast('Please enter a team code.', 'warning');
         return;
     }
 
@@ -18489,7 +19269,7 @@ window.submitJoinRequest = async function() {
 // Show pending join requests (for team owner)
 async function showPendingRequests() {
     if (!db || !currentAuthUser || !appState.currentTeamId) {
-        alert('Team not initialized.');
+        showToast('Team not initialized.', 'error');
         return;
     }
 
@@ -18507,7 +19287,7 @@ async function showPendingRequests() {
         });
 
         if (requestsList.length === 0) {
-            alert('No pending join requests.');
+            showToast('No pending join requests.', 'info');
             return;
         }
 
@@ -18569,7 +19349,7 @@ async function showPendingRequests() {
     } catch (error) {
         console.error('Error loading pending requests:', error.code || error.message);
         debugError('Full error:', error);
-        alert('Failed to load pending requests.');
+        showToast('Failed to load pending requests.', 'error');
     }
 }
 
@@ -19214,7 +19994,7 @@ window.copyInviteLink = function() {
             btn.style.background = '';
         }, 2000);
     } catch (err) {
-        alert('Please manually copy the link: ' + input.value);
+        showToast('Please manually copy the link: ' + input.value, 'info', 10000);
     }
 }
 
@@ -20802,7 +21582,7 @@ async function saveAccountSettings(e) {
     e.preventDefault();
     
     if (!currentAuthUser || !db) {
-        alert('Cannot save settings. Please sign in again.');
+        showToast('Cannot save settings. Please sign in again.', 'error');
         return;
     }
     
@@ -20822,7 +21602,7 @@ async function saveAccountSettings(e) {
     }
     
     if (!displayName) {
-        alert('Display name is required');
+        showToast('Display name is required', 'warning');
         return;
     }
     
@@ -21202,7 +21982,7 @@ function initChatAppearanceForm() {
 // Save chat appearance settings
 async function saveChatAppearanceSettings() {
     if (!currentAuthUser || !db) {
-        alert('Cannot save preferences. Please sign in again.');
+        showToast('Cannot save preferences. Please sign in again.', 'error');
         return;
     }
     
@@ -21250,8 +22030,12 @@ async function updateUserPreferences(preferences) {
 }
 
 // Reset chat appearance to defaults
-window.resetChatAppearance = function() {
-    if (confirm('Reset chat appearance to defaults?')) {
+window.resetChatAppearance = async function() {
+    const confirmed = await showConfirmModal('Reset chat appearance to defaults?', {
+        title: 'Reset Chat Appearance',
+        confirmText: 'Reset'
+    });
+    if (confirmed) {
         document.getElementById('chatShowAvatars').checked = defaultChatPreferences.showAvatars;
         document.getElementById('chatCompactMode').checked = defaultChatPreferences.compactMode;
         
@@ -21712,7 +22496,7 @@ function initAnimationsForm() {
 // Save animation preference
 async function saveAnimationPreference() {
     if (!currentAuthUser || !db) {
-        alert('Cannot save preferences. Please sign in again.');
+        showToast('Cannot save preferences. Please sign in again.', 'error');
         return;
     }
     
@@ -22404,7 +23188,7 @@ window.sendPasswordResetFromSettings = async function() {
 // Force logout from all devices
 async function forceLogoutEverywhere() {
     if (!currentAuthUser || !db) {
-        alert('Cannot perform this action. Please sign in again.');
+        showToast('Cannot perform this action. Please sign in again.', 'error');
         return;
     }
     
@@ -23333,7 +24117,7 @@ window.copyTeamCode = async function() {
             const teamCode = teamDoc.data().teamCode;
             
             navigator.clipboard.writeText(teamCode).then(() => {
-                alert(`Team code copied: ${teamCode}`);
+                showToast(`Team code copied: ${teamCode}`, 'success');
             }).catch(() => {
                 // Fallback for older browsers
                 const textarea = document.createElement('textarea');
@@ -23342,7 +24126,7 @@ window.copyTeamCode = async function() {
                 textarea.select();
                 document.execCommand('copy');
                 document.body.removeChild(textarea);
-                alert(`Team code copied: ${teamCode}`);
+                showToast(`Team code copied: ${teamCode}`, 'success');
             });
         }
     } catch (error) {
@@ -23363,8 +24147,8 @@ window.generateJoinLink = function() {
     navigator.clipboard.writeText(joinUrl).then(() => {
         showToast('Join link copied to clipboard!', 'success');
     }).catch(() => {
-        // Fallback - show the link
-        prompt('Copy this join link:', joinUrl);
+        // Fallback - show the link in a toast with longer duration
+        showToast('Copy this join link: ' + joinUrl, 'info', 10000);
     });
 };
 
@@ -23375,7 +24159,7 @@ window.joinTeamWithCodeInput = function() {
     
     const code = input.value.trim().toUpperCase();
     if (!code) {
-        alert('Please enter a team code');
+        showToast('Please enter a team code', 'warning');
         return;
     }
     
@@ -23422,7 +24206,7 @@ function initJoinTeamModal() {
             const code = input.value.trim().toUpperCase();
             
             if (!code) {
-                alert('Please enter a team code');
+                showToast('Please enter a team code', 'warning');
                 return;
             }
             
@@ -23471,7 +24255,7 @@ function canAttemptJoinTeam() {
 // Join team by code - creates a join request
 async function joinTeamByCode(teamCode) {
     if (!db || !currentAuthUser) {
-        alert('Please sign in to join a team');
+        showToast('Please sign in to join a team', 'error');
         return;
     }
     
@@ -23570,9 +24354,12 @@ window.leaveTeam = async function() {
                 return;
             } else {
                 // Owner is the last member - confirm and delete team
-                if (!confirm('You are the only member. Leaving will delete this team permanently. Continue?')) {
-                    return;
-                }
+                const confirmed = await showConfirmModal('You are the only member. Leaving will delete this team permanently. Continue?', {
+                    title: 'Delete Team',
+                    confirmText: 'Delete Team',
+                    type: 'danger'
+                });
+                if (!confirmed) return;
                 // For now, just remove themselves (team will be orphaned but rules prevent access)
                 // TODO: Consider full team deletion
             }
@@ -23580,17 +24367,22 @@ window.leaveTeam = async function() {
         
         // Case 2: Admin can leave directly
         if (userRole === 'admin' || userRole === 'owner') {
-            if (!confirm('Are you sure you want to leave this team? This action cannot be undone.')) {
-                return;
-            }
+            const confirmed = await showConfirmModal('Are you sure you want to leave this team? This action cannot be undone.', {
+                title: 'Leave Team',
+                confirmText: 'Leave',
+                type: 'danger'
+            });
+            if (!confirmed) return;
             await performLeaveTeam(currentAuthUser.uid, appState.currentTeamId);
             return;
         }
         
         // Case 3: Regular member - submit leave request for admin approval
-        if (!confirm('Submit a request to leave this team? An admin will need to approve it.')) {
-            return;
-        }
+        const confirmed = await showConfirmModal('Submit a request to leave this team? An admin will need to approve it.', {
+            title: 'Leave Team',
+            confirmText: 'Submit Request'
+        });
+        if (!confirmed) return;
         
         // Use unified identity resolver for consistent name
         const identity = getIdentity(currentAuthUser.uid, currentAuthUser.email?.split('@')[0]);
@@ -23669,9 +24461,11 @@ async function performLeaveTeam(userId, teamId) {
 window.approveLeaveRequest = async function(requestId, userId, userName) {
     if (!db || !currentAuthUser || !appState.currentTeamId) return;
     
-    if (!confirm(`Approve ${userName}'s request to leave the team?`)) {
-        return;
-    }
+    const confirmed = await showConfirmModal(`Approve ${userName}'s request to leave the team?`, {
+        title: 'Approve Leave Request',
+        confirmText: 'Approve'
+    });
+    if (!confirmed) return;
     
     try {
         const { doc, deleteDoc } = 
@@ -23701,9 +24495,12 @@ window.approveLeaveRequest = async function(requestId, userId, userName) {
 window.denyLeaveRequest = async function(requestId, userName) {
     if (!db || !currentAuthUser || !appState.currentTeamId) return;
     
-    if (!confirm(`Deny ${userName}'s request to leave?`)) {
-        return;
-    }
+    const confirmed = await showConfirmModal(`Deny ${userName}'s request to leave?`, {
+        title: 'Deny Leave Request',
+        confirmText: 'Deny',
+        type: 'danger'
+    });
+    if (!confirmed) return;
     
     try {
         const { doc, deleteDoc } = 
@@ -24358,7 +25155,7 @@ async function saveEventToFirestore(event) {
     
     if (!db || !currentAuthUser || !appState.currentTeamId) {
         console.error('❌ Cannot save event: missing db, auth, or teamId');
-        alert('Error: Please make sure you are logged in and part of a team');
+        showToast('Please make sure you are logged in and part of a team', 'error');
         return;
     }
     
@@ -24407,7 +25204,7 @@ async function updateEventInFirestore(event) {
     
     if (!db || !currentAuthUser || !appState.currentTeamId) {
         console.error('❌ Cannot update event: missing db, auth, or teamId');
-        alert('Error: Please make sure you are logged in and part of a team');
+        showToast('Please make sure you are logged in and part of a team', 'error');
         return;
     }
     
@@ -25478,7 +26275,12 @@ async function toggleLinkFavorite(groupId, linkId, favorite) {
 
 // Delete link
 async function deleteLink(groupId, linkId) {
-    if (!confirm('Delete this link?')) return;
+    const confirmed = await showConfirmModal('Delete this link?', {
+        title: 'Delete Link',
+        confirmText: 'Delete',
+        type: 'danger'
+    });
+    if (!confirmed) return;
     
     if (!db || !appState.currentTeamId) return;
     
@@ -26645,7 +27447,7 @@ function focusSearchInput() {
 // INITIALIZATION
 // ===================================
 document.addEventListener('DOMContentLoaded', async () => {
-    console.log('TeamHub App Initializing...');
+    console.log('Teamster App Initializing...');
     
     // Check for join code in URL
     const urlParams = new URLSearchParams(window.location.search);
@@ -26678,11 +27480,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     initGlobalKeyboardShortcuts(); // Initialize keyboard shortcuts (t/e/m//)
     startActivityRefreshTimer(); // Start periodic refresh of activity times
     
-    console.log('TeamHub App Ready!');
+    console.log('Teamster App Ready!');
     
     // Show welcome message
     setTimeout(() => {
-        console.log('%c Welcome to TeamHub! ', 'background: #0078D4; color: white; font-size: 16px; padding: 10px;');
+        console.log('%c Welcome to Teamster! ', 'background: #0078D4; color: white; font-size: 16px; padding: 10px;');
         console.log('User authenticated. All features are ready to use.');
     }, 500);
 });

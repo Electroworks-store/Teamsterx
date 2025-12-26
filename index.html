@@ -510,10 +510,30 @@
                             </button>
                         </div>
                         <div class="chat-input-container">
+                            <button class="chat-emoji-btn" id="chatEmojiBtn" title="Insert emoji">
+                                <i class="fas fa-smile"></i>
+                            </button>
                             <input type="text" class="chat-input" id="chatInput" placeholder="Type a message... (use @ to mention, /r to reply)">
                             <button class="send-btn" id="sendMessageBtn">
                                 <i class="fas fa-paper-plane"></i>
                             </button>
+                        </div>
+                        <!-- Chat Emoji Picker Popover -->
+                        <div class="chat-emoji-popover" id="chatEmojiPopover" style="display: none;">
+                            <div class="emoji-popover-header">
+                                <input type="text" class="emoji-search-input" id="chatEmojiSearch" placeholder="Search emojis...">
+                            </div>
+                            <div class="emoji-category-tabs" id="chatEmojiCategoryTabs">
+                                <button class="emoji-tab active" data-category="smileys" title="Smileys">😀</button>
+                                <button class="emoji-tab" data-category="people" title="People">👋</button>
+                                <button class="emoji-tab" data-category="nature" title="Nature">🐶</button>
+                                <button class="emoji-tab" data-category="food" title="Food">🍕</button>
+                                <button class="emoji-tab" data-category="activities" title="Activities">⚽</button>
+                                <button class="emoji-tab" data-category="travel" title="Travel">🚗</button>
+                                <button class="emoji-tab" data-category="objects" title="Objects">💡</button>
+                                <button class="emoji-tab" data-category="symbols" title="Symbols">❤️</button>
+                            </div>
+                            <div class="emoji-grid" id="chatEmojiGrid"></div>
                         </div>
                     </div>
                 </div>
@@ -799,6 +819,24 @@
                                 <span class="command-option-desc">Read-only preview</span>
                             </div>
                         </div>
+                    </div>
+                    
+                    <!-- Doc Emoji Picker Popover -->
+                    <div class="doc-emoji-popover" id="docEmojiPopover" style="display: none;">
+                        <div class="emoji-popover-header">
+                            <input type="text" class="emoji-search-input" id="docEmojiSearch" placeholder="Search emojis...">
+                        </div>
+                        <div class="emoji-category-tabs" id="emojiCategoryTabs">
+                            <button class="emoji-tab active" data-category="smileys" title="Smileys">😀</button>
+                            <button class="emoji-tab" data-category="people" title="People">👋</button>
+                            <button class="emoji-tab" data-category="nature" title="Nature">🐶</button>
+                            <button class="emoji-tab" data-category="food" title="Food">🍕</button>
+                            <button class="emoji-tab" data-category="activities" title="Activities">⚽</button>
+                            <button class="emoji-tab" data-category="travel" title="Travel">🚗</button>
+                            <button class="emoji-tab" data-category="objects" title="Objects">💡</button>
+                            <button class="emoji-tab" data-category="symbols" title="Symbols">❤️</button>
+                        </div>
+                        <div class="emoji-grid" id="docEmojiGrid"></div>
                     </div>
                     
                     <!-- Doc Editor Body -->
@@ -2971,6 +3009,20 @@
                     <div class="visibility-pill-icon-sm"><i class="fas fa-lock"></i></div>
                     <span class="visibility-pill-label">Private</span>
                     <div class="visibility-pill-check-sm"><i class="fas fa-check"></i></div>
+                </label>
+            </div>
+            <!-- Read-Only Toggle (owner only) -->
+            <div class="doc-readonly-toggle" id="docReadOnlySection" style="display: none;">
+                <hr style="border: none; border-top: 1px solid var(--border-subtle); margin: 16px 0;">
+                <label class="toggle-switch-label">
+                    <span class="toggle-label-text">
+                        <i class="fas fa-eye"></i> Read-only for others
+                    </span>
+                    <span class="toggle-label-desc">Only you can edit, others can view</span>
+                    <div class="pill-toggle">
+                        <input type="checkbox" id="docReadOnlyToggle">
+                        <span class="pill-toggle-slider"></span>
+                    </div>
                 </label>
             </div>
             <div class="visibility-modal-actions">
