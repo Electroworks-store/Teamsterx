@@ -562,7 +562,7 @@ service cloud.firestore {
           && request.resource.data.createdBy == request.auth.uid
           && request.resource.data.keys().hasOnly([
             'createdBy', 'teamId', 'title', 'contentHtml', 'contentText',
-            'createdAt', 'updatedAt', 'updatedBy', 'tags', 'visibility'
+            'createdAt', 'updatedAt', 'updatedBy', 'tags', 'visibility', 'isReadOnly'
           ])
           && (!('teamId' in request.resource.data) || request.resource.data.teamId == teamId)
           && request.resource.data.title is string
@@ -588,7 +588,7 @@ service cloud.firestore {
         ) && (
           // Only validate CHANGED fields (affectedKeys)
           request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-            'title', 'contentHtml', 'contentText', 'updatedAt', 'updatedBy', 'tags', 'visibility'
+            'title', 'contentHtml', 'contentText', 'updatedAt', 'updatedBy', 'tags', 'visibility', 'isReadOnly'
           ])
         ) && (
           // SECURITY: Immutable fields cannot change

@@ -1578,25 +1578,29 @@ function showConfirmModal(message, options = {}) {
         const isDanger = type === 'danger';
         const modal = document.createElement('div');
         modal.id = 'customConfirmModal';
-        modal.className = 'modal active';
+        modal.className = 'unified-modal active';
         modal.innerHTML = `
-            <div class="modal-content" style="max-width: 420px; border-radius: 16px; padding: 0; overflow: hidden;">
-                <div style="padding: 24px 24px 16px; background: ${isDanger ? 'linear-gradient(135deg, #FF3B30 0%, #FF453A 100%)' : 'linear-gradient(135deg, #0078D4 0%, #005A9E 100%)'}; color: white;">
-                    <h3 style="margin: 0; font-size: 18px; font-weight: 600; display: flex; align-items: center; gap: 10px;">
-                        <i class="fas ${isDanger ? 'fa-exclamation-triangle' : 'fa-question-circle'}"></i>
-                        ${escapeHtml(title)}
-                    </h3>
-                </div>
-                <div style="padding: 20px 24px;">
-                    <p style="color: var(--text-main); margin: 0 0 20px; line-height: 1.5; font-size: 15px;">${escapeHtml(message)}</p>
-                    <div style="display: flex; gap: 12px; justify-content: flex-end;">
-                        <button id="confirmModalCancel" class="unified-btn unified-btn-secondary" style="padding: 10px 20px; border-radius: 8px;">
-                            ${escapeHtml(cancelText)}
-                        </button>
-                        <button id="confirmModalConfirm" class="unified-btn ${isDanger ? 'unified-btn-danger' : 'unified-btn-primary'}" style="padding: 10px 20px; border-radius: 8px;">
-                            ${escapeHtml(confirmText)}
-                        </button>
+            <div class="unified-modal-container modal-sm">
+                <div class="unified-modal-header" style="padding: 20px 24px 16px; border-bottom: 1px solid rgba(0, 0, 0, 0.06);">
+                    <div class="unified-modal-title">
+                        <h2 style="font-size: 17px; font-weight: 600; color: #000000; margin: 0; display: flex; align-items: center; gap: 10px; letter-spacing: -0.01em;">
+                            ${escapeHtml(title)}
+                        </h2>
                     </div>
+                    <button class="unified-modal-close" onclick="document.getElementById('customConfirmModal').remove();" style="width: 28px; height: 28px; border-radius: 50%; border: none; background: rgba(0, 0, 0, 0.05); color: rgba(0, 0, 0, 0.5); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 13px;">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="unified-modal-body" style="padding: 20px 24px;">
+                    <p style="color: var(--text-main); margin: 0; line-height: 1.5; font-size: 15px;">${escapeHtml(message)}</p>
+                </div>
+                <div class="unified-modal-footer" style="display: flex; justify-content: flex-end; gap: 10px; padding: 16px 24px; border-top: 1px solid rgba(0, 0, 0, 0.06);">
+                    <button id="confirmModalCancel" style="padding: 10px 20px; border-radius: 999px; border: 1px solid rgba(0, 0, 0, 0.1); background: transparent; color: var(--text-main); font-size: 14px; font-weight: 500; cursor: pointer;">
+                        ${escapeHtml(cancelText)}
+                    </button>
+                    <button id="confirmModalConfirm" style="padding: 10px 20px; border-radius: 999px; border: none; background: ${isDanger ? '#FF3B30' : 'var(--accent)'}; color: white; font-size: 14px; font-weight: 500; cursor: pointer;">
+                        ${escapeHtml(confirmText)}
+                    </button>
                 </div>
             </div>
         `;
@@ -1655,26 +1659,30 @@ function showInputModal(message, defaultValue = '', options = {}) {
         
         const modal = document.createElement('div');
         modal.id = 'customInputModal';
-        modal.className = 'modal active';
+        modal.className = 'unified-modal active';
         modal.innerHTML = `
-            <div class="modal-content" style="max-width: 420px; border-radius: 16px; padding: 0; overflow: hidden;">
-                <div style="padding: 24px 24px 16px; background: linear-gradient(135deg, #0078D4 0%, #005A9E 100%); color: white;">
-                    <h3 style="margin: 0; font-size: 18px; font-weight: 600; display: flex; align-items: center; gap: 10px;">
-                        <i class="fas fa-edit"></i>
-                        ${escapeHtml(title)}
-                    </h3>
-                </div>
-                <div style="padding: 20px 24px;">
-                    <p style="color: var(--text-main); margin: 0 0 16px; line-height: 1.5; font-size: 15px;">${escapeHtml(message)}</p>
-                    <input type="text" id="inputModalValue" class="unified-input" style="width: 100%; padding: 12px; border-radius: 8px; margin-bottom: 20px;" placeholder="${escapeHtml(placeholder)}" value="${escapeHtml(defaultValue)}">
-                    <div style="display: flex; gap: 12px; justify-content: flex-end;">
-                        <button id="inputModalCancel" class="unified-btn unified-btn-secondary" style="padding: 10px 20px; border-radius: 8px;">
-                            ${escapeHtml(cancelText)}
-                        </button>
-                        <button id="inputModalConfirm" class="unified-btn unified-btn-primary" style="padding: 10px 20px; border-radius: 8px;">
-                            ${escapeHtml(confirmText)}
-                        </button>
+            <div class="unified-modal-container modal-sm">
+                <div class="unified-modal-header" style="padding: 20px 24px 16px; border-bottom: 1px solid rgba(0, 0, 0, 0.06);">
+                    <div class="unified-modal-title">
+                        <h2 style="font-size: 17px; font-weight: 600; color: #000000; margin: 0; letter-spacing: -0.01em;">
+                            ${escapeHtml(title)}
+                        </h2>
                     </div>
+                    <button class="unified-modal-close" onclick="document.getElementById('customInputModal').remove();" style="width: 28px; height: 28px; border-radius: 50%; border: none; background: rgba(0, 0, 0, 0.05); color: rgba(0, 0, 0, 0.5); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 13px;">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="unified-modal-body" style="padding: 20px 24px;">
+                    <p style="color: var(--text-main); margin: 0 0 16px; line-height: 1.5; font-size: 15px;">${escapeHtml(message)}</p>
+                    <input type="text" id="inputModalValue" class="unified-input" style="width: 100%; padding: 12px; border-radius: 8px;" placeholder="${escapeHtml(placeholder)}" value="${escapeHtml(defaultValue)}">
+                </div>
+                <div class="unified-modal-footer" style="display: flex; justify-content: flex-end; gap: 10px; padding: 16px 24px; border-top: 1px solid rgba(0, 0, 0, 0.06);">
+                    <button id="inputModalCancel" style="padding: 10px 20px; border-radius: 999px; border: 1px solid rgba(0, 0, 0, 0.1); background: transparent; color: var(--text-main); font-size: 14px; font-weight: 500; cursor: pointer;">
+                        ${escapeHtml(cancelText)}
+                    </button>
+                    <button id="inputModalConfirm" style="padding: 10px 20px; border-radius: 999px; border: none; background: var(--accent); color: white; font-size: 14px; font-weight: 500; cursor: pointer;">
+                        ${escapeHtml(confirmText)}
+                    </button>
                 </div>
             </div>
         `;
@@ -10017,10 +10025,12 @@ function initTasks() {
                     <button class="create-doc-close" onclick="closeCreateDocModal()">
                         <i class="fas fa-times"></i>
                     </button>
-                    <div class="create-doc-icon">
-                        <i class="fas fa-file-lines"></i>
+                    <div class="create-doc-header">
+                        <div class="create-doc-icon">
+                            <i class="fas fa-file-lines"></i>
+                        </div>
+                        <h2 class="create-doc-title">New Document</h2>
                     </div>
-                    <h2 class="create-doc-title">New Document</h2>
                     <input type="text" id="newDocTitle" class="create-doc-input" placeholder="Document title" autofocus>
                     <div class="create-doc-actions">
                         <button class="btn-secondary" onclick="closeCreateDocModal()">Cancel</button>
