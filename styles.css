@@ -492,6 +492,7 @@ body {
 .app-container {
     display: flex;
     max-width: 1360px;
+    height: calc(100vh - 48px);
     max-height: calc(100vh - 48px);
     margin: 24px auto;
     background: var(--glass-bg);
@@ -879,6 +880,7 @@ body.dark-mode .teammate-card:hover {
     overflow: hidden;
     background: var(--bg-surface);
     border-radius: 0 var(--radius-xl) var(--radius-xl) 0;
+    min-height: 0; /* Critical: allows flex children to shrink and scroll */
 }
 
 /* Top Bar - UX Polish: Proper stacking context for dropdowns */
@@ -1551,6 +1553,7 @@ body.dark-mode .search-highlight {
 .content-section {
     display: none;
     flex: 1;
+    min-height: 0; /* Critical: allows flex container to shrink and enable scrolling */
     overflow-y: auto;
     overflow-x: hidden;
     padding: var(--spacing-xl);
@@ -14182,9 +14185,9 @@ body.dark-mode .search-result-command .command-icon {
    Ensure no elements get cut off
    =================================== */
 
-/* Fix content sections overflow */
+/* Fix content sections overflow - must scroll internally for consistent height */
 .content-section {
-    overflow: visible;
+    overflow: hidden; /* Default hidden, active state handles scrolling */
 }
 
 .content-section.active {
