@@ -291,6 +291,8 @@ service cloud.firestore {
       // TASKS SUBCOLLECTION
       // SECURITY: Schema validation + size limits
       // RECURRING TASKS: Added isRecurring and recurrence fields
+      // LEADS: Added leadName, source, value, contact, notes fields for CRM functionality
+      // CUSTOM FIELDS: Added customFields map for user-defined columns
       // ==========================
       match /tasks/{taskId} {
         // Any team member can read tasks
@@ -298,13 +300,19 @@ service cloud.firestore {
         
         // Create: member, createdBy must match, validate schema
         // RECURRING TASKS: Added isRecurring and recurrence to allowed fields
+        // LEADS: Added lead-specific fields (leadName, source, value, contact, notes)
+        // CUSTOM FIELDS: Added customFields map
         allow create: if isMemberInTeam(teamId)
           && request.resource.data.createdBy == request.auth.uid
           && request.resource.data.keys().hasOnly([
             'createdBy', 'teamId', 'title', 'description', 'status', 
             'assignee', 'assigneeId', 'priority', 'dueAt', 'dueDate', 'createdAt', 'updatedAt',
             'tags', 'completed', 'completedAt', 'completedBy', 'progress', 'estimatedTime',
-            'budget', 'spreadsheetId', 'showOnCalendar', 'isRecurring', 'recurrence'
+            'budget', 'spreadsheetId', 'showOnCalendar', 'isRecurring', 'recurrence',
+            // Lead-specific fields
+            'leadName', 'source', 'value', 'contact', 'notes',
+            // Custom fields map
+            'customFields'
           ])
           && request.resource.data.teamId == teamId
           && request.resource.data.title is string
@@ -318,12 +326,28 @@ service cloud.firestore {
               (request.resource.data.progress is int && request.resource.data.progress >= 0 && request.resource.data.progress <= 100))
           && (!('estimatedTime' in request.resource.data) || 
               (request.resource.data.estimatedTime is number && request.resource.data.estimatedTime >= 0 && request.resource.data.estimatedTime <= 10000))
-          && (!('isRecurring' in request.resource.data) || request.resource.data.isRecurring is bool);
+          && (!('isRecurring' in request.resource.data) || request.resource.data.isRecurring is bool)
+          // Lead-specific validations
+          && (!('leadName' in request.resource.data) || 
+              (request.resource.data.leadName is string && request.resource.data.leadName.size() <= 200))
+          && (!('source' in request.resource.data) || 
+              (request.resource.data.source is string && request.resource.data.source.size() <= 100))
+          && (!('value' in request.resource.data) || 
+              request.resource.data.value == null || request.resource.data.value is number)
+          && (!('contact' in request.resource.data) || 
+              request.resource.data.contact == null || (request.resource.data.contact is string && request.resource.data.contact.size() <= 500))
+          && (!('notes' in request.resource.data) || 
+              request.resource.data.notes == null || (request.resource.data.notes is string && request.resource.data.notes.size() <= 2000))
+          // Custom fields map validation (max 50 fields, each value <= 10KB)
+          && (!('customFields' in request.resource.data) || 
+              (request.resource.data.customFields is map && request.resource.data.customFields.keys().size() <= 50));
 
         // Update: admin/owner can update any; creator can update their own; assignee can update progress/status
         // Cannot change immutable fields: createdBy, teamId
         // SECURITY: Schema validation on UPDATE using affectedKeys (allows legacy fields to exist)
         // RECURRING TASKS: Added isRecurring, recurrence to allowed update fields
+        // LEADS: Added lead-specific fields
+        // CUSTOM FIELDS: Added customFields map
         allow update: if isMemberInTeam(teamId) && (
           isAdmin(teamId) ||
           resource.data.createdBy == request.auth.uid ||
@@ -337,10 +361,16 @@ service cloud.firestore {
           // SECURITY: Only validate CHANGED fields (affectedKeys), not entire doc
           // This allows updates when docs have legacy fields not in whitelist
           // RECURRING TASKS: Added isRecurring, recurrence
+          // LEADS: Added leadName, source, value, contact, notes
+          // CUSTOM FIELDS: Added customFields
           request.resource.data.diff(resource.data).affectedKeys().hasOnly([
             'title', 'description', 'status', 'assignee', 'assigneeId', 'priority', 'dueAt', 'dueDate', 'updatedAt',
             'tags', 'completed', 'completedAt', 'completedBy', 'progress', 'estimatedTime',
-            'budget', 'spreadsheetId', 'showOnCalendar', 'isRecurring', 'recurrence'
+            'budget', 'spreadsheetId', 'showOnCalendar', 'isRecurring', 'recurrence',
+            // Lead-specific fields
+            'leadName', 'source', 'value', 'contact', 'notes',
+            // Custom fields map
+            'customFields'
           ])
         ) && (
           // SECURITY: Immutable fields cannot change (conditional checks for legacy docs without teamId/createdAt)
@@ -359,7 +389,21 @@ service cloud.firestore {
           (!('description' in request.resource.data) || 
               (request.resource.data.description is string && request.resource.data.description.size() <= 5000)) &&
           (!('progress' in request.resource.data) || 
-              (request.resource.data.progress is int && request.resource.data.progress >= 0 && request.resource.data.progress <= 100))
+              (request.resource.data.progress is int && request.resource.data.progress >= 0 && request.resource.data.progress <= 100)) &&
+          // Lead-specific update validations
+          (!('leadName' in request.resource.data) || 
+              (request.resource.data.leadName is string && request.resource.data.leadName.size() <= 200)) &&
+          (!('source' in request.resource.data) || 
+              (request.resource.data.source is string && request.resource.data.source.size() <= 100)) &&
+          (!('value' in request.resource.data) || 
+              request.resource.data.value == null || request.resource.data.value is number) &&
+          (!('contact' in request.resource.data) || 
+              request.resource.data.contact == null || (request.resource.data.contact is string && request.resource.data.contact.size() <= 500)) &&
+          (!('notes' in request.resource.data) || 
+              request.resource.data.notes == null || (request.resource.data.notes is string && request.resource.data.notes.size() <= 2000)) &&
+          // Custom fields map validation
+          (!('customFields' in request.resource.data) || 
+              (request.resource.data.customFields is map && request.resource.data.customFields.keys().size() <= 50))
         );
 
         // Delete: admin/owner or creator

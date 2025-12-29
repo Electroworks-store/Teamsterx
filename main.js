@@ -24725,10 +24725,16 @@ async function saveTaskToFirestore(task) {
         // Allowed: createdBy, teamId, title, description, status, assignee, assigneeId, priority, dueAt, dueDate,
         //          createdAt, updatedAt, tags, completed, completedAt, completedBy, progress, estimatedTime,
         //          budget, spreadsheetId, showOnCalendar, isRecurring, recurrence
+        // LEADS: leadName, source, value, contact, notes
+        // CUSTOM FIELDS: customFields
         const allowedFields = ['title', 'description', 'status', 'assignee', 'assigneeId', 'priority', 
                                'dueAt', 'dueDate', 'tags', 'completed', 'completedAt', 'completedBy', 
                                'progress', 'estimatedTime', 'budget', 'spreadsheetId', 'showOnCalendar',
-                               'isRecurring', 'recurrence'];
+                               'isRecurring', 'recurrence',
+                               // Lead-specific fields
+                               'leadName', 'source', 'value', 'contact', 'notes',
+                               // Custom fields
+                               'customFields'];
         const taskData = {
             teamId: appState.currentTeamId,  // Required by rules
             createdBy: currentAuthUser.uid,
@@ -24764,8 +24770,9 @@ async function saveTaskToFirestore(task) {
             }
         }
         // Ensure title is set (required by rules)
+        // For leads, use leadName as title if title not provided
         if (!taskData.title) {
-            taskData.title = task.name || 'Untitled Task';
+            taskData.title = task.leadName || task.name || 'Untitled Task';
         }
         
         console.log('📝 CREATE task with data:', {
@@ -24816,11 +24823,17 @@ async function updateTaskInFirestore(task) {
         // SECURITY: Only include fields allowed by rules whitelist (UPDATE - mutable fields only)
         // Allowed on UPDATE: title, description, status, assignee, assigneeId, priority, dueAt, dueDate,
         //          updatedAt, tags, completed, completedAt, completedBy, progress, estimatedTime
+        // LEADS: leadName, source, value, contact, notes
+        // CUSTOM FIELDS: customFields
         // NOTE: updatedBy is NOT allowed - removed to fix permission-denied
         // NOTE: createdBy, teamId, createdAt are immutable - don't send on UPDATE
         const allowedFields = ['title', 'description', 'status', 'assignee', 'assigneeId', 'priority', 
                                'dueAt', 'dueDate', 'tags', 'completed', 'completedAt', 'completedBy', 
-                               'progress', 'estimatedTime'];
+                               'progress', 'estimatedTime',
+                               // Lead-specific fields
+                               'leadName', 'source', 'value', 'contact', 'notes',
+                               // Custom fields
+                               'customFields'];
         const filteredData = {};
         for (const key of allowedFields) {
             if (key in taskData) {
