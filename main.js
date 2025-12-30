@@ -3994,35 +3994,24 @@ function initCalendar() {
     const prevMonthBtn = document.getElementById('prevMonth');
     const nextMonthBtn = document.getElementById('nextMonth');
     const addEventBtn = document.getElementById('addEventBtn');
+    const todayBtn = document.getElementById('todayBtn');
 
     // Load events from Firestore
     loadEventsFromFirestore();
 
-    // Create view toggle buttons
-    const calendarHeader = document.querySelector('.calendar-header');
-    if (calendarHeader && !document.querySelector('.calendar-view-toggle')) {
-        const viewToggle = document.createElement('div');
-        viewToggle.className = 'calendar-view-toggle';
-        viewToggle.innerHTML = `
-            <button class="view-toggle-btn active" data-view="month">
-                <i class="fas fa-calendar"></i> Month
-            </button>
-            <button class="view-toggle-btn" data-view="week">
-                <i class="fas fa-calendar-week"></i> Week
-            </button>
-        `;
-        calendarHeader.appendChild(viewToggle);
-
-        // View toggle handlers
-        document.querySelectorAll('.view-toggle-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                document.querySelectorAll('.view-toggle-btn').forEach(b => b.classList.remove('active'));
-                btn.classList.add('active');
-                appState.calendarView = btn.dataset.view;
+    // View toggle handlers (buttons are now in HTML)
+    document.querySelectorAll('.view-toggle-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.view-toggle-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            const view = btn.dataset.view;
+            // Only support month and week for now
+            if (view === 'month' || view === 'week') {
+                appState.calendarView = view;
                 renderCalendar();
-            });
+            }
         });
-    }
+    });
 
     // Navigation buttons
     if (prevMonthBtn) {
@@ -4043,6 +4032,14 @@ function initCalendar() {
             } else {
                 appState.currentDate.setDate(appState.currentDate.getDate() + 7);
             }
+            renderCalendar();
+        });
+    }
+
+    // Today button - jump to current date
+    if (todayBtn) {
+        todayBtn.addEventListener('click', () => {
+            appState.currentDate = new Date();
             renderCalendar();
         });
     }
@@ -4074,6 +4071,11 @@ function renderCalendar() {
         return;
     }
     
+    // Update view toggle button states
+    document.querySelectorAll('.view-toggle-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.view === appState.calendarView);
+    });
+    
     // Check if calendar section is currently active
     const isCalendarActive = calendarSection && calendarSection.classList.contains('active');
     console.log(`Rendering calendar in ${appState.calendarView} view with ${appState.events.length} events (active: ${isCalendarActive})`);
@@ -4089,28 +4091,67 @@ function renderCalendar() {
     }
 }
 
+// Helper function to render event items in month view
+function renderMonthEventItems(dayEvents) {
+    return dayEvents.slice(0, 2).map(evt => {
+        const color = evt.color || '#0078d4';
+        const startTime = evt.date instanceof Date ? evt.date : new Date(evt.date);
+        const timeStr = formatTime24(startTime.getHours(), startTime.getMinutes());
+        const isPrivate = evt.visibility === 'private' || evt.visibility === 'admins';
+        const lockIcon = isPrivate ? '<i class="fas fa-lock month-event-lock"></i>' : '';
+        const repeatIcon = evt.isRecurrence ? '<i class="fas fa-redo month-event-repeat"></i>' : '';
+        const eventId = evt.masterId || evt.id;
+        return `<div class="month-event-item" onclick="viewEventDetails('${escapeHtml(eventId)}', '${evt.occurrenceDate ? evt.occurrenceDate.toISOString() : ''}'); event.stopPropagation();" style="background: ${escapeHtml(color)}15; border-left: 3px solid ${escapeHtml(color)};">
+            <span class="month-event-time" style="color: ${escapeHtml(color)};">${timeStr}</span>
+            <span class="month-event-title">${escapeHtml(evt.title)}</span>
+            ${lockIcon}${repeatIcon}
+        </div>`;
+    }).join('') + (dayEvents.length > 2 ? `<div class="month-event-more">+${dayEvents.length - 2} more</div>` : '');
+}
+
 function renderMonthView(titleEl, daysEl) {
     const year = appState.currentDate.getFullYear();
     const month = appState.currentDate.getMonth();
     
-    titleEl.textContent = new Date(year, month).toLocaleDateString('en-US', { 
-        month: 'long', 
-        year: 'numeric' 
-    });
+    // Format title like "August 2026" - month light, year bold
+    const monthName = new Date(year, month).toLocaleDateString('en-US', { month: 'long' });
+    titleEl.innerHTML = `${monthName} <span>${year}</span>`;
 
     let firstDayOfMonth = new Date(year, month, 1).getDay();
     // Adjust for Monday start: 0 (Sunday) becomes 6, 1 (Monday) becomes 0, etc.
     firstDayOfMonth = firstDayOfMonth === 0 ? 6 : firstDayOfMonth - 1;
     
     const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const daysInPrevMonth = new Date(year, month, 0).getDate();
     
     let html = '';
     const today = new Date();
     
-    // Generate occurrences for the entire month
-    const rangeStart = new Date(year, month, 1, 0, 0, 0);
-    const rangeEnd = new Date(year, month + 1, 0, 23, 59, 59);
+    // Generate occurrences for the entire month (including overflow days)
+    const rangeStart = new Date(year, month - 1, daysInPrevMonth - firstDayOfMonth + 1, 0, 0, 0);
+    const rangeEnd = new Date(year, month + 1, 14, 23, 59, 59);
     const allOccurrences = getAllEventOccurrences(appState.events, rangeStart, rangeEnd);
+    
+    // Previous month days (to fill the first week)
+    for (let i = firstDayOfMonth - 1; i >= 0; i--) {
+        const day = daysInPrevMonth - i;
+        const date = new Date(year, month - 1, day);
+        
+        // Filter occurrences for this day
+        const dayEvents = allOccurrences.filter(e => {
+            const eventDate = e.date instanceof Date ? e.date : new Date(e.date);
+            return eventDate.toDateString() === date.toDateString();
+        });
+        
+        const eventItemsHtml = renderMonthEventItems(dayEvents);
+        
+        html += `
+            <div class="calendar-day other-month" data-date="${date.toISOString()}">
+                <div class="day-number">${day}</div>
+                ${dayEvents.length > 0 ? `<div class="month-events">${eventItemsHtml}</div>` : ''}
+            </div>
+        `;
+    }
     
     // Current month days
     for (let day = 1; day <= daysInMonth; day++) {
@@ -4123,47 +4164,110 @@ function renderMonthView(titleEl, daysEl) {
             return eventDate.toDateString() === date.toDateString();
         });
         
-        const eventItemsHtml = dayEvents.slice(0, 2).map(evt => {
-            const color = evt.color || '#0078d4';
-            const startTime = evt.date instanceof Date ? evt.date : new Date(evt.date);
-            const timeStr = formatTime24(startTime.getHours(), startTime.getMinutes());
-            const isPrivate = evt.visibility === 'private' || evt.visibility === 'admins';
-            const lockIcon = isPrivate ? '<i class="fas fa-lock month-event-lock"></i>' : '';
-            const repeatIcon = evt.isRecurrence ? '<i class="fas fa-redo month-event-repeat"></i>' : '';
-            const eventId = evt.masterId || evt.id;
-            return `<div class="month-event-item" onclick="viewEventDetails('${escapeHtml(eventId)}', '${evt.occurrenceDate ? evt.occurrenceDate.toISOString() : ''}'); event.stopPropagation();" style="background: ${escapeHtml(color)}15; border-left: 3px solid ${escapeHtml(color)};">
-                <span class="month-event-time" style="color: ${escapeHtml(color)};">${timeStr}</span>
-                <span class="month-event-title">${escapeHtml(evt.title)}</span>
-                ${lockIcon}${repeatIcon}
-            </div>`;
-        }).join('');
-        
-        // Add offset for the first week to align with correct day
-        const dayOffset = day === 1 ? `style="grid-column-start: ${firstDayOfMonth + 1};"` : '';
+        const eventItemsHtml = renderMonthEventItems(dayEvents);
         
         html += `
-            <div class="calendar-day ${isToday ? 'today' : ''}" data-date="${date.toISOString()}" ${dayOffset}>
+            <div class="calendar-day ${isToday ? 'today' : ''}" data-date="${date.toISOString()}">
                 <div class="day-number">${day}</div>
-                ${dayEvents.length > 0 ? `<div class="month-events">${eventItemsHtml}${dayEvents.length > 2 ? `<div class="month-event-more">+${dayEvents.length - 2} more</div>` : ''}</div>` : ''}
+                ${dayEvents.length > 0 ? `<div class="month-events">${eventItemsHtml}</div>` : ''}
             </div>
         `;
     }
     
-    // No next month days needed
+    // Next month days (to complete the grid - fill remaining cells to make 6 rows)
+    const totalCells = firstDayOfMonth + daysInMonth;
+    const cellsToAdd = totalCells <= 35 ? (35 - totalCells) : (42 - totalCells);
+    
+    for (let day = 1; day <= cellsToAdd; day++) {
+        const date = new Date(year, month + 1, day);
+        
+        // Filter occurrences for this day
+        const dayEvents = allOccurrences.filter(e => {
+            const eventDate = e.date instanceof Date ? e.date : new Date(e.date);
+            return eventDate.toDateString() === date.toDateString();
+        });
+        
+        const eventItemsHtml = renderMonthEventItems(dayEvents);
+        
+        // Show month indicator on first day of next month
+        const dayLabel = day === 1 ? `1.${month + 2 > 12 ? 1 : month + 2}.` : day;
+        
+        html += `
+            <div class="calendar-day other-month" data-date="${date.toISOString()}">
+                <div class="day-number">${dayLabel}</div>
+                ${dayEvents.length > 0 ? `<div class="month-events">${eventItemsHtml}</div>` : ''}
+            </div>
+        `;
+    }
     
     daysEl.innerHTML = html;
     
-    // Add click handlers
-    document.querySelectorAll('.calendar-day:not(.other-month)').forEach(day => {
-        day.addEventListener('click', () => {
-            const dateStr = day.dataset.date;
-            if (dateStr) {
-                appState.currentDate = new Date(dateStr);
-                appState.calendarView = 'week';
-                document.querySelector('[data-view="week"]').click();
+    // Add click handlers to open event modal with selected date using event delegation
+    setTimeout(() => {
+        const calendarDays = document.getElementById('calendarDays');
+        if (!calendarDays) return;
+        
+        // Remove any existing handlers
+        const oldMouseDown = calendarDays._monthDayMouseDownHandler;
+        const oldMouseUp = calendarDays._monthDayMouseUpHandler;
+        const oldMouseLeave = calendarDays._monthDayMouseLeaveHandler;
+        if (oldMouseDown) calendarDays.removeEventListener('mousedown', oldMouseDown);
+        if (oldMouseUp) calendarDays.removeEventListener('mouseup', oldMouseUp);
+        if (oldMouseLeave) calendarDays.removeEventListener('mouseleave', oldMouseLeave);
+        
+        // Track press-and-hold state
+        let pressTimer = null;
+        let pressedDay = null;
+        
+        // Mouse down - start the timer
+        const mouseDownHandler = (e) => {
+            const day = e.target.closest('.calendar-day:not(.other-month)');
+            if (!day) return;
+            
+            // Don't trigger if clicking on an event item
+            if (e.target.closest('.month-event-item')) {
+                return;
             }
-        });
-    });
+            
+            pressedDay = day;
+            
+            // Start 1-second timer
+            pressTimer = setTimeout(() => {
+                const dateStr = day.dataset.date;
+                if (dateStr) {
+                    const selectedDate = new Date(dateStr);
+                    openEventModalWithDate(selectedDate);
+                    pressedDay = null;
+                }
+            }, 1000);
+        };
+        
+        // Mouse up - cancel the timer if released too early
+        const mouseUpHandler = (e) => {
+            if (pressTimer) {
+                clearTimeout(pressTimer);
+                pressTimer = null;
+            }
+            pressedDay = null;
+        };
+        
+        // Mouse leave - cancel if mouse leaves the calendar area
+        const mouseLeaveHandler = (e) => {
+            if (pressTimer) {
+                clearTimeout(pressTimer);
+                pressTimer = null;
+            }
+            pressedDay = null;
+        };
+        
+        calendarDays.addEventListener('mousedown', mouseDownHandler);
+        calendarDays.addEventListener('mouseup', mouseUpHandler);
+        calendarDays.addEventListener('mouseleave', mouseLeaveHandler);
+        
+        calendarDays._monthDayMouseDownHandler = mouseDownHandler;
+        calendarDays._monthDayMouseUpHandler = mouseUpHandler;
+        calendarDays._monthDayMouseLeaveHandler = mouseLeaveHandler;
+    }, 100);
 }
 
 function renderWeekView(titleEl, daysEl) {
@@ -4363,6 +4467,43 @@ function renderDesktopColumnWeek(titleEl, daysEl, startOfWeek, allOccurrences) {
             scrollContainer.scrollTop = scrollTo;
         }
     });
+    
+    // Add click handlers to grid cells to create events
+    setTimeout(() => {
+        const gridCells = daysEl.querySelectorAll('.week-grid-cell');
+        console.log(`[Calendar] Attaching click handlers to ${gridCells.length} grid cells`);
+        
+        gridCells.forEach((cell, index) => {
+            const handler = function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                const dayColumn = this.closest('.week-day-column');
+                const dateStr = dayColumn?.dataset.date;
+                const hour = parseInt(this.dataset.hour);
+                
+                console.log('[Calendar] Grid cell clicked:', { dateStr, hour, cell: this });
+                
+                if (dateStr && !isNaN(hour)) {
+                    const selectedDate = new Date(dateStr);
+                    selectedDate.setHours(hour, 0, 0, 0);
+                    console.log('[Calendar] Opening event modal for:', selectedDate);
+                    if (typeof window.openEventModalWithDate === 'function') {
+                        window.openEventModalWithDate(selectedDate, hour);
+                    } else if (typeof openEventModalWithDate === 'function') {
+                        openEventModalWithDate(selectedDate, hour);
+                    } else {
+                        console.error('[Calendar] openEventModalWithDate function not found!');
+                    }
+                }
+            };
+            
+            cell.addEventListener('click', handler);
+            if (index === 0) {
+                console.log('[Calendar] First cell data:', { date: cell.closest('.week-day-column')?.dataset.date, hour: cell.dataset.hour });
+            }
+        });
+    }, 100);
     
     // Initialize drag-and-drop for events
     initCalendarDragDrop();
@@ -4817,6 +4958,8 @@ function initCalendarDragDrop() {
     const timeCells = document.querySelectorAll('.week-time-cell');
     const gridCells = document.querySelectorAll('.week-grid-cell'); // New column view cells
     
+    console.log('[DragDrop] Initializing with', eventBlocks.length, 'events,', gridCells.length, 'grid cells');
+    
     eventBlocks.forEach(block => {
         block.addEventListener('dragstart', handleEventDragStart);
         block.addEventListener('dragend', handleEventDragEnd);
@@ -4836,27 +4979,39 @@ function initCalendarDragDrop() {
     });
     
     gridCells.forEach(cell => {
-        cell.addEventListener('dragover', handleCellDragOver);
-        cell.addEventListener('dragleave', handleCellDragLeave);
-        cell.addEventListener('drop', handleCellDrop);
+        cell.addEventListener('dragover', handleGridCellDragOver);
+        cell.addEventListener('dragleave', handleGridCellDragLeave);
+        cell.addEventListener('drop', handleGridCellDrop);
     });
 }
 
 let draggedEventId = null;
+let draggedEventElement = null;
+let dragOffsetY = 0; // Offset from top of event where user clicked
 
 function handleEventDragStart(e) {
     draggedEventId = e.target.dataset.eventId;
+    draggedEventElement = e.target;
+    
+    // Calculate offset from top of event element to mouse position
+    const rect = e.target.getBoundingClientRect();
+    dragOffsetY = e.clientY - rect.top;
+    
     e.target.classList.add('dragging');
     e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setData('text/plain', draggedEventId);
+    console.log('[DragDrop] Started dragging event:', draggedEventId, 'offsetY:', dragOffsetY);
 }
 
 function handleEventDragEnd(e) {
     e.target.classList.remove('dragging');
     draggedEventId = null;
+    draggedEventElement = null;
+    dragOffsetY = 0;
     
     // Remove all drag-over highlights
     document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+    console.log('[DragDrop] Drag ended');
 }
 
 function handleEventDragOver(e) {
@@ -4876,6 +5031,81 @@ function handleCellDragOver(e) {
 
 function handleCellDragLeave(e) {
     e.target.classList.remove('drag-over');
+}
+
+// Dedicated handlers for week grid cells (column view)
+function handleGridCellDragOver(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    // Only highlight if we're dragging an event
+    if (!draggedEventId) return;
+    
+    e.currentTarget.classList.add('drag-over');
+    e.dataTransfer.dropEffect = 'move';
+}
+
+function handleGridCellDragLeave(e) {
+    e.currentTarget.classList.remove('drag-over');
+}
+
+async function handleGridCellDrop(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    const cell = e.currentTarget;
+    cell.classList.remove('drag-over');
+    
+    // Remove all drag-over states
+    document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+    
+    if (!draggedEventId) {
+        console.log('[DragDrop] No dragged event ID');
+        return;
+    }
+    
+    // Get the day column for the date
+    const column = cell.closest('.week-day-column');
+    const dateStr = column?.dataset.date;
+    
+    if (!dateStr) {
+        console.log('[DragDrop] Invalid drop target - missing date');
+        return;
+    }
+    
+    // Calculate the drop position based on the TOP of the event (not mouse position)
+    // The top of the event = mouse position - drag offset
+    const eventTopY = e.clientY - dragOffsetY;
+    
+    // Find the grid container to calculate relative position
+    const gridContainer = column.querySelector('.week-day-grid');
+    const gridRect = gridContainer.getBoundingClientRect();
+    
+    // Calculate position relative to the grid (in pixels from top of grid)
+    const relativeY = eventTopY - gridRect.top;
+    
+    // Each cell is 60px (SLOT_HEIGHT), starting from hour 6 (START_HOUR)
+    const SLOT_HEIGHT = 60;
+    const START_HOUR = 6;
+    
+    // Calculate total minutes from the top of the grid
+    const totalMinutesFromStart = (relativeY / SLOT_HEIGHT) * 60;
+    
+    // Calculate hour and minute (snap to 30-minute intervals)
+    const hour = Math.floor(totalMinutesFromStart / 60) + START_HOUR;
+    const rawMinute = totalMinutesFromStart % 60;
+    const minute = Math.round(rawMinute / 30) * 30; // Snap to 0 or 30
+    
+    // Clamp values to valid range
+    const clampedHour = Math.max(START_HOUR, Math.min(22, hour));
+    const clampedMinute = Math.max(0, Math.min(30, minute));
+    
+    const newDate = new Date(dateStr);
+    newDate.setHours(clampedHour, clampedMinute, 0, 0);
+    
+    console.log('[DragDrop] Rescheduling to:', newDate, 'hour:', clampedHour, 'minute:', clampedMinute);
+    
+    await rescheduleEvent(draggedEventId, newDate, clampedHour, clampedMinute);
 }
 
 async function handleEventDrop(e) {
@@ -17832,6 +18062,65 @@ function openModal(modalId) {
     }
 }
 
+// Open event modal with pre-filled date and time
+function openEventModalWithDate(selectedDate, startHour = 9) {
+    // Reset the form first
+    const eventForm = document.getElementById('eventForm');
+    if (eventForm) {
+        eventForm.reset();
+        delete eventForm.dataset.editingEventId;
+    }
+    
+    // Format date for input field (YYYY-MM-DD)
+    const year = selectedDate.getFullYear();
+    const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
+    const day = String(selectedDate.getDate()).padStart(2, '0');
+    const dateStr = `${year}-${month}-${day}`;
+    
+    // Set the date
+    const eventDateInput = document.getElementById('eventDate');
+    if (eventDateInput) {
+        eventDateInput.value = dateStr;
+    }
+    
+    // Set start time (default 9:00 if not provided)
+    const eventHourInput = document.getElementById('eventHour');
+    const eventMinuteInput = document.getElementById('eventMinute');
+    if (eventHourInput) {
+        eventHourInput.value = String(startHour).padStart(2, '0');
+    }
+    if (eventMinuteInput) {
+        eventMinuteInput.value = '00';
+    }
+    
+    // Set end time (1 hour after start)
+    const endHour = (startHour + 1) % 24;
+    const eventEndHourInput = document.getElementById('eventEndHour');
+    const eventEndMinuteInput = document.getElementById('eventEndMinute');
+    if (eventEndHourInput) {
+        eventEndHourInput.value = String(endHour).padStart(2, '0');
+    }
+    if (eventEndMinuteInput) {
+        eventEndMinuteInput.value = '00';
+    }
+    
+    // Update duration display
+    const durationText = document.getElementById('durationText');
+    if (durationText) {
+        durationText.textContent = '60 minutes';
+    }
+    
+    // Reset visibility and repeat to defaults
+    resetEventVisibility();
+    resetEventRepeat();
+    
+    // Open the modal
+    openModal('eventModal');
+}
+
+// Expose globally for calendar click handlers
+window.openEventModalWithDate = openEventModalWithDate;
+
 function closeModal(modalId) {
     const modal = document.getElementById(modalId);
     if (!modal) return;
@@ -21514,6 +21803,9 @@ function performSearch(query) {
 // SETTINGS & USER MENU
 // ===================================
 function initSettings() {
+    // Initialize settings tab navigation
+    initSettingsTabs();
+    
     // Initialize account settings form
     loadAccountSettings();
     
@@ -21544,62 +21836,261 @@ function initSettings() {
     // Initialize accent color settings
     initAccentColorPicker();
     
-    // Initialize inline avatar upload button (UX Polish: moved from separate card)
+    // Initialize inline avatar upload (dropzone)
     initInlineAvatarUpload();
+    
+    // Initialize bio character counter
+    initBioCharCounter();
+    
+    // Initialize avatar dropzone drag and drop
+    initAvatarDropzone();
 }
 
-// Initialize inline avatar upload (below color picker)
-function initInlineAvatarUpload() {
-    const uploadBtn = document.getElementById('uploadAvatarBtnInline');
+// Initialize settings tabs navigation
+function initSettingsTabs() {
+    const tabs = document.querySelectorAll('.settings-tab');
+    const panes = document.querySelectorAll('.settings-tab-pane');
+    
+    tabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+            const targetTab = tab.dataset.settingsTab;
+            
+            // Update tab active state
+            tabs.forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+            
+            // Update pane active state
+            panes.forEach(pane => {
+                pane.classList.remove('active');
+                if (pane.id === `settings-pane-${targetTab}`) {
+                    pane.classList.add('active');
+                }
+            });
+        });
+    });
+    
+    // Initialize theme selector in Appearance tab
+    initThemeSelectorModern();
+}
+
+// Initialize modern theme selector buttons
+function initThemeSelectorModern() {
+    // Support both .theme-option-modern and .theme-btn (minimal)
+    const themeButtons = document.querySelectorAll('.theme-option-modern, .theme-btn');
+    const themeInput = document.getElementById('themePreference');
+    
+    // Get current theme from localStorage
+    const currentTheme = localStorage.getItem('themePreference') || 'system';
+    
+    // Set initial active state
+    themeButtons.forEach(btn => {
+        if (btn.dataset.theme === currentTheme) {
+            btn.classList.add('active');
+        }
+        
+        btn.addEventListener('click', () => {
+            // Update active state
+            themeButtons.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            
+            // Update hidden input
+            if (themeInput) {
+                themeInput.value = btn.dataset.theme;
+            }
+            
+            // Apply theme
+            applyThemePreference(btn.dataset.theme);
+            
+            // Save preference
+            localStorage.setItem('themePreference', btn.dataset.theme);
+        });
+    });
+    
+    // Initialize minimal color pickers
+    initMinimalColorPickers();
+}
+
+// Initialize minimal color pickers (avatar + accent)
+function initMinimalColorPickers() {
+    // Avatar color picker (minimal dots)
+    const avatarColorDots = document.querySelectorAll('.avatar-color-picker-minimal .color-dot');
+    const avatarColorInput = document.getElementById('settingsAvatarColor');
+    
+    if (avatarColorDots.length && avatarColorInput) {
+        // Set initial selected state
+        const currentColor = avatarColorInput.value;
+        avatarColorDots.forEach(dot => {
+            if (dot.dataset.color === currentColor) {
+                dot.classList.add('selected');
+            }
+            
+            dot.addEventListener('click', () => {
+                avatarColorDots.forEach(d => d.classList.remove('selected'));
+                dot.classList.add('selected');
+                avatarColorInput.value = dot.dataset.color;
+                
+                // Update avatar preview
+                const avatarPreview = document.getElementById('profileAvatarPreview');
+                if (avatarPreview) {
+                    avatarPreview.style.backgroundColor = dot.dataset.color;
+                }
+            });
+        });
+    }
+    
+    // Accent color picker (minimal dots)
+    const accentDots = document.querySelectorAll('.accent-color-picker-minimal .accent-dot');
+    if (accentDots.length) {
+        const savedAccent = localStorage.getItem('accentColor') || 'blue';
+        
+        accentDots.forEach(dot => {
+            if (dot.dataset.accent === savedAccent) {
+                dot.classList.add('selected');
+            }
+            
+            dot.addEventListener('click', () => {
+                accentDots.forEach(d => d.classList.remove('selected'));
+                dot.classList.add('selected');
+                
+                // Apply accent color
+                const isDark = document.body.classList.contains('dark-mode');
+                const color = isDark ? dot.dataset.dark : dot.dataset.color;
+                const hover = isDark ? dot.dataset.darkHover : dot.dataset.hover;
+                const soft = isDark ? dot.dataset.darkSoft : dot.dataset.soft;
+                
+                document.documentElement.style.setProperty('--accent', color);
+                document.documentElement.style.setProperty('--accent-hover', hover);
+                document.documentElement.style.setProperty('--accent-soft', soft);
+                
+                localStorage.setItem('accentColor', dot.dataset.accent);
+            });
+        });
+    }
+}
+
+// Apply theme preference
+function applyThemePreference(preference) {
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    
+    if (preference === 'dark' || (preference === 'system' && prefersDark)) {
+        document.body.classList.add('dark-mode');
+        document.documentElement.classList.add('dark-mode');
+        localStorage.setItem('darkMode', 'true');
+    } else {
+        document.body.classList.remove('dark-mode');
+        document.documentElement.classList.remove('dark-mode');
+        localStorage.setItem('darkMode', 'false');
+    }
+}
+
+// Initialize bio character counter
+function initBioCharCounter() {
+    const bioTextarea = document.getElementById('settingsBio');
+    const charCount = document.getElementById('bioCharCount');
+    
+    if (!bioTextarea || !charCount) return;
+    
+    const updateCount = () => {
+        charCount.textContent = bioTextarea.value.length;
+    };
+    
+    bioTextarea.addEventListener('input', updateCount);
+    updateCount();
+}
+
+// Initialize avatar dropzone with drag and drop
+function initAvatarDropzone() {
+    const dropzone = document.getElementById('avatarDropzone');
     const fileInput = document.getElementById('avatarFileInputInline');
     
-    if (!uploadBtn || !fileInput) return;
+    if (!dropzone || !fileInput) return;
     
-    // Trigger file input when button clicked
-    uploadBtn.addEventListener('click', () => {
+    // Prevent default drag behaviors
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+        dropzone.addEventListener(eventName, (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+        });
+    });
+    
+    // Highlight on drag
+    ['dragenter', 'dragover'].forEach(eventName => {
+        dropzone.addEventListener(eventName, () => {
+            dropzone.classList.add('drag-over');
+        });
+    });
+    
+    ['dragleave', 'drop'].forEach(eventName => {
+        dropzone.addEventListener(eventName, () => {
+            dropzone.classList.remove('drag-over');
+        });
+    });
+    
+    // Handle drop
+    dropzone.addEventListener('drop', (e) => {
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+            handleAvatarFile(files[0]);
+        }
+    });
+    
+    // Handle click to open file picker
+    dropzone.addEventListener('click', () => {
         fileInput.click();
     });
     
     // Handle file selection
+    fileInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            handleAvatarFile(file);
+        }
+    });
+}
+
+// Handle avatar file upload
+async function handleAvatarFile(file) {
+    // Validate file size (max 10MB as per dropzone text)
+    if (file.size > 10 * 1024 * 1024) {
+        showToast('Image must be under 10MB', 'error');
+        return;
+    }
+    
+    // Validate file type
+    const validTypes = ['image/svg+xml', 'image/jpeg', 'image/jpg', 'image/png'];
+    if (!validTypes.includes(file.type)) {
+        showToast('Please select a SVG, JPG, or PNG file', 'error');
+        return;
+    }
+    
+    try {
+        showToast('Avatar upload feature requires Firebase Storage setup', 'info');
+    } catch (error) {
+        console.error('Avatar upload error:', error);
+        showToast('Failed to upload avatar', 'error');
+    }
+}
+
+// Initialize inline avatar upload (legacy support - now handled by initAvatarDropzone)
+function initInlineAvatarUpload() {
+    // The avatar upload is now handled by the dropzone in initAvatarDropzone
+    // This function is kept for backwards compatibility
+    const uploadBtn = document.getElementById('uploadAvatarBtn');
+    const fileInput = document.getElementById('avatarFileInput');
+    
+    if (!uploadBtn || !fileInput) return;
+    
+    // Trigger file input when button clicked (legacy)
+    uploadBtn.addEventListener('click', () => {
+        fileInput.click();
+    });
+    
+    // Handle file selection (legacy)
     fileInput.addEventListener('change', async (e) => {
         const file = e.target.files[0];
         if (!file) return;
-        
-        // Validate file size (max 2MB)
-        if (file.size > 2 * 1024 * 1024) {
-            showToast('Image must be under 2MB', 'error');
-            fileInput.value = '';
-            return;
-        }
-        
-        // Validate file type
-        if (!file.type.startsWith('image/')) {
-            showToast('Please select an image file', 'error');
-            fileInput.value = '';
-            return;
-        }
-        
-        // Show loading state
-        const originalText = uploadBtn.innerHTML;
-        uploadBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Uploading...';
-        uploadBtn.disabled = true;
-        
-        try {
-            // For now, show a placeholder message since Firebase Storage may not be set up
-            // In production, this would call uploadUserAvatar(file)
-            showToast('Avatar upload feature requires Firebase Storage setup', 'info');
-            
-            // Reset button
-            uploadBtn.innerHTML = originalText;
-            uploadBtn.disabled = false;
-            fileInput.value = '';
-        } catch (error) {
-            console.error('Avatar upload error:', error);
-            showToast('Failed to upload avatar', 'error');
-            uploadBtn.innerHTML = originalText;
-            uploadBtn.disabled = false;
-            fileInput.value = '';
-        }
+        handleAvatarFile(file);
+        fileInput.value = '';
     });
 }
 
@@ -22219,7 +22710,8 @@ function initAppearanceForm() {
     const form = document.getElementById('appearanceForm');
     if (!form) return;
     
-    const themeOptions = document.querySelectorAll('.theme-option');
+    // Support both old (.theme-option) and new (.theme-option-modern) selectors
+    const themeOptions = document.querySelectorAll('.theme-option, .theme-option-modern');
     const themeInput = document.getElementById('themePreference');
     
     if (!themeOptions.length) {
@@ -22270,7 +22762,8 @@ function initAppearanceForm() {
  * @param {string} theme - 'system', 'light', or 'dark'
  */
 function updateThemeUI(theme) {
-    const themeOptions = document.querySelectorAll('.theme-option');
+    // Support both old (.theme-option) and new (.theme-option-modern) selectors
+    const themeOptions = document.querySelectorAll('.theme-option, .theme-option-modern');
     const themeInput = document.getElementById('themePreference');
     
     themeOptions.forEach(option => {
@@ -22690,16 +23183,26 @@ function initSidebarIconsToggle() {
 
 // Load sidebar icons preference
 async function loadSidebarIconsPreference() {
-    if (!currentAuthUser || !db) return true; // Default to enabled
+    if (!currentAuthUser || !db) {
+        // Fallback to localStorage if not authenticated
+        const stored = localStorage.getItem('sidebarIconsEnabled');
+        return stored !== null ? stored === 'true' : true; // Default to enabled
+    }
     
     try {
         const userDoc = await getDoc(doc(db, 'users', currentAuthUser.uid));
         if (userDoc.exists()) {
             const preferences = userDoc.data().preferences || {};
-            return preferences.ui?.sidebarIconsEnabled !== false; // Default to true
+            const enabled = preferences.ui?.sidebarIconsEnabled !== false; // Default to true
+            // Also save to localStorage for offline access
+            localStorage.setItem('sidebarIconsEnabled', enabled);
+            return enabled;
         }
     } catch (error) {
         console.error('Error loading sidebar icons preference:', error);
+        // Fallback to localStorage on error
+        const stored = localStorage.getItem('sidebarIconsEnabled');
+        return stored !== null ? stored === 'true' : true;
     }
     return true;
 }
@@ -22718,14 +23221,17 @@ function applySidebarIconsPreference(enabled) {
 
 // Save sidebar icons preference
 async function saveSidebarIconsPreference() {
+    const enabled = document.getElementById('showSidebarIcons')?.checked ?? true;
+    
+    // Always save to localStorage for immediate persistence
+    localStorage.setItem('sidebarIconsEnabled', enabled);
+    
     if (!currentAuthUser || !db) {
-        showToast('Cannot save preferences. Please sign in again.', 'error');
+        console.log('Saving sidebar icons preference to localStorage only (not authenticated)');
         return;
     }
     
-    const enabled = document.getElementById('showSidebarIcons').checked;
-    
-    console.log('Saving sidebar icons preference:', enabled);
+    console.log('Saving sidebar icons preference to Firestore:', enabled);
     
     try {
         await updateUserPreferences({ ui: { sidebarIconsEnabled: enabled } });
@@ -22797,6 +23303,7 @@ function updateSettingsVisibility() {
     // Admin/Owner settings
     const advancedSettingsCard = document.getElementById('settings-chat-appearance-section');
     const animationsSettingsCard = document.getElementById('animationsSettingsCard');
+    const advancedSettingsTab = document.getElementById('advancedSettingsTab');
     const isAdminOrOwner = (currentUserRole === 'admin' || currentUserRole === 'owner') && hasTeam;
     
     if (advancedSettingsCard) {
@@ -22804,6 +23311,10 @@ function updateSettingsVisibility() {
     }
     if (animationsSettingsCard) {
         animationsSettingsCard.style.display = isAdminOrOwner ? 'block' : 'none';
+    }
+    // Show/hide the Advanced tab in the new settings UI
+    if (advancedSettingsTab) {
+        advancedSettingsTab.style.display = isAdminOrOwner ? 'inline-block' : 'none';
     }
 }
 

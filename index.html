@@ -540,24 +540,29 @@
 
             <!-- Calendar Section -->
             <section class="content-section" id="calendar-section">
-                <div class="section-header">
-                    <h1>Team Calendar</h1>
-                    <p class="section-subtitle">Schedule and manage team events</p>
-                    <button class="btn-primary" id="addEventBtn">
-                        <i class="fas fa-plus"></i> Add Event
-                    </button>
-                </div>
-                
                 <div class="calendar-container">
                     <div class="calendar-header">
-                        <button class="calendar-nav-btn" id="prevMonth">
-                            <i class="fas fa-chevron-left"></i>
-                        </button>
-                        <h2 class="calendar-title" id="calendarTitle">October 2025</h2>
-                        <button class="calendar-nav-btn" id="nextMonth">
-                            <i class="fas fa-chevron-right"></i>
-                        </button>
-                        <!-- View toggle buttons will be added here dynamically -->
+                        <div class="calendar-title-section">
+                            <h2 class="calendar-title" id="calendarTitle">October 2025</h2>
+                        </div>
+                        
+                        <div class="calendar-view-toggle">
+                            <button class="view-toggle-btn" data-view="week">Week</button>
+                            <button class="view-toggle-btn active" data-view="month">Month</button>
+                        </div>
+                        
+                        <div class="calendar-nav-section">
+                            <button class="calendar-nav-btn" id="prevMonth">
+                                <i class="fas fa-chevron-left"></i>
+                            </button>
+                            <button class="calendar-today-btn" id="todayBtn">Today</button>
+                            <button class="calendar-nav-btn" id="nextMonth">
+                                <i class="fas fa-chevron-right"></i>
+                            </button>
+                            <button class="calendar-add-btn" id="addEventBtn" title="Add Event">
+                                <i class="fas fa-plus"></i>
+                            </button>
+                        </div>
                     </div>
                     
                     <div class="calendar-grid">
@@ -1037,584 +1042,285 @@
                 </div>
             </section>
 
-            <!-- Settings Section -->
+            <!-- Settings Section - Minimalist Design -->
             <section class="content-section" id="settings-section">
-                <div class="section-header">
-                    <h1>Settings</h1>
-                    <p class="section-subtitle">Manage your account and preferences</p>
-                </div>
-
-                    <!-- Profile Picture Card -->
-                    <div class="settings-card" id="settings-profile-section">
-                        <div class="settings-card-header">
-                            <h2><i class="fas fa-image"></i> Profile Picture</h2>
-                            <p>Update your avatar for chat and team lists</p>
-                        </div>
-                        <div class="settings-card-body">
-                            <div class="avatar-settings-preview">
-                                <div class="profile-avatar-large" id="avatarSettingsPreview">
-                                    <!-- Avatar image or initials will be rendered here by JS -->
-                                </div>
-                            </div>
-                            <button type="button" class="btn-primary" id="uploadAvatarBtn" style="margin-top: 16px;">
-                                Upload new avatar
-                            </button>
-                            <input type="file" id="avatarFileInput" accept="image/*" style="display: none;">
-                            <small style="display: block; margin-top: 12px; color: var(--text-muted);">We recommend a square image under 2 MB.</small>
-                        </div>
-                    </div>
-                <!-- Account Settings Card - Compact Modern Layout -->
-                <div class="settings-container">
-                    <div class="settings-card settings-card-compact">
-                        <div class="settings-card-header">
-                            <h2><i class="fas fa-user-circle"></i> My Account</h2>
-                            <p>Your personal information and profile settings</p>
+                <div class="settings-page-layout">
+                    <!-- Settings Main Content -->
+                    <div class="settings-main-content">
+                        <!-- Settings Header -->
+                        <div class="settings-page-header">
+                            <h1 class="settings-page-title">Settings</h1>
                         </div>
 
-                        <div class="settings-card-body">
-                            <!-- Account Form - Compact Layout -->
-                            <form id="accountSettingsForm" class="settings-form settings-form-compact">
-                                <!-- Profile Card: Avatar + Basic Info -->
-                                <div class="account-profile-card">
-                                    <div class="account-avatar-section">
-                                        <div class="profile-avatar-large" id="profileAvatarPreview">
-                                            <span id="profileAvatarText">JD</span>
-                                        </div>
-                                        <div class="avatar-upload-compact">
-                                            <button type="button" class="btn-avatar-upload" id="uploadAvatarBtnInline">
+                        <!-- Settings Tab Navigation -->
+                        <div class="settings-tabs-nav">
+                            <button class="settings-tab active" data-settings-tab="profile">Profile</button>
+                            <button class="settings-tab" data-settings-tab="appearance">Appearance</button>
+                            <button class="settings-tab" data-settings-tab="notifications">Notifications</button>
+                            <button class="settings-tab" data-settings-tab="security">Security</button>
+                            <button class="settings-tab" data-settings-tab="advanced" id="advancedSettingsTab" style="display: none;">Advanced</button>
+                        </div>
+
+                        <!-- Settings Tab Content -->
+                        <div class="settings-tab-content">
+                            
+                            <!-- Profile Tab -->
+                            <div class="settings-tab-pane active" id="settings-pane-profile">
+                                <form id="accountSettingsForm" class="settings-minimal-form">
+                                    <!-- Avatar & Name Row -->
+                                    <div class="settings-profile-header">
+                                        <div class="settings-avatar-compact" id="avatarDropzone">
+                                            <div class="profile-avatar-large" id="profileAvatarPreview">
+                                                <span id="profileAvatarText">JD</span>
+                                            </div>
+                                            <div class="avatar-edit-overlay">
                                                 <i class="fas fa-camera"></i>
+                                            </div>
+                                            <input type="file" id="avatarFileInputInline" accept="image/*" class="dropzone-input">
+                                        </div>
+                                        <div class="settings-name-fields">
+                                            <input type="text" id="settingsDisplayName" placeholder="Display name" required class="settings-input-minimal settings-input-lg">
+                                            <input type="text" id="settingsJobTitle" placeholder="Job title" class="settings-input-minimal">
+                                        </div>
+                                    </div>
+
+                                    <!-- Email (readonly) -->
+                                    <div class="settings-field-minimal">
+                                        <label>Email</label>
+                                        <input type="email" id="settingsEmail" readonly disabled class="settings-input-minimal settings-input-disabled">
+                                    </div>
+
+                                    <!-- Avatar Color -->
+                                    <div class="settings-field-minimal">
+                                        <label>Avatar Color</label>
+                                        <div class="avatar-color-picker-minimal">
+                                            <div class="color-dot" data-color="#FF3B30" style="background: #FF3B30;"></div>
+                                            <div class="color-dot" data-color="#FF9500" style="background: #FF9500;"></div>
+                                            <div class="color-dot" data-color="#FFCC00" style="background: #FFCC00;"></div>
+                                            <div class="color-dot" data-color="#34C759" style="background: #34C759;"></div>
+                                            <div class="color-dot" data-color="#00C7BE" style="background: #00C7BE;"></div>
+                                            <div class="color-dot" data-color="#007AFF" style="background: #007AFF;"></div>
+                                            <div class="color-dot" data-color="#AF52DE" style="background: #AF52DE;"></div>
+                                            <div class="color-dot" data-color="#8E8E93" style="background: #8E8E93;"></div>
+                                        </div>
+                                        <input type="hidden" id="settingsAvatarColor" value="#0078D4">
+                                        <input type="hidden" id="avatarFileInput" accept="image/*">
+                                    </div>
+
+                                    <!-- Save Button -->
+                                    <div class="settings-actions-minimal">
+                                        <button type="submit" class="settings-btn-save">Save Changes</button>
+                                    </div>
+                                </form>
+                            </div>
+
+                            <!-- Appearance Tab -->
+                            <div class="settings-tab-pane" id="settings-pane-appearance">
+                                <form id="appearanceForm" class="settings-minimal-form">
+                                    <!-- Theme -->
+                                    <div class="settings-field-minimal">
+                                        <label>Theme</label>
+                                        <div class="theme-selector-minimal">
+                                            <button type="button" class="theme-btn" data-theme="system">
+                                                <i class="fas fa-laptop"></i> System
                                             </button>
-                                            <input type="file" id="avatarFileInputInline" accept="image/*" style="display: none;">
+                                            <button type="button" class="theme-btn" data-theme="light">
+                                                <i class="fas fa-sun"></i> Light
+                                            </button>
+                                            <button type="button" class="theme-btn" data-theme="dark">
+                                                <i class="fas fa-moon"></i> Dark
+                                            </button>
                                         </div>
-                                    </div>
-                                    <div class="account-basic-info">
-                                        <div class="form-row">
-                                            <div class="form-group form-group-compact">
-                                                <label for="settingsDisplayName">Display Name</label>
-                                                <input type="text" id="settingsDisplayName" placeholder="Your name" required>
-                                            </div>
-                                            <div class="form-group form-group-compact">
-                                                <label for="settingsJobTitle">Job Title</label>
-                                                <input type="text" id="settingsJobTitle" placeholder="e.g. Developer">
-                                            </div>
-                                        </div>
-                                        <div class="form-group form-group-compact form-group-email">
-                                            <label for="settingsEmail">Email</label>
-                                            <input type="email" id="settingsEmail" placeholder="your@email.com" readonly disabled>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <!-- Color Picker Card -->
-                                <div class="account-color-card">
-                                    <label class="color-card-label">Avatar Color</label>
-                                    <div class="avatar-color-picker-flat">
-                                        <div class="color-circle" data-color="#FF3B30" style="background: #FF3B30;"></div>
-                                        <div class="color-circle" data-color="#FF6B6B" style="background: #FF6B6B;"></div>
-                                        <div class="color-circle" data-color="#FF2D55" style="background: #FF2D55;"></div>
-                                        <div class="color-circle" data-color="#FF9500" style="background: #FF9500;"></div>
-                                        <div class="color-circle" data-color="#FFCC00" style="background: #FFCC00;"></div>
-                                        <div class="color-circle" data-color="#34C759" style="background: #34C759;"></div>
-                                        <div class="color-circle" data-color="#00C7BE" style="background: #00C7BE;"></div>
-                                        <div class="color-circle" data-color="#007AFF" style="background: #007AFF;"></div>
-                                        <div class="color-circle" data-color="#5AC8FA" style="background: #5AC8FA;"></div>
-                                        <div class="color-circle" data-color="#AF52DE" style="background: #AF52DE;"></div>
-                                        <div class="color-circle" data-color="#5856D6" style="background: #5856D6;"></div>
-                                        <div class="color-circle" data-color="#8E8E93" style="background: #8E8E93;"></div>
-                                    </div>
-                                    <input type="hidden" id="settingsAvatarColor" value="#0078D4">
-                                </div>
-
-                                <!-- Form Actions -->
-                                <div class="form-actions form-actions-compact">
-                                    <button type="button" class="btn-secondary btn-sm" onclick="cancelSettings()">
-                                        Cancel
-                                    </button>
-                                    <button type="submit" class="btn-primary btn-sm">
-                                        <i class="fas fa-check"></i> Save
-                                    </button>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
-
-                    <!-- Style Settings Card -->
-                    <div class="settings-card" id="settings-style-section" style="margin-top: 20px;">
-                        <div class="settings-card-header">
-                            <h2><i class="fas fa-palette"></i> Style</h2>
-                            <p>Customize the look and feel of Teamster</p>
-                        </div>
-                        <div class="settings-card-body">
-                            <div class="form-section">
-                                <h3 class="form-section-title"><i class="fas fa-swatchbook"></i> Accent Color</h3>
-                                <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 12px;">Choose a color theme for buttons, links, and highlights</p>
-                                <div class="accent-color-picker" id="accentColorPicker">
-                                    <div class="accent-color-option selected" data-accent="blue" data-color="#0070F3" data-hover="#0051CC" data-soft="rgba(0, 112, 243, 0.12)" data-dark="#0A84FF" data-dark-hover="#0070F3" data-dark-soft="rgba(10, 132, 255, 0.15)" title="Blue">
-                                        <div class="accent-color-swatch" style="background: #0070F3;"></div>
-                                    </div>
-                                    <div class="accent-color-option" data-accent="purple" data-color="#AF52DE" data-hover="#9340C7" data-soft="rgba(175, 82, 222, 0.12)" data-dark="#BF5AF2" data-dark-hover="#AF52DE" data-dark-soft="rgba(191, 90, 242, 0.15)" title="Purple">
-                                        <div class="accent-color-swatch" style="background: #AF52DE;"></div>
-                                    </div>
-                                    <div class="accent-color-option" data-accent="green" data-color="#34C759" data-hover="#2DB04E" data-soft="rgba(52, 199, 89, 0.12)" data-dark="#32D74B" data-dark-hover="#34C759" data-dark-soft="rgba(50, 215, 75, 0.15)" title="Green">
-                                        <div class="accent-color-swatch" style="background: #34C759;"></div>
-                                    </div>
-                                    <div class="accent-color-option" data-accent="orange" data-color="#FF9500" data-hover="#E68600" data-soft="rgba(255, 149, 0, 0.12)" data-dark="#FF9F0A" data-dark-hover="#FF9500" data-dark-soft="rgba(255, 159, 10, 0.15)" title="Orange">
-                                        <div class="accent-color-swatch" style="background: #FF9500;"></div>
-                                    </div>
-                                    <div class="accent-color-option" data-accent="pink" data-color="#FF2D55" data-hover="#E6264D" data-soft="rgba(255, 45, 85, 0.12)" data-dark="#FF375F" data-dark-hover="#FF2D55" data-dark-soft="rgba(255, 55, 95, 0.15)" title="Pink">
-                                        <div class="accent-color-swatch" style="background: #FF2D55;"></div>
-                                    </div>
-                                    <div class="accent-color-option" data-accent="teal" data-color="#00C7BE" data-hover="#00ADA6" data-soft="rgba(0, 199, 190, 0.12)" data-dark="#64D2FF" data-dark-hover="#00C7BE" data-dark-soft="rgba(100, 210, 255, 0.15)" title="Teal">
-                                        <div class="accent-color-swatch" style="background: #00C7BE;"></div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Advanced Settings Card (Admin/Owner Only) -->
-                    <div class="settings-card" id="settings-chat-appearance-section" style="margin-top: 20px; display: none;">
-                        <div class="settings-card-header">
-                            <h2><i class="fas fa-cog"></i> Advanced Settings</h2>
-                            <p>Customize chat appearance and other advanced options (Admin/Owner only)</p>
-                        </div>
-                        <div class="settings-card-body">
-                            <form id="chatAppearanceForm" class="settings-form">
-                                <div class="form-section">
-                                    <h3 class="form-section-title"><i class="fas fa-comments"></i> Chat Appearance</h3>
-                                    
-                                    <!-- Toggle: Show avatars -->
-                                    <div class="form-group toggle-group">
-                                        <label class="toggle-label">
-                                            <div class="toggle-label-content">
-                                                <div class="toggle-label-text">
-                                                    <i class="fas fa-user-circle"></i> Show avatars in chat
-                                                </div>
-                                                <small>Display user avatars next to messages</small>
-                                            </div>
-                                            <div class="toggle-switch">
-                                                <input type="checkbox" id="chatShowAvatars" checked>
-                                                <span class="toggle-slider"></span>
-                                            </div>
-                                        </label>
+                                        <input type="hidden" id="themePreference" value="system">
                                     </div>
 
-                                    <!-- Toggle: Compact mode -->
-                                    <div class="form-group toggle-group">
-                                        <label class="toggle-label">
-                                            <div class="toggle-label-content">
-                                                <div class="toggle-label-text">
-                                                    <i class="fas fa-compress-alt"></i> Compact chat layout
-                                                </div>
-                                                <small>Reduce spacing between messages for a denser view</small>
-                                            </div>
-                                            <div class="toggle-switch">
-                                                <input type="checkbox" id="chatCompactMode">
-                                                <span class="toggle-slider"></span>
-                                            </div>
-                                        </label>
-                                    </div>
-                                </div>
-
-                                <div class="form-section">
-                                    <h3 class="form-section-title">Message Style</h3>
-                                    
-                                    <!-- Radio: Timestamp style -->
-                                    <div class="form-group">
-                                        <label>
-                                            <i class="fas fa-clock"></i> Timestamp style
-                                        </label>
-                                        <div class="radio-group">
-                                            <label class="radio-option">
-                                                <input type="radio" name="timestampStyle" value="inline" checked>
-                                                <span class="radio-custom"></span>
-                                                <span class="radio-label">Inline</span>
-                                                <small>Show timestamps next to sender name</small>
-                                            </label>
-                                            <label class="radio-option">
-                                                <input type="radio" name="timestampStyle" value="subtle">
-                                                <span class="radio-custom"></span>
-                                                <span class="radio-label">Subtle</span>
-                                                <small>Show timestamps below sender name</small>
-                                            </label>
+                                    <!-- Accent Color -->
+                                    <div class="settings-field-minimal">
+                                        <label>Accent Color</label>
+                                        <div class="accent-color-picker-minimal" id="accentColorPicker">
+                                            <div class="accent-dot selected" data-accent="blue" data-color="#0070F3" data-hover="#0051CC" data-soft="rgba(0, 112, 243, 0.12)" data-dark="#0A84FF" data-dark-hover="#0070F3" data-dark-soft="rgba(10, 132, 255, 0.15)"></div>
+                                            <div class="accent-dot" data-accent="purple" data-color="#AF52DE" data-hover="#9340C7" data-soft="rgba(175, 82, 222, 0.12)" data-dark="#BF5AF2" data-dark-hover="#AF52DE" data-dark-soft="rgba(191, 90, 242, 0.15)"></div>
+                                            <div class="accent-dot" data-accent="green" data-color="#34C759" data-hover="#2DB04E" data-soft="rgba(52, 199, 89, 0.12)" data-dark="#32D74B" data-dark-hover="#34C759" data-dark-soft="rgba(50, 215, 75, 0.15)"></div>
+                                            <div class="accent-dot" data-accent="orange" data-color="#FF9500" data-hover="#E68600" data-soft="rgba(255, 149, 0, 0.12)" data-dark="#FF9F0A" data-dark-hover="#FF9500" data-dark-soft="rgba(255, 159, 10, 0.15)"></div>
+                                            <div class="accent-dot" data-accent="pink" data-color="#FF2D55" data-hover="#E6264D" data-soft="rgba(255, 45, 85, 0.12)" data-dark="#FF375F" data-dark-hover="#FF2D55" data-dark-soft="rgba(255, 55, 95, 0.15)"></div>
+                                            <div class="accent-dot" data-accent="teal" data-color="#00C7BE" data-hover="#00ADA6" data-soft="rgba(0, 199, 190, 0.12)" data-dark="#64D2FF" data-dark-hover="#00C7BE" data-dark-soft="rgba(100, 210, 255, 0.15)"></div>
                                         </div>
                                     </div>
 
-                                    <!-- Radio: Bubble style -->
-                                    <div class="form-group">
-                                        <label>
-                                            <i class="fas fa-comment-dots"></i> Bubble style
-                                        </label>
-                                        <div class="radio-group">
-                                            <label class="radio-option">
-                                                <input type="radio" name="bubbleStyle" value="filled" checked>
-                                                <span class="radio-custom"></span>
-                                                <span class="radio-label">Filled bubbles</span>
-                                                <small>Solid background color</small>
-                                            </label>
-                                            <label class="radio-option">
-                                                <input type="radio" name="bubbleStyle" value="minimal">
-                                                <span class="radio-custom"></span>
-                                                <span class="radio-label">Minimal outline</span>
-                                                <small>Transparent with border</small>
-                                            </label>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div class="form-actions">
-                                    <button type="button" class="btn-secondary" onclick="resetChatAppearance()">
-                                        <i class="fas fa-undo"></i> Reset to Defaults
-                                    </button>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
-
-                    <!-- Motion & Animations Card (Admin/Owner Only) -->
-                    <div class="settings-card" id="animationsSettingsCard" style="margin-top: 20px; display: none;">
-                        <div class="settings-card-header">
-                            <h2><i class="fas fa-magic"></i> Motion & Animations</h2>
-                            <p>Control animation and motion effects (Admin/Owner only)</p>
-                        </div>
-                        <div class="settings-card-body">
-                            <form id="animationsForm" class="settings-form">
-                                <!-- Toggle: Enable animations -->
-                                <div class="form-group toggle-group">
-                                    <label class="toggle-label">
-                                        <div class="toggle-label-content">
-                                            <div class="toggle-label-text">
-                                                <i class="fas fa-wand-magic-sparkles"></i> Enable animations
-                                            </div>
-                                            <small>Enable smooth transitions and animations throughout the app</small>
-                                        </div>
-                                        <div class="toggle-switch">
-                                            <input type="checkbox" id="enableAnimations" checked>
-                                            <span class="toggle-slider"></span>
-                                        </div>
-                                    </label>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
-
-                    <!-- Appearance Settings Card -->
-                    <div class="settings-card" id="settings-appearance-section" style="margin-top: 20px;">
-                        <div class="settings-card-header">
-                            <h2><i class="fas fa-palette"></i> Appearance</h2>
-                            <p>Customize the visual theme of your workspace</p>
-                        </div>
-                        <div class="settings-card-body">
-                            <form id="appearanceForm" class="settings-form">
-                                <!-- Theme Selector -->
-                                <div class="form-group">
-                                    <label class="form-label">
-                                        <i class="fas fa-moon"></i> Theme
-                                        <small style="display: block; font-weight: normal; color: var(--text-secondary); margin-top: 4px;">
-                                            Choose light, dark, or match your device settings
-                                        </small>
-                                    </label>
-                                    <div class="theme-selector">
-                                        <button type="button" class="theme-option" data-theme="system">
-                                            <i class="fas fa-desktop"></i>
-                                            <span>System</span>
-                                        </button>
-                                        <button type="button" class="theme-option" data-theme="light">
-                                            <i class="fas fa-sun"></i>
-                                            <span>Light</span>
-                                        </button>
-                                        <button type="button" class="theme-option" data-theme="dark">
-                                            <i class="fas fa-moon"></i>
-                                            <span>Dark</span>
-                                        </button>
-                                    </div>
-                                    <input type="hidden" id="themePreference" value="system">
-                                </div>
-
-                                <!-- Sidebar Icons Toggle -->
-                                <div class="form-group toggle-group" style="margin-top: 24px;">
-                                    <label class="toggle-label">
-                                        <div class="toggle-label-content">
-                                            <div class="toggle-label-text">
-                                                <i class="fas fa-icons"></i> Show sidebar icons
-                                            </div>
-                                            <small>Display icons next to navigation items in the sidebar</small>
-                                        </div>
-                                        <div class="toggle-switch">
+                                    <!-- Sidebar Icons -->
+                                    <div class="settings-row-minimal">
+                                        <span>Show sidebar icons</span>
+                                        <label class="toggle-minimal">
                                             <input type="checkbox" id="showSidebarIcons" checked>
-                                            <span class="toggle-slider"></span>
+                                            <span class="toggle-track"></span>
+                                        </label>
+                                    </div>
+                                </form>
+                            </div>
+
+                            <!-- Notifications Tab -->
+                            <div class="settings-tab-pane" id="settings-pane-notifications">
+                                <form id="notificationsForm" class="settings-minimal-form">
+                                    <div class="settings-group-label">Tasks</div>
+                                    <div class="settings-row-minimal">
+                                        <span>Assigned to you</span>
+                                        <label class="toggle-minimal"><input type="checkbox" id="notifTaskAssigned" checked><span class="toggle-track"></span></label>
+                                    </div>
+                                    <div class="settings-row-minimal">
+                                        <span>Task updates</span>
+                                        <label class="toggle-minimal"><input type="checkbox" id="notifTaskUpdated" checked><span class="toggle-track"></span></label>
+                                    </div>
+                                    <div class="settings-row-minimal">
+                                        <span>Completed tasks</span>
+                                        <label class="toggle-minimal"><input type="checkbox" id="notifTaskCompleted"><span class="toggle-track"></span></label>
+                                    </div>
+
+                                    <div class="settings-group-label">Chat</div>
+                                    <div class="settings-row-minimal">
+                                        <span>Mentions</span>
+                                        <label class="toggle-minimal"><input type="checkbox" id="notifChatMentions" checked><span class="toggle-track"></span></label>
+                                    </div>
+                                    <div class="settings-row-minimal">
+                                        <span>Replies</span>
+                                        <label class="toggle-minimal"><input type="checkbox" id="notifChatReplies" checked><span class="toggle-track"></span></label>
+                                    </div>
+
+                                    <div class="settings-group-label">Team</div>
+                                    <div class="settings-row-minimal">
+                                        <span>New members</span>
+                                        <label class="toggle-minimal"><input type="checkbox" id="notifTeamMembers" checked><span class="toggle-track"></span></label>
+                                    </div>
+                                    <div class="settings-row-minimal">
+                                        <span>Settings changes</span>
+                                        <label class="toggle-minimal"><input type="checkbox" id="notifTeamChanges"><span class="toggle-track"></span></label>
+                                    </div>
+                                </form>
+                            </div>
+
+                            <!-- Security Tab -->
+                            <div class="settings-tab-pane" id="settings-pane-security">
+                                <div class="settings-minimal-form">
+                                    <div class="settings-action-row">
+                                        <div class="action-info">
+                                            <span class="action-title">Reset Password</span>
+                                            <span class="action-desc">Send a reset link to your email</span>
                                         </div>
-                                    </label>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
-
-                    <!-- Notification Preferences Card -->
-                    <div class="settings-card" id="settings-notifications-section" style="margin-top: 20px;">
-                        <div class="settings-card-header">
-                            <h2><i class="fas fa-bell"></i> Notification Preferences</h2>
-                            <p>Choose which notifications you want to receive</p>
-                        </div>
-                        <div class="settings-card-body">
-                            <form id="notificationsForm" class="settings-form">
-                                <!-- Task Notifications Section -->
-                                <div class="notification-prefs-section">
-                                    <div class="notification-prefs-header">
-                                        <i class="fas fa-check-circle"></i>
-                                        <span>Task Notifications</span>
+                                        <button type="button" class="settings-btn-outline" onclick="sendPasswordResetFromSettings()">Send Link</button>
                                     </div>
-                                    <div class="notification-prefs-toggles">
-                                        <label class="toggle-label compact">
-                                            <div class="toggle-label-content">
-                                                <div class="toggle-label-text">Assigned to you</div>
-                                                <small>When a task is assigned to you</small>
-                                            </div>
-                                            <div class="toggle-switch">
-                                                <input type="checkbox" id="notifTaskAssigned" checked>
-                                                <span class="toggle-slider"></span>
-                                            </div>
-                                        </label>
-                                        <label class="toggle-label compact">
-                                            <div class="toggle-label-content">
-                                                <div class="toggle-label-text">Updated tasks</div>
-                                                <small>When tasks you're involved in are updated</small>
-                                            </div>
-                                            <div class="toggle-switch">
-                                                <input type="checkbox" id="notifTaskUpdated" checked>
-                                                <span class="toggle-slider"></span>
-                                            </div>
-                                        </label>
-                                        <label class="toggle-label compact">
-                                            <div class="toggle-label-content">
-                                                <div class="toggle-label-text">Completed tasks</div>
-                                                <small>When tasks are marked as done</small>
-                                            </div>
-                                            <div class="toggle-switch">
-                                                <input type="checkbox" id="notifTaskCompleted">
-                                                <span class="toggle-slider"></span>
-                                            </div>
-                                        </label>
-                                    </div>
-                                </div>
 
-                                <!-- Chat Notifications Section -->
-                                <div class="notification-prefs-section">
-                                    <div class="notification-prefs-header">
-                                        <i class="fas fa-comment"></i>
-                                        <span>Chat Notifications</span>
+                                    <div class="settings-action-row">
+                                        <div class="action-info">
+                                            <span class="action-title">Sign Out Everywhere</span>
+                                            <span class="action-desc">Log out of all devices</span>
+                                        </div>
+                                        <button type="button" class="settings-btn-outline danger" onclick="showLogoutAllModal()">Sign Out</button>
                                     </div>
-                                    <div class="notification-prefs-toggles">
-                                        <label class="toggle-label compact">
-                                            <div class="toggle-label-content">
-                                                <div class="toggle-label-text">Mentions (@you)</div>
-                                                <small>When someone mentions you in chat</small>
-                                            </div>
-                                            <div class="toggle-switch">
-                                                <input type="checkbox" id="notifChatMentions" checked>
-                                                <span class="toggle-slider"></span>
-                                            </div>
-                                        </label>
-                                        <label class="toggle-label compact">
-                                            <div class="toggle-label-content">
-                                                <div class="toggle-label-text">Direct replies</div>
-                                                <small>When someone replies to your messages</small>
-                                            </div>
-                                            <div class="toggle-switch">
-                                                <input type="checkbox" id="notifChatReplies" checked>
-                                                <span class="toggle-slider"></span>
-                                            </div>
-                                        </label>
+
+                                    <div class="settings-action-row" id="deleteChatHistorySection" style="display: none;">
+                                        <div class="action-info">
+                                            <span class="action-title">Delete Chat History</span>
+                                            <span class="action-desc danger">Permanently delete all messages</span>
+                                        </div>
+                                        <button type="button" class="settings-btn-outline danger" onclick="showDeleteChatHistoryModal()">Delete</button>
                                     </div>
-                                </div>
-
-                                <!-- Team Activity Notifications Section -->
-                                <div class="notification-prefs-section">
-                                    <div class="notification-prefs-header">
-                                        <i class="fas fa-users"></i>
-                                        <span>Team Activity Notifications</span>
-                                    </div>
-                                    <div class="notification-prefs-toggles">
-                                        <label class="toggle-label compact">
-                                            <div class="toggle-label-content">
-                                                <div class="toggle-label-text">New members joined</div>
-                                                <small>When someone joins your team</small>
-                                            </div>
-                                            <div class="toggle-switch">
-                                                <input type="checkbox" id="notifTeamMembers" checked>
-                                                <span class="toggle-slider"></span>
-                                            </div>
-                                        </label>
-                                        <label class="toggle-label compact">
-                                            <div class="toggle-label-content">
-                                                <div class="toggle-label-text">Team settings changes</div>
-                                                <small>When team settings or roles are updated</small>
-                                            </div>
-                                            <div class="toggle-switch">
-                                                <input type="checkbox" id="notifTeamChanges">
-                                                <span class="toggle-slider"></span>
-                                            </div>
-                                        </label>
-                                    </div>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
-
-                    <!-- Security Settings Card -->
-                    <div class="settings-card" id="settings-security-section" style="margin-top: 20px;">
-                        <div class="settings-card-header">
-                            <h2><i class="fas fa-shield-halved"></i> Security</h2>
-                            <p>Manage your account security and sessions</p>
-                        </div>
-                        <div class="settings-card-body">
-                            <div class="settings-form">
-                                <!-- Change Password -->
-                                <div class="form-group">
-                                    <label>
-                                        Change Password
-                                    </label>
-                                    <small style="margin-bottom: 16px; display: block;">Send a password reset link to your email address</small>
-                                    <button type="button" class="btn-secondary" onclick="sendPasswordResetFromSettings()">
-                                        <i class="fas fa-envelope"></i> Send Reset Link
-                                    </button>
-                                </div>
-
-                                <!-- Session Management -->
-                                <div class="form-group">
-                                    <label>
-                                        <i class="fas fa-right-from-bracket"></i> Session Management
-                                    </label>
-                                    <small style="margin-bottom: 16px; display: block;">Sign out from all devices and browsers where you're currently logged in</small>
-                                    <button type="button" class="btn-danger" onclick="showLogoutAllModal()">
-                                        <i class="fas fa-power-off"></i> Log out of all devices
-                                    </button>
-                                </div>
-
-                                <!-- Delete Chat History (Owner Only) -->
-                                <div class="form-group" id="deleteChatHistorySection" style="display: none;">
-                                    <label>
-                                        <i class="fas fa-trash-alt"></i> Delete Chat History
-                                    </label>
-                                    <small style="margin-bottom: 16px; display: block; color: #d32f2f;">Owner only: Permanently delete all messages from the team chat. This cannot be undone.</small>
-                                    <button type="button" class="btn-danger" onclick="showDeleteChatHistoryModal()">
-                                        <i class="fas fa-trash-alt"></i> Delete All Messages
-                                    </button>
                                 </div>
                             </div>
-                        </div>
-                    </div>
 
-                    <!-- Metrics & Stats Visibility Card (Owner Only) -->
-                    <div class="settings-card" id="metricsSettingsCard" style="margin-top: 20px; display: none;">
-                        <div class="settings-card-header">
-                            <h2><i class="fas fa-chart-line"></i> Metrics & Stats Visibility</h2>
-                            <p>Control who can see performance metrics for this team (Owner only)</p>
-                        </div>
-                        <div class="settings-card-body">
-                            <form id="metricsVisibilityForm" class="settings-form">
-                                <div class="form-group">
-                                    <label>
-                                        <i class="fas fa-eye"></i> Who can see metrics?
-                                    </label>
-                                    <div class="radio-group-vertical">
-                                        <label class="radio-option">
-                                            <input type="radio" name="metricsVisibility" value="owner-only">
-                                            <div class="radio-option-content">
-                                                <span class="radio-option-title">Owner only</span>
-                                                <span class="radio-option-desc">Only you can see all metrics and team stats</span>
+                            <!-- Advanced Tab (Admin/Owner Only) -->
+                            <div class="settings-tab-pane" id="settings-pane-advanced">
+                                <div class="settings-minimal-form">
+                                    <!-- Chat Settings -->
+                                    <div class="settings-group-label">Chat</div>
+                                    <form id="chatAppearanceForm">
+                                        <div class="settings-row-minimal">
+                                            <span>Show avatars</span>
+                                            <label class="toggle-minimal"><input type="checkbox" id="chatShowAvatars" checked><span class="toggle-track"></span></label>
+                                        </div>
+                                        <div class="settings-row-minimal">
+                                            <span>Compact layout</span>
+                                            <label class="toggle-minimal"><input type="checkbox" id="chatCompactMode"><span class="toggle-track"></span></label>
+                                        </div>
+                                        <div class="settings-row-minimal">
+                                            <span>Timestamp style</span>
+                                            <div class="mini-radio-group">
+                                                <label class="mini-radio"><input type="radio" name="timestampStyle" value="inline" checked><span>Inline</span></label>
+                                                <label class="mini-radio"><input type="radio" name="timestampStyle" value="subtle"><span>Subtle</span></label>
                                             </div>
-                                        </label>
-                                        <label class="radio-option">
-                                            <input type="radio" name="metricsVisibility" value="admin-owner">
-                                            <div class="radio-option-content">
-                                                <span class="radio-option-title">Owner & Admins</span>
-                                                <span class="radio-option-desc">Owner and team admins can see all metrics</span>
+                                        </div>
+                                        <div class="settings-row-minimal">
+                                            <span>Bubble style</span>
+                                            <div class="mini-radio-group">
+                                                <label class="mini-radio"><input type="radio" name="bubbleStyle" value="filled" checked><span>Filled</span></label>
+                                                <label class="mini-radio"><input type="radio" name="bubbleStyle" value="minimal"><span>Outline</span></label>
                                             </div>
-                                        </label>
-                                        <label class="radio-option">
-                                            <input type="radio" name="metricsVisibility" value="members-own">
-                                            <div class="radio-option-content">
-                                                <span class="radio-option-title">Members see own stats</span>
-                                                <span class="radio-option-desc">Everyone can access metrics, but members only see their own data</span>
-                                            </div>
-                                        </label>
-                                        <label class="radio-option">
-                                            <input type="radio" name="metricsVisibility" value="everyone">
-                                            <div class="radio-option-content">
-                                                <span class="radio-option-title">Everyone</span>
-                                                <span class="radio-option-desc">All team members can see full team metrics</span>
-                                            </div>
-                                        </label>
-                                    </div>
-                                </div>
-                                <div class="form-actions" style="margin-top: 16px;">
-                                    <button type="submit" class="btn-primary">
-                                        <i class="fas fa-save"></i> Save Metrics Settings
-                                    </button>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
+                                        </div>
+                                    </form>
 
-                    <!-- Finances Tab Visibility Card (Owner Only) -->
-                    <div class="settings-card" id="financesSettingsCard" style="margin-top: 20px; display: none;">
-                        <div class="settings-card-header">
-                            <h2><i class="fas fa-dollar-sign"></i> Finances Tab</h2>
-                            <p>Control who can see financial data for this team (Owner only)</p>
-                        </div>
-                        <div class="settings-card-body">
-                            <form id="financesVisibilityForm" class="settings-form">
-                                <div class="form-group">
-                                    <label>
-                                        <i class="fas fa-toggle-on"></i> Enable Finances Tab
-                                    </label>
-                                    <div class="toggle-switch-wrapper" style="margin-bottom: 16px;">
-                                        <label class="toggle-switch">
-                                            <input type="checkbox" name="financesEnabled" id="financesEnabledToggle">
-                                            <span class="toggle-slider"></span>
-                                        </label>
-                                        <span class="toggle-label">Show Finances tab in navigation</span>
+                                    <!-- Animations -->
+                                    <div class="settings-group-label" style="margin-top: 24px;">System</div>
+                                    <form id="animationsForm">
+                                        <div class="settings-row-minimal">
+                                            <span>Enable animations</span>
+                                            <label class="toggle-minimal"><input type="checkbox" id="enableAnimations" checked><span class="toggle-track"></span></label>
+                                        </div>
+                                    </form>
+
+                                    <!-- Metrics (Owner Only) -->
+                                    <div id="metricsSettingsCard" style="display: none;">
+                                        <div class="settings-group-label" style="margin-top: 24px;">Metrics Visibility</div>
+                                        <form id="metricsVisibilityForm">
+                                            <div class="settings-select-minimal">
+                                                <select name="metricsVisibility" id="metricsVisibilitySelect">
+                                                    <option value="owner-only">Owner only</option>
+                                                    <option value="admin-owner">Owner & Admins</option>
+                                                    <option value="members-own">Members see own</option>
+                                                    <option value="everyone">Everyone</option>
+                                                </select>
+                                            </div>
+                                        </form>
+                                    </div>
+
+                                    <!-- Finances (Owner Only) -->
+                                    <div id="financesSettingsCard" style="display: none;">
+                                        <div class="settings-group-label" style="margin-top: 24px;">Finances</div>
+                                        <form id="financesVisibilityForm">
+                                            <div class="settings-row-minimal">
+                                                <span>Enable finances tab</span>
+                                                <label class="toggle-minimal"><input type="checkbox" name="financesEnabled" id="financesEnabledToggle"><span class="toggle-track"></span></label>
+                                            </div>
+                                            <div id="financesVisibilityOptions">
+                                                <div class="settings-select-minimal" style="margin-top: 12px;">
+                                                    <select name="financesVisibility" id="financesVisibilitySelect">
+                                                        <option value="owner-only">Owner only</option>
+                                                        <option value="admin-owner">Owner & Admins</option>
+                                                        <option value="everyone">Everyone</option>
+                                                    </select>
+                                                </div>
+                                            </div>
+                                        </form>
+                                    </div>
+
+                                    <!-- Danger Zone -->
+                                    <div class="settings-group-label danger" style="margin-top: 32px;">Danger Zone</div>
+                                    <div class="settings-action-row">
+                                        <div class="action-info">
+                                            <span class="action-title">Transfer Ownership</span>
+                                        </div>
+                                        <button type="button" class="settings-btn-outline" onclick="showTransferOwnershipModal()">Transfer</button>
+                                    </div>
+                                    <div class="settings-action-row">
+                                        <div class="action-info">
+                                            <span class="action-title danger">Delete Team</span>
+                                        </div>
+                                        <button type="button" class="settings-btn-outline danger" onclick="showDeleteTeamModal()">Delete</button>
                                     </div>
                                 </div>
-                                <div class="form-group" id="financesVisibilityOptions">
-                                    <label>
-                                        <i class="fas fa-eye"></i> Who can see finances?
-                                    </label>
-                                    <div class="radio-group-vertical">
-                                        <label class="radio-option">
-                                            <input type="radio" name="financesVisibility" value="owner-only">
-                                            <div class="radio-option-content">
-                                                <span class="radio-option-title">Owner only</span>
-                                                <span class="radio-option-desc">Only you can see financial data</span>
-                                            </div>
-                                        </label>
-                                        <label class="radio-option">
-                                            <input type="radio" name="financesVisibility" value="admin-owner">
-                                            <div class="radio-option-content">
-                                                <span class="radio-option-title">Owner & Admins</span>
-                                                <span class="radio-option-desc">Owner and team admins can see all financial data</span>
-                                            </div>
-                                        </label>
-                                        <label class="radio-option">
-                                            <input type="radio" name="financesVisibility" value="everyone">
-                                            <div class="radio-option-content">
-                                                <span class="radio-option-title">Everyone</span>
-                                                <span class="radio-option-desc">All team members can see financial data</span>
-                                            </div>
-                                        </label>
-                                    </div>
-                                </div>
-                                <div class="form-actions" style="margin-top: 16px;">
-                                    <button type="submit" class="btn-primary">
-                                        <i class="fas fa-save"></i> Save Finances Settings
-                                    </button>
-                                </div>
-                            </form>
+                            </div>
                         </div>
                     </div>
                 </div>
             </section>
+
 
         </main>
     </div>
