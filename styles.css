@@ -11855,20 +11855,34 @@ body.dark-mode .color-circle.selected {
     margin-top: 12px;
 }
 
+/* Right-align actions for specific settings sections */
+.settings-actions-minimal.settings-actions-right {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+}
+
 .settings-btn-save {
-    padding: 12px 28px;
-    background: #e8e8ed;
-    color: var(--text-main);
-    border: 1px solid #d1d1d6;
-    border-radius: 10px;
+    background: var(--accent);
+    color: white;
+    border: none;
+    padding: 12px 24px;
+    border-radius: 999px;
     font-size: 15px;
-    font-weight: 500;
+    font-weight: 600;
     cursor: pointer;
-    transition: opacity 0.15s;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    transition: all var(--transition-fast);
+    box-shadow: var(--shadow-subtle);
+    letter-spacing: -0.01em;
 }
 
 .settings-btn-save:hover {
-    opacity: 0.85;
+    background: #0066dd;
+    transform: scale(1.01);
+    box-shadow: var(--shadow-card);
 }
 
 /* Theme Selector Minimal */
@@ -12048,13 +12062,108 @@ body.dark-mode .color-circle.selected {
 /* Settings Select Minimal */
 .settings-select-minimal select {
     width: 100%;
-    padding: 10px 12px;
+    padding: 10px 44px 10px 14px; /* space for custom arrow */
     border: 1px solid var(--border-subtle);
-    border-radius: 8px;
+    border-radius: 999px; /* pill shape on-brand */
     font-size: 14px;
     color: var(--text-main);
     background: var(--bg-surface);
     cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    transition: all 0.18s ease;
+    background-image: url('data:image/svg+xml;charset=UTF-8,<svg xmlns="http://www.w3.org/2000/svg" width="12" height="8" viewBox="0 0 12 8"><path fill="%23808AFC" d="M1.41 0L6 4.58 10.59 0 12 1.41l-6 6-6-6z"/></svg>');
+    background-repeat: no-repeat;
+    background-position: right 14px center;
+    background-size: 12px;
+}
+
+.settings-select-minimal select:focus,
+.settings-select-minimal select:active,
+.settings-select-minimal select:focus-visible {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 6px 20px rgba(0, 112, 243, 0.12), 0 0 0 6px var(--accent-soft);
+    background-color: var(--bg-base);
+}
+
+/* Specific on-brand tweaks for the two settings selects */
+#metricsVisibilitySelect,
+#financesVisibilitySelect {
+    padding-right: 48px;
+}
+
+/* Custom select replacement (styled children/options) */
+.custom-select {
+    position: relative;
+}
+
+.custom-select-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    width: 100%;
+    padding: 10px 16px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    border-radius: 999px;
+    font-size: 14px;
+    color: var(--text-main);
+    cursor: pointer;
+}
+
+.custom-select-button .arrow {
+    width: 12px;
+    height: 12px;
+    display: inline-block;
+    background-image: url('data:image/svg+xml;charset=UTF-8,<svg xmlns="http://www.w3.org/2000/svg" width="12" height="8" viewBox="0 0 12 8"><path fill="%23808AFC" d="M1.41 0L6 4.58 10.59 0 12 1.41l-6 6-6-6z"/></svg>');
+    background-repeat: no-repeat;
+    background-size: 12px;
+}
+
+.custom-select-list {
+    position: absolute;
+    right: 0;
+    left: 0;
+    margin-top: 8px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    border-radius: 12px;
+    box-shadow: 0 8px 24px rgba(6, 30, 63, 0.12);
+    z-index: 40;
+    display: none;
+    max-height: 220px;
+    overflow: auto;
+}
+
+.custom-select-list.show {
+    display: block;
+}
+
+.custom-select-item {
+    padding: 10px 14px;
+    font-size: 14px;
+    color: var(--text-main);
+    cursor: pointer;
+}
+
+.custom-select-item:hover {
+    background: var(--bg-body);
+}
+
+.custom-select-item.active {
+    background: var(--accent-soft);
+    color: var(--accent);
+    font-weight: 600;
+}
+
+/* Dark mode tweaks */
+body.dark-mode .custom-select-button,
+body.dark-mode .custom-select-list {
+    background: var(--bg-body);
+    border-color: var(--border-medium);
 }
 
 .settings-select-minimal select:focus {
@@ -12069,6 +12178,7 @@ body.dark-mode .color-circle.selected {
     justify-content: space-between;
     padding: 18px 0;
     border-bottom: 1px solid var(--border-subtle);
+    flex-wrap: nowrap; /* keep action button on the right */
 }
 
 .settings-action-row:last-child {
@@ -12079,6 +12189,36 @@ body.dark-mode .color-circle.selected {
     display: flex;
     flex-direction: column;
     gap: 4px;
+}
+
+/* Ensure the text block can shrink so the button stays on one line */
+.action-info {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.action-desc {
+    margin: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap; /* keep description on single line to avoid pushing button down */
+}
+
+/* Specific layout for Delete Chat History row: place button to the left and center-aligned */
+#deleteChatHistorySection {
+    justify-content: flex-start;
+    gap: 18px;
+    align-items: center;
+}
+
+#deleteChatHistorySection .settings-btn-outline {
+    order: -1; /* show button before the text */
+    margin: 0;
+}
+
+#deleteChatHistorySection .action-info {
+    flex: 1 1 auto;
+    min-width: 0;
 }
 
 .action-title {
@@ -12104,7 +12244,7 @@ body.dark-mode .color-circle.selected {
     padding: 10px 20px;
     background: transparent;
     border: 1px solid var(--border-medium);
-    border-radius: 8px;
+    border-radius: 999px;
     font-size: 14px;
     font-weight: 500;
     color: var(--text-main);
@@ -12117,12 +12257,14 @@ body.dark-mode .color-circle.selected {
 }
 
 .settings-btn-outline.danger {
-    color: #FF3B30;
+    color: white;
+    background: #FF3B30;
     border-color: #FF3B30;
 }
 
 .settings-btn-outline.danger:hover {
-    background: rgba(255, 59, 48, 0.08);
+    background: #E02020;
+    border-color: #E02020;
 }
 
 /* Dark Mode - Minimal Settings */
@@ -12159,8 +12301,12 @@ body.dark-mode .avatar-edit-overlay {
 }
 
 body.dark-mode .settings-select-minimal select {
-    background: var(--bg-body);
+    background-color: var(--bg-body);
     border-color: var(--border-medium);
+    background-image: url('data:image/svg+xml;charset=UTF-8,<svg xmlns="http://www.w3.org/2000/svg" width="12" height="8" viewBox="0 0 12 8"><path fill="%23EBEBF5" d="M1.41 0L6 4.58 10.59 0 12 1.41l-6 6-6-6z"/></svg>');
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    background-size: 12px;
 }
 
 body.dark-mode .color-dot.selected,

@@ -20682,10 +20682,14 @@ const SEARCH_INDEX = [
         label: 'Notification Preferences',
         description: 'Configure which notifications you receive',
         route: 'settings',
-        sectionId: 'settings-notifications-section',
+        sectionId: 'settings-section',
         category: 'Settings',
         icon: 'fa-bell',
-        keywords: ['notifications', 'notifcations', 'notifs', 'alerts', 'alrts', 'bell', 'notify', 'notification preferences', 'notification settings']
+        keywords: ['notifications', 'notifcations', 'notifs', 'alerts', 'alrts', 'bell', 'notify', 'notification preferences', 'notification settings'],
+        afterNav: () => { 
+            const notificationsTab = document.querySelector('[data-settings-tab="notifications"]');
+            if (notificationsTab) notificationsTab.click();
+        }
     },
     {
         id: 'settings-appearance',
@@ -20693,10 +20697,14 @@ const SEARCH_INDEX = [
         label: 'Dark Mode',
         description: 'Switch between light and dark themes',
         route: 'settings',
-        sectionId: 'settings-appearance-section',
+        sectionId: 'settings-section',
         category: 'Settings',
         icon: 'fa-moon',
-        keywords: ['appearance', 'appearence', 'theme', 'theem', 'dark mode', 'darkmode', 'dark', 'light mode', 'lightmode', 'light', 'colors', 'visual', 'night mode']
+        keywords: ['appearance', 'appearence', 'theme', 'theem', 'dark mode', 'darkmode', 'dark', 'light mode', 'lightmode', 'light', 'colors', 'visual', 'night mode'],
+        afterNav: () => { 
+            const appearanceTab = document.querySelector('[data-settings-tab="appearance"]');
+            if (appearanceTab) appearanceTab.click();
+        }
     },
     {
         id: 'settings-security',
@@ -20704,10 +20712,14 @@ const SEARCH_INDEX = [
         label: 'Security',
         description: 'Password, sessions, and logout options',
         route: 'settings',
-        sectionId: 'settings-security-section',
+        sectionId: 'settings-section',
         category: 'Settings',
         icon: 'fa-shield-halved',
-        keywords: ['security', 'securty', 'password', 'pasword', 'change password', 'sessions', 'account security']
+        keywords: ['security', 'securty', 'password', 'pasword', 'change password', 'sessions', 'account security'],
+        afterNav: () => { 
+            const securityTab = document.querySelector('[data-settings-tab="security"]');
+            if (securityTab) securityTab.click();
+        }
     },
     {
         id: 'settings-profile',
@@ -20715,10 +20727,14 @@ const SEARCH_INDEX = [
         label: 'Profile',
         description: 'Edit your name, avatar, and account info',
         route: 'settings',
-        sectionId: 'settings-profile-section',
+        sectionId: 'settings-section',
         category: 'Settings',
         icon: 'fa-user',
-        keywords: ['profile', 'profle', 'avatar', 'avtar', 'photo', 'picture', 'name', 'display name', 'displayname', 'account', 'my account', 'job title']
+        keywords: ['profile', 'profle', 'avatar', 'avtar', 'photo', 'picture', 'name', 'display name', 'displayname', 'account', 'my account', 'job title'],
+        afterNav: () => { 
+            const profileTab = document.querySelector('[data-settings-tab="profile"]');
+            if (profileTab) profileTab.click();
+        }
     },
     {
         id: 'settings-chat-appearance',
@@ -20726,10 +20742,14 @@ const SEARCH_INDEX = [
         label: 'Chat Appearance',
         description: 'Customize chat bubble style and layout',
         route: 'settings',
-        sectionId: 'settings-chat-appearance-section',
+        sectionId: 'settings-section',
         category: 'Settings',
         icon: 'fa-comments',
-        keywords: ['chat appearance', 'chat style', 'bubble', 'bubbles', 'compact', 'timestamps', 'avatars in chat', 'message style']
+        keywords: ['chat appearance', 'chat style', 'bubble', 'bubbles', 'compact', 'timestamps', 'avatars in chat', 'message style'],
+        afterNav: () => { 
+            const advancedTab = document.querySelector('[data-settings-tab="advanced"]');
+            if (advancedTab) advancedTab.click();
+        }
     },
     
     // ==================== COMMAND ENTRIES ====================
@@ -21871,6 +21891,96 @@ function initSettingsTabs() {
     
     // Initialize theme selector in Appearance tab
     initThemeSelectorModern();
+    // Initialize custom selects for settings (replace native select UI with styled list)
+    initCustomSelects();
+}
+
+/**
+ * Initialize custom select UI components for settings selects
+ * Keeps original <select> hidden for form submission but renders a styled list of children
+ */
+function initCustomSelects() {
+    const selects = document.querySelectorAll('.settings-select-minimal select');
+    if (!selects || selects.length === 0) return;
+
+    function closeAll() {
+        document.querySelectorAll('.custom-select-list.show').forEach(l => l.classList.remove('show'));
+        document.querySelectorAll('.custom-select-button.open').forEach(b => b.classList.remove('open'));
+    }
+
+    selects.forEach(select => {
+        if (select.dataset.customized) return;
+
+        // Hide original select but keep it in the DOM for forms
+        select.style.display = 'none';
+
+        const wrapper = document.createElement('div');
+        wrapper.className = 'custom-select';
+
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'custom-select-button';
+        const label = document.createElement('span');
+        label.className = 'custom-select-label';
+        label.textContent = select.options[select.selectedIndex]?.text || '';
+        const arrow = document.createElement('span');
+        arrow.className = 'arrow';
+        btn.appendChild(label);
+        btn.appendChild(arrow);
+
+        const list = document.createElement('div');
+        list.className = 'custom-select-list';
+
+        Array.from(select.options).forEach((opt, idx) => {
+            const item = document.createElement('div');
+            item.className = 'custom-select-item';
+            item.textContent = opt.text;
+            item.dataset.value = opt.value;
+            if (select.selectedIndex === idx) item.classList.add('active');
+            item.addEventListener('click', (e) => {
+                e.stopPropagation();
+                // Update original select value
+                select.value = item.dataset.value;
+                // Trigger change event
+                select.dispatchEvent(new Event('change', { bubbles: true }));
+                // Update label and styles
+                list.querySelectorAll('.custom-select-item').forEach(i => i.classList.remove('active'));
+                item.classList.add('active');
+                label.textContent = item.textContent;
+                list.classList.remove('show');
+                btn.classList.remove('open');
+            });
+            list.appendChild(item);
+        });
+
+        wrapper.appendChild(btn);
+        wrapper.appendChild(list);
+        select.parentNode.appendChild(wrapper);
+
+        select.dataset.customized = '1';
+
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const open = list.classList.toggle('show');
+            btn.classList.toggle('open', open);
+            // close other selects
+            document.querySelectorAll('.custom-select-list').forEach(l => { if (l !== list) l.classList.remove('show'); });
+        });
+
+        // reflect programmatic changes on original select
+        select.addEventListener('change', () => {
+            const val = select.value;
+            const activeItem = list.querySelector(`.custom-select-item[data-value="${val}"]`);
+            if (activeItem) {
+                list.querySelectorAll('.custom-select-item').forEach(i => i.classList.remove('active'));
+                activeItem.classList.add('active');
+                label.textContent = activeItem.textContent;
+            }
+        });
+    });
+
+    // Close on outside click
+    document.addEventListener('click', closeAll);
 }
 
 // Initialize modern theme selector buttons
@@ -22167,11 +22277,20 @@ function updateProfilePreview(userData) {
     }
 }
 
-// Setup avatar color picker - supports both old (.color-option) and new (.color-circle) styles
+// Setup avatar color picker - supports both old (.color-option), (.color-circle), and new (.color-dot) styles
 function setupAvatarColorPicker() {
-    const colorOptions = document.querySelectorAll('.color-option, .color-circle');
+    const colorOptions = document.querySelectorAll('.color-option, .color-circle, .color-dot');
     
     colorOptions.forEach(option => {
+        // Make options keyboard accessible
+        option.tabIndex = 0;
+        option.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                this.click();
+            }
+        });
+
         option.addEventListener('click', function() {
             // Remove selected class from all
             colorOptions.forEach(opt => opt.classList.remove('selected'));
@@ -22194,9 +22313,9 @@ function setupAvatarColorPicker() {
     });
 }
 
-// Select color option - supports both old (.color-option) and new (.color-circle) styles
+// Select color option - supports old (.color-option), (.color-circle), and new (.color-dot') styles
 function selectColorOption(color) {
-    const colorOptions = document.querySelectorAll('.color-option, .color-circle');
+    const colorOptions = document.querySelectorAll('.color-option, .color-circle, .color-dot');
     colorOptions.forEach(option => {
         if (option.getAttribute('data-color') === color) {
             option.classList.add('selected');
