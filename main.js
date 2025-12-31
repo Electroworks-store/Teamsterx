@@ -22277,11 +22277,20 @@ function updateProfilePreview(userData) {
     }
 }
 
-// Setup avatar color picker - supports both old (.color-option) and new (.color-circle) styles
+// Setup avatar color picker - supports both old (.color-option), (.color-circle), and new (.color-dot) styles
 function setupAvatarColorPicker() {
-    const colorOptions = document.querySelectorAll('.color-option, .color-circle');
+    const colorOptions = document.querySelectorAll('.color-option, .color-circle, .color-dot');
     
     colorOptions.forEach(option => {
+        // Make options keyboard accessible
+        option.tabIndex = 0;
+        option.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                this.click();
+            }
+        });
+
         option.addEventListener('click', function() {
             // Remove selected class from all
             colorOptions.forEach(opt => opt.classList.remove('selected'));
@@ -22304,9 +22313,9 @@ function setupAvatarColorPicker() {
     });
 }
 
-// Select color option - supports both old (.color-option) and new (.color-circle) styles
+// Select color option - supports old (.color-option), (.color-circle), and new (.color-dot') styles
 function selectColorOption(color) {
-    const colorOptions = document.querySelectorAll('.color-option, .color-circle');
+    const colorOptions = document.querySelectorAll('.color-option, .color-circle, .color-dot');
     colorOptions.forEach(option => {
         if (option.getAttribute('data-color') === color) {
             option.classList.add('selected');
