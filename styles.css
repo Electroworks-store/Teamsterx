@@ -2988,9 +2988,12 @@ body.dark-mode .reaction-chip.user-reacted {
     padding: 0;
     box-shadow: none;
     border: none;
-    height: calc(100vh - 120px);
+    height: auto;
+    min-height: calc(100vh - 180px);
+    max-height: calc(100vh - 120px);
     display: flex;
     flex-direction: column;
+    overflow: visible;
 }
 
 body.dark-mode .calendar-container {
@@ -9342,10 +9345,14 @@ body.dark-mode .dropdown-menu-option.active {
         overflow-y: auto;
         overflow-x: hidden;
         -webkit-overflow-scrolling: touch;
+        padding-bottom: 80px;
     }
     
     #calendar-section .calendar-container {
         overflow: visible;
+        height: auto;
+        max-height: none;
+        min-height: auto;
     }
     
     /* Calendar view toggle mobile */
@@ -14109,6 +14116,46 @@ body.dark-mode .overview-event-item:hover {
     align-items: center;
 }
 
+/* Link item drag handle */
+.link-item-drag-handle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 28px;
+    cursor: grab;
+    color: var(--text-muted);
+    opacity: 0;
+    transition: opacity 0.15s ease, color 0.15s ease;
+    flex-shrink: 0;
+    margin-left: 4px;
+}
+
+.link-item:hover .link-item-drag-handle {
+    opacity: 1;
+}
+
+.link-item-drag-handle:hover {
+    color: var(--text-main);
+}
+
+.link-item-drag-handle:active {
+    cursor: grabbing;
+    color: var(--accent-color);
+}
+
+/* Link item dragging state */
+.link-item.dragging {
+    opacity: 0.5;
+    background: var(--bg-component);
+}
+
+/* Link item drag-over state */
+.link-item.drag-over {
+    border-top: 2px solid var(--accent-color);
+    margin-top: -2px;
+}
+
 .link-name {
     flex: 1;
     font-size: 0.875rem;
@@ -16738,14 +16785,7 @@ body.dark-mode .column-drag-handle:hover {
    DOCS FEATURE - SHEETS/DOCS TOGGLE
    =================================== */
 
-/* Sheets/Docs Toggle Header */
-.sheets-docs-header {
-    display: flex;
-    justify-content: flex-start;
-    align-items: center;
-    margin-bottom: 20px;
-}
-
+/* Sheets/Docs Toggle (now inside headers) */
 .sheets-docs-toggle {
     display: inline-flex;
     background: var(--bg-surface);
@@ -16786,8 +16826,10 @@ body.dark-mode .column-drag-handle:hover {
 }
 
 /* Hide Sheets/Docs toggle when a panel is open */
-#tasks-section.spreadsheet-open .sheets-docs-header,
-#tasks-section.doc-open .sheets-docs-header {
+#tasks-section.spreadsheet-open .spreadsheet-header .sheets-docs-toggle,
+#tasks-section.spreadsheet-open .docs-header .sheets-docs-toggle,
+#tasks-section.doc-open .spreadsheet-header .sheets-docs-toggle,
+#tasks-section.doc-open .docs-header .sheets-docs-toggle {
     display: none;
 }
 
@@ -17882,6 +17924,36 @@ body.dark-mode .doc-chip[data-chip-type="sheet"] {
 
 .doc-chip:hover .chip-delete-btn {
     display: flex;
+}
+
+/* Chip drag-and-drop styles */
+.doc-chip[draggable="true"] {
+    cursor: grab;
+}
+
+.doc-chip[draggable="true"]:active {
+    cursor: grabbing;
+}
+
+.doc-chip.dragging {
+    opacity: 0.4;
+    cursor: grabbing;
+}
+
+.chip-drop-indicator {
+    display: inline-block;
+    width: 2px;
+    height: 1.2em;
+    background: var(--accent, #007AFF);
+    vertical-align: middle;
+    margin: 0 1px;
+    border-radius: 1px;
+    pointer-events: none;
+}
+
+@keyframes chip-drop-blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
 }
 
 /* ===================================

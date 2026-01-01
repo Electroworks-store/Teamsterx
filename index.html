@@ -581,23 +581,20 @@
 
             <!-- Workspace Section -->
             <section class="content-section" id="tasks-section">
-                <!-- Workspace/Docs Toggle Header -->
-                <div class="sheets-docs-header">
-                    <div class="sheets-docs-toggle">
-                        <button class="toggle-btn active" data-view="sheets">
-                            <i class="fas fa-table-cells"></i> Workspace
-                        </button>
-                        <button class="toggle-btn" data-view="docs">
-                            <i class="fas fa-file-lines"></i> Docs
-                        </button>
-                    </div>
-                </div>
-
                 <!-- Workspace Header (shown when Workspace view active) -->
                 <div class="spreadsheet-header" id="spreadsheetsViewHeader">
                     <div class="spreadsheet-header-left">
-                        <h3><i class="fas fa-table-cells"></i> Your Workspace</h3>
+                        <h3><i class="fas fa-table-cells"></i> Your Sheets</h3>
                         <p class="spreadsheet-subtitle">Organize and track your team's work</p>
+                        <!-- Workspace/Docs Toggle moved below header -->
+                        <div class="sheets-docs-toggle" style="margin-top: 16px;">
+                            <button class="toggle-btn active" data-view="sheets">
+                                <i class="fas fa-table-cells"></i> Workspace
+                            </button>
+                            <button class="toggle-btn" data-view="docs">
+                                <i class="fas fa-file-lines"></i> Docs
+                            </button>
+                        </div>
                     </div>
                     <button class="btn-primary" id="addTaskBtn">
                         <i class="fas fa-plus"></i> Add Row
@@ -618,6 +615,15 @@
                     <div class="docs-header-left">
                         <h3><i class="fas fa-file-lines"></i> Your Docs</h3>
                         <p class="docs-subtitle">Create and collaborate on documents</p>
+                        <!-- Workspace/Docs Toggle moved below header -->
+                        <div class="sheets-docs-toggle" style="margin-top: 16px;">
+                            <button class="toggle-btn" data-view="sheets">
+                                <i class="fas fa-table-cells"></i> Workspace
+                            </button>
+                            <button class="toggle-btn active" data-view="docs">
+                                <i class="fas fa-file-lines"></i> Docs
+                            </button>
+                        </div>
                     </div>
                     <button class="btn-primary" id="createDocBtn">
                         <i class="fas fa-plus"></i> New Doc
@@ -1058,6 +1064,7 @@
                             <button class="settings-tab" data-settings-tab="appearance">Appearance</button>
                             <button class="settings-tab" data-settings-tab="notifications">Notifications</button>
                             <button class="settings-tab" data-settings-tab="security">Security</button>
+                            <button class="settings-tab" data-settings-tab="help">Help</button>
                             <button class="settings-tab" data-settings-tab="advanced" id="advancedSettingsTab" style="display: none;">Advanced</button>
                         </div>
 
@@ -1232,6 +1239,78 @@
                             </div>
 
                             <!-- Advanced Tab (Admin/Owner Only) -->
+                            <!-- Help Tab -->
+                            <div class="settings-tab-pane" id="settings-pane-help">
+                                <div class="settings-minimal-form">
+                                    <div class="settings-group-label">Keyboard Shortcuts</div>
+                                    
+                                    <div style="margin-bottom: 32px;">
+                                        <div style="font-weight: 500; margin-bottom: 12px; color: var(--text-primary);">Global Shortcuts</div>
+                                        <div style="display: flex; flex-direction: column; gap: 8px;">
+                                            <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border-color);">
+                                                <span style="color: var(--text-secondary);">Create new task</span>
+                                                <kbd style="background: var(--bg-secondary); padding: 4px 8px; border-radius: 4px; font-family: monospace; font-size: 13px;">T</kbd>
+                                            </div>
+                                            <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border-color);">
+                                                <span style="color: var(--text-secondary);">Create new event</span>
+                                                <kbd style="background: var(--bg-secondary); padding: 4px 8px; border-radius: 4px; font-family: monospace; font-size: 13px;">E</kbd>
+                                            </div>
+                                            <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border-color);">
+                                                <span style="color: var(--text-secondary);">Focus chat input</span>
+                                                <kbd style="background: var(--bg-secondary); padding: 4px 8px; border-radius: 4px; font-family: monospace; font-size: 13px;">M</kbd>
+                                            </div>
+                                            <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border-color);">
+                                                <span style="color: var(--text-secondary);">Open search</span>
+                                                <kbd style="background: var(--bg-secondary); padding: 4px 8px; border-radius: 4px; font-family: monospace; font-size: 13px;">/</kbd>
+                                            </div>
+                                            <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border-color);">
+                                                <span style="color: var(--text-secondary);">Close modal/dialog</span>
+                                                <kbd style="background: var(--bg-secondary); padding: 4px 8px; border-radius: 4px; font-family: monospace; font-size: 13px;">Esc</kbd>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div style="margin-bottom: 32px;">
+                                        <div style="font-weight: 500; margin-bottom: 12px; color: var(--text-primary);">Doc Editor Shortcuts</div>
+                                        <div style="display: flex; flex-direction: column; gap: 8px;">
+                                            <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border-color);">
+                                                <span style="color: var(--text-secondary);">Insert command (task/sheet reference or embed)</span>
+                                                <kbd style="background: var(--bg-secondary); padding: 4px 8px; border-radius: 4px; font-family: monospace; font-size: 13px;">/</kbd>
+                                            </div>
+                                            <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border-color);">
+                                                <span style="color: var(--text-secondary);">Insert emoji</span>
+                                                <kbd style="background: var(--bg-secondary); padding: 4px 8px; border-radius: 4px; font-family: monospace; font-size: 13px;">#</kbd>
+                                            </div>
+                                            <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border-color);">
+                                                <span style="color: var(--text-secondary);">Close popover</span>
+                                                <kbd style="background: var(--bg-secondary); padding: 4px 8px; border-radius: 4px; font-family: monospace; font-size: 13px;">Esc</kbd>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div style="margin-bottom: 32px;">
+                                        <div style="font-weight: 500; margin-bottom: 12px; color: var(--text-primary);">Chat Shortcuts</div>
+                                        <div style="display: flex; flex-direction: column; gap: 8px;">
+                                            <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border-color);">
+                                                <span style="color: var(--text-secondary);">Send message</span>
+                                                <kbd style="background: var(--bg-secondary); padding: 4px 8px; border-radius: 4px; font-family: monospace; font-size: 13px;">Enter</kbd>
+                                            </div>
+                                            <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border-color);">
+                                                <span style="color: var(--text-secondary);">New line in message</span>
+                                                <kbd style="background: var(--bg-secondary); padding: 4px 8px; border-radius: 4px; font-family: monospace; font-size: 13px;">Shift + Enter</kbd>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div style="padding: 16px; background: var(--bg-secondary); border-radius: 8px; margin-top: 24px;">
+                                        <div style="font-size: 13px; color: var(--text-secondary); line-height: 1.6;">
+                                            <strong style="color: var(--text-primary);">Note:</strong> Global shortcuts (T, E, M, /) work anywhere in the app except when typing in input fields or when modals are open.
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Advanced Tab -->
                             <div class="settings-tab-pane" id="settings-pane-advanced">
                                 <div class="settings-minimal-form">
                                     <!-- Chat Settings -->

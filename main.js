@@ -6807,13 +6807,16 @@ function initTasks() {
                     // Populate dropdown options with colors
                     if (selectedType === 'dropdown' && optionsList) {
                         optionsList.innerHTML = '';
+                        // Always prioritize saved options from columnSettings over defaults
                         const opts = customSettings.options || colDef.defaultOptions || [];
-                        opts.forEach((opt, i) => {
-                            const label = typeof opt === 'string' ? opt : opt.label;
-                            const color = typeof opt === 'string' ? '#9CA3AF' : (opt.color || '#9CA3AF');
-                            optionsList.insertAdjacentHTML('beforeend', createDropdownOptionHTML(i + 1, label, color));
-                        });
-                        if (opts.length === 0) {
+                        if (opts.length > 0) {
+                            opts.forEach((opt, i) => {
+                                const label = typeof opt === 'string' ? opt : opt.label;
+                                const color = typeof opt === 'string' ? '#9CA3AF' : (opt.color || '#9CA3AF');
+                                optionsList.insertAdjacentHTML('beforeend', createDropdownOptionHTML(i + 1, label, color));
+                            });
+                        } else {
+                            // Only show default empty options if no saved options exist
                             optionsList.innerHTML = createDropdownOptionHTML(1) + createDropdownOptionHTML(2);
                         }
                     }
@@ -9750,6 +9753,7 @@ function initTasks() {
                 console.log('Spreadsheet CREATED in Firestore:', spreadsheet.name);
             } else {
                 // UPDATE: Only mutable fields (rules use affectedKeys check)
+                // NOTE: teamId, createdBy, createdAt are NOT included - they're immutable
                 const updateData = {
                     name: spreadsheet.name,
                     type: spreadsheet.type || 'tasks',
@@ -9761,7 +9765,7 @@ function initTasks() {
                     customColumns: spreadsheet.customColumns || [],
                     columnSettings: spreadsheet.columnSettings || {}
                 };
-                // NOTE: createdBy, teamId, createdAt are NOT included - they're immutable
+                // NOTE: createdBy and createdAt are NOT included - they're immutable and not needed
                 
                 // DEBUG_PERMS logging
                 if (DEBUG_PERMS) {
@@ -10018,10 +10022,42 @@ function initTasks() {
             });
         }
         
-        // Insert Link button
+        // Insert Link button - focus editor and save selection before modal opens
         const insertLinkBtn = document.getElementById('insertLinkBtn');
         if (insertLinkBtn) {
-            insertLinkBtn.addEventListener('click', () => openLinkModal());
+            insertLinkBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                const editor = document.getElementById('docEditor');
+                if (!editor) return;
+                
+                // Focus editor FIRST (like command button does)
+                editor.focus();
+                
+                // NOW capture the range (while editor is focused)
+                const selection = window.getSelection();
+                if (selection && selection.rangeCount > 0) {
+                    const range = selection.getRangeAt(0);
+                    // Only save if selection is inside the editor
+                    if (editor.contains(range.commonAncestorContainer)) {
+                        window._savedRangeForLink = range.cloneRange();
+                    } else {
+                        // If not in editor, create range at end of editor
+                        const newRange = document.createRange();
+                        newRange.selectNodeContents(editor);
+                        newRange.collapse(false);
+                        window._savedRangeForLink = newRange;
+                    }
+                } else {
+                    // No selection, create range at end of editor
+                    const newRange = document.createRange();
+                    newRange.selectNodeContents(editor);
+                    newRange.collapse(false);
+                    window._savedRangeForLink = newRange;
+                }
+                
+                // Now open the modal with the saved range
+                openLinkModal();
+            });
         }
     }
     
@@ -10034,13 +10070,193 @@ function initTasks() {
         
         if (!editor || !toolbar) return;
         
-        // Prevent caret from entering chips on mousedown
+        // Prevent caret from entering chips on mousedown (unless dragging)
         editor.addEventListener('mousedown', (e) => {
             const chip = e.target.closest('.doc-chip');
-            if (chip) {
+            if (chip && !chip.classList.contains('dragging')) {
                 e.preventDefault();
                 // Move caret after the chip instead of inside it
                 moveCaretAfterElement(chip);
+            }
+        });
+        
+        // ===================================
+        // CHIP DRAG AND DROP FUNCTIONALITY
+        // ===================================
+        
+        // Track the chip being dragged
+        let draggedChip = null;
+        let dropIndicator = null;
+        
+        // Create drop indicator element
+        function createDropIndicator() {
+            if (!dropIndicator) {
+                dropIndicator = document.createElement('span');
+                dropIndicator.className = 'chip-drop-indicator';
+                dropIndicator.style.cssText = `
+                    display: inline-block;
+                    width: 2px;
+                    height: 1.2em;
+                    background: var(--accent, #007AFF);
+                    vertical-align: middle;
+                    margin: 0 1px;
+                    border-radius: 1px;
+                    pointer-events: none;
+                    animation: chip-drop-blink 0.8s ease-in-out infinite;
+                `;
+            }
+            return dropIndicator;
+        }
+        
+        // Get the insertion point (text node and offset) at a position
+        function getInsertionPoint(x, y, editor) {
+            // Use caretPositionFromPoint or caretRangeFromPoint
+            let range;
+            if (document.caretPositionFromPoint) {
+                const pos = document.caretPositionFromPoint(x, y);
+                if (pos) {
+                    range = document.createRange();
+                    range.setStart(pos.offsetNode, pos.offset);
+                    range.collapse(true);
+                }
+            } else if (document.caretRangeFromPoint) {
+                range = document.caretRangeFromPoint(x, y);
+            }
+            
+            if (range && editor.contains(range.startContainer)) {
+                return range;
+            }
+            return null;
+        }
+        
+        // Handle dragstart on chips
+        editor.addEventListener('dragstart', (e) => {
+            const chip = e.target.closest('.doc-chip');
+            if (chip) {
+                draggedChip = chip;
+                chip.classList.add('dragging');
+                
+                // Set drag data
+                e.dataTransfer.effectAllowed = 'move';
+                e.dataTransfer.setData('text/html', chip.outerHTML);
+                e.dataTransfer.setData('text/plain', chip.textContent);
+                
+                // Semi-transparent drag image
+                setTimeout(() => {
+                    chip.style.opacity = '0.4';
+                }, 0);
+            }
+        });
+        
+        // Handle dragover to show drop position
+        editor.addEventListener('dragover', (e) => {
+            if (!draggedChip) return;
+            
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            
+            // Get insertion point
+            const insertionRange = getInsertionPoint(e.clientX, e.clientY, editor);
+            if (insertionRange) {
+                // Remove existing indicator
+                const existingIndicator = editor.querySelector('.chip-drop-indicator');
+                if (existingIndicator) {
+                    existingIndicator.remove();
+                }
+                
+                // Insert indicator at the caret position
+                const indicator = createDropIndicator();
+                insertionRange.insertNode(indicator);
+            }
+        });
+        
+        // Handle dragleave
+        editor.addEventListener('dragleave', (e) => {
+            // Only remove indicator if leaving the editor entirely
+            if (!editor.contains(e.relatedTarget)) {
+                const indicator = editor.querySelector('.chip-drop-indicator');
+                if (indicator) {
+                    indicator.remove();
+                }
+            }
+        });
+        
+        // Handle drop
+        editor.addEventListener('drop', (e) => {
+            if (!draggedChip) return;
+            
+            e.preventDefault();
+            e.stopPropagation();
+            
+            // Remove drop indicator
+            const indicator = editor.querySelector('.chip-drop-indicator');
+            const indicatorParent = indicator?.parentNode;
+            const indicatorNextSibling = indicator?.nextSibling;
+            if (indicator) {
+                indicator.remove();
+            }
+            
+            // Get the insertion point
+            let insertionRange = getInsertionPoint(e.clientX, e.clientY, editor);
+            
+            // If we had an indicator, use its position
+            if (indicatorParent && indicatorParent !== draggedChip) {
+                insertionRange = document.createRange();
+                if (indicatorNextSibling) {
+                    insertionRange.setStartBefore(indicatorNextSibling);
+                } else {
+                    insertionRange.setStartAfter(indicatorParent.lastChild || indicatorParent);
+                }
+                insertionRange.collapse(true);
+            }
+            
+            if (insertionRange && !draggedChip.contains(insertionRange.startContainer)) {
+                // Remove chip from original position
+                const chipClone = draggedChip.cloneNode(true);
+                chipClone.classList.remove('dragging');
+                chipClone.style.opacity = '';
+                chipClone.setAttribute('draggable', 'true');
+                
+                // Insert at new position
+                insertionRange.insertNode(chipClone);
+                
+                // Add a zero-width space after the chip for caret positioning
+                const spacer = document.createTextNode('\\u200B');
+                if (chipClone.nextSibling) {
+                    chipClone.parentNode.insertBefore(spacer, chipClone.nextSibling);
+                } else {
+                    chipClone.parentNode.appendChild(spacer);
+                }
+                
+                // Remove original chip
+                draggedChip.remove();
+                
+                // Mark as dirty and schedule save
+                appState.isDocDirty = true;
+                scheduleDocSave();
+            }
+            
+            // Reset drag state
+            if (draggedChip) {
+                draggedChip.classList.remove('dragging');
+                draggedChip.style.opacity = '';
+            }
+            draggedChip = null;
+        });
+        
+        // Handle dragend (cleanup)
+        editor.addEventListener('dragend', (e) => {
+            // Remove any leftover indicators
+            const indicator = editor.querySelector('.chip-drop-indicator');
+            if (indicator) {
+                indicator.remove();
+            }
+            
+            // Reset dragged chip
+            if (draggedChip) {
+                draggedChip.classList.remove('dragging');
+                draggedChip.style.opacity = '';
+                draggedChip = null;
             }
         });
         
@@ -10878,9 +11094,28 @@ function initTasks() {
      * Open link insertion modal
      */
     function openLinkModal() {
-        // Save selection before opening modal
-        const selection = window.getSelection();
-        const range = selection && selection.rangeCount > 0 ? selection.getRangeAt(0).cloneRange() : null;
+        // CRITICAL: Use the range saved on mousedown (before focus was lost)
+        // This is already captured by the button's mousedown handler
+        const editor = document.getElementById('docEditor');
+        let range = window._savedRangeForLink;
+        
+        // If no saved range from mousedown, try current selection
+        if (!range) {
+            const selection = window.getSelection();
+            if (selection && selection.rangeCount > 0) {
+                const currentRange = selection.getRangeAt(0);
+                if (editor && editor.contains(currentRange.commonAncestorContainer)) {
+                    range = currentRange.cloneRange();
+                }
+            }
+        }
+        
+        // If still no valid range, create one at the end
+        if (!range && editor) {
+            range = document.createRange();
+            range.selectNodeContents(editor);
+            range.collapse(false); // Collapse to end
+        }
         
         // Get selected text to pre-fill
         let selectedText = '';
@@ -10976,32 +11211,54 @@ function initTasks() {
             console.warn('Invalid URL for favicon:', url);
         }
         
-        // Restore selection
-        if (window._savedRange) {
-            const selection = window.getSelection();
-            selection.removeAllRanges();
-            selection.addRange(window._savedRange);
-        }
-        
         editor.focus();
         
-        // Create link chip HTML
-        const chipHTML = `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" class="doc-chip" data-chip-type="link" contenteditable="false"><img src="${escapeHtml(faviconUrl)}" class="chip-favicon" onerror="this.style.display='none'" alt="">${escapeHtml(linkText)}</a>`;
+        // Restore selection from saved range - MUST happen after focus
+        const savedRange = window._savedRange;
+        if (savedRange) {
+            try {
+                const selection = window.getSelection();
+                selection.removeAllRanges();
+                selection.addRange(savedRange);
+            } catch (e) {
+                console.warn('[DEBUG insertLink] Could not restore selection:', e);
+                // Fallback: insert at end of editor
+                const selection = window.getSelection();
+                const range = document.createRange();
+                range.selectNodeContents(editor);
+                range.collapse(false);
+                selection.removeAllRanges();
+                selection.addRange(range);
+            }
+        } else {
+            // No saved range - insert at end
+            const selection = window.getSelection();
+            const range = document.createRange();
+            range.selectNodeContents(editor);
+            range.collapse(false);
+            selection.removeAllRanges();
+            selection.addRange(range);
+        }
         
-        // Insert the chip
+        // Create link chip HTML with a trailing space to allow typing after
+        const chipHTML = `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" class="doc-chip" data-chip-type="link" contenteditable="false" draggable="true"><img src="${escapeHtml(faviconUrl)}" class="chip-favicon" onerror="this.style.display='none'" alt="">${escapeHtml(linkText)}</a>\u200B`;
+        
+        // Insert the chip at cursor position
         document.execCommand('insertHTML', false, chipHTML);
         
-        // Move caret after the chip so typing happens on same line
+        // Mark chip as hydrated and move caret after it
         const insertedChip = editor.querySelector('.doc-chip[data-chip-type="link"]:not(.hydrated)');
         if (insertedChip) {
+            insertedChip.classList.add('hydrated');
             moveCaretAfterElement(insertedChip);
         }
         
         appState.isDocDirty = true;
         scheduleDocSave();
         
-        // Clear saved range
+        // Clear saved ranges
         window._savedRange = null;
+        window._savedRangeForLink = null;
     };
     
     // ===================================
@@ -11109,6 +11366,7 @@ function initTasks() {
         window._commandRange = null;
         window._commandTriggerInfo = null;
         window._slashInsertRange = null;
+        window._referenceInsertRange = null; // Dedicated range for reference picker modal
         
         // Show popover on / key
         editor.addEventListener('keydown', (e) => {
@@ -11253,6 +11511,12 @@ function initTasks() {
                 e.stopPropagation();
                 
                 const command = option.dataset.command;
+                
+                // CRITICAL: Save the range to dedicated variable BEFORE any other operations
+                // This ensures the range survives modal interactions
+                if (window._commandRange) {
+                    window._referenceInsertRange = window._commandRange.cloneRange();
+                }
                 
                 // Remove slash if triggered by '/' key
                 if (window._commandTriggerInfo?.type === 'slash') {
@@ -11676,7 +11940,9 @@ function initTasks() {
         
         // Item clicks
         list.querySelectorAll('.reference-picker-item').forEach(item => {
-            item.addEventListener('click', () => {
+            item.addEventListener('click', (e) => {
+                console.log('[DEBUG Modal Click] Item clicked:', item.dataset.id, 'type:', type);
+                e.stopPropagation(); // Prevent modal backdrop close
                 const id = item.dataset.id;
                 insertReference(type, id);
                 closeReferencePickerModal();
@@ -11695,25 +11961,58 @@ function initTasks() {
      * Insert reference chip or embed into editor
      */
     function insertReference(type, id) {
+        console.log('[DEBUG insertReference] Called with type:', type, 'id:', id);
+        
         const editor = document.getElementById('docEditor');
-        if (!editor) return;
+        if (!editor) {
+            console.error('[DEBUG insertReference] Editor not found!');
+            return;
+        }
         
         editor.focus();
         
         // Restore selection from stored range
-        if (window._commandRange) {
+        // PRIORITY: Use dedicated _referenceInsertRange (survives modal interactions), 
+        // then fall back to _commandRange
+        const rangeToRestore = window._referenceInsertRange || window._commandRange;
+        console.log('[DEBUG insertReference] rangeToRestore:', rangeToRestore, '_referenceInsertRange:', window._referenceInsertRange, '_commandRange:', window._commandRange);
+        
+        if (rangeToRestore) {
             try {
                 const selection = window.getSelection();
                 selection.removeAllRanges();
-                selection.addRange(window._commandRange);
+                selection.addRange(rangeToRestore);
+                console.log('[DEBUG insertReference] Restored cursor range for chip insertion');
             } catch (e) {
-                console.warn('Could not restore selection:', e);
+                console.warn('[DEBUG insertReference] Could not restore selection:', e);
+                // If range restoration fails, try to insert at end of editor
+                const selection = window.getSelection();
+                const range = document.createRange();
+                range.selectNodeContents(editor);
+                range.collapse(false); // Collapse to end
+                selection.removeAllRanges();
+                selection.addRange(range);
             }
+        } else {
+            console.warn('[DEBUG insertReference] No saved range - inserting at end of editor');
+            // If no range saved, insert at end of editor
+            const selection = window.getSelection();
+            const range = document.createRange();
+            range.selectNodeContents(editor);
+            range.collapse(false); // Collapse to end
+            selection.removeAllRanges();
+            selection.addRange(range);
         }
+        
+        // Verify selection is inside editor before insertion
+        const sel = window.getSelection();
+        const anchorInEditor = sel.rangeCount > 0 && editor.contains(sel.getRangeAt(0).commonAncestorContainer);
+        console.log('[DEBUG insertReference] Selection inside editor:', anchorInEditor);
         
         if (type === 'sheet-embed') {
             // Insert embed block
             const embedHTML = `<div class="doc-embed" data-embed-type="sheet" data-id="${escapeHtml(id)}"></div><p></p>`;
+            console.log('[DEBUG insertReference] Inserting embed HTML:', embedHTML);
             document.execCommand('insertHTML', false, embedHTML);
             
             // Hydrate embed immediately
@@ -11722,7 +12021,13 @@ function initTasks() {
             // Insert chip
             const chipType = type === 'task' ? 'task' : 'sheet';
             const chipHTML = `<span class="doc-chip" contenteditable="false" data-chip-type="${chipType}" data-id="${escapeHtml(id)}"></span>`;
-            document.execCommand('insertHTML', false, chipHTML);
+            console.log('[DEBUG insertReference] Inserting chip HTML:', chipHTML);
+            const result = document.execCommand('insertHTML', false, chipHTML);
+            console.log('[DEBUG insertReference] execCommand result:', result);
+            
+            // Check if chip was actually inserted
+            const allChips = editor.querySelectorAll('.doc-chip');
+            console.log('[DEBUG insertReference] All chips in editor after insert:', allChips.length);
             
             // Move caret after the chip so typing happens on same line
             const insertedChip = editor.querySelector(`.doc-chip[data-chip-type="${chipType}"][data-id="${escapeHtml(id)}"]:not(.hydrated)`);
@@ -11738,6 +12043,7 @@ function initTasks() {
         window._commandRange = null;
         window._commandTriggerInfo = null;
         window._slashInsertRange = null;
+        window._referenceInsertRange = null; // Clear dedicated range too
         
         appState.isDocDirty = true;
         scheduleDocSave();
@@ -11796,7 +12102,10 @@ function initTasks() {
             const chipType = chip.dataset.chipType;
             const id = chip.dataset.id;
             
-            // Skip link chips - they don't need hydration
+            // Make all chips draggable
+            chip.setAttribute('draggable', 'true');
+            
+            // Skip link chips - they don't need hydration (already have content)
             if (chipType === 'link') {
                 // Ensure link chip stays non-editable
                 chip.setAttribute('contenteditable', 'false');
@@ -20817,6 +21126,22 @@ const SEARCH_INDEX = [
         description: 'Send an invitation to join your team',
         icon: 'fa-user-plus',
         keywords: ['invite', 'invit', 'add member', 'new member', 'invite member', 'team invite', 'add teammate']
+    },
+    {
+        id: 'cmd-task-reference',
+        type: 'command',
+        label: 'Insert task reference',
+        description: 'Add a task chip to the current document',
+        icon: 'fa-check-circle',
+        keywords: ['task reference', 'task referance', 'task ref', 'insert task', 'add task chip', 'task chip', 'reference task', 'referance task']
+    },
+    {
+        id: 'cmd-sheet-reference',
+        type: 'command',
+        label: 'Insert sheet reference',
+        description: 'Add a sheet chip to the current document',
+        icon: 'fa-table',
+        keywords: ['sheet reference', 'sheet referance', 'sheet ref', 'insert sheet', 'add sheet chip', 'sheet chip', 'reference sheet', 'referance sheet', 'spreadsheet reference', 'spreadsheet referance']
     }
 ];
 
@@ -21246,6 +21571,36 @@ function executeSearchCommand(commandId) {
                 if (document.getElementById('teammateModal')) {
                     openModal('teammateModal');
                 }
+            }, 100);
+            break;
+
+        case 'cmd-task-reference':
+            // Navigate to Docs and open task reference picker
+            switchTab('tasks');
+            setTimeout(() => {
+                switchTasksView('docs');
+                setTimeout(() => {
+                    if (typeof window.openReferencePickerModal === 'function') {
+                        window.openReferencePickerModal('task');
+                    } else {
+                        showToast('Open a document first to insert references', 'info');
+                    }
+                }, 100);
+            }, 100);
+            break;
+
+        case 'cmd-sheet-reference':
+            // Navigate to Docs and open sheet reference picker
+            switchTab('tasks');
+            setTimeout(() => {
+                switchTasksView('docs');
+                setTimeout(() => {
+                    if (typeof window.openReferencePickerModal === 'function') {
+                        window.openReferencePickerModal('sheet');
+                    } else {
+                        showToast('Open a document first to insert references', 'info');
+                    }
+                }, 100);
             }, 100);
             break;
 
@@ -22780,11 +23135,27 @@ async function updateUserPreferences(preferences) {
     const userDoc = await getDoc(userRef);
     const existingPrefs = userDoc.exists() ? (userDoc.data().preferences || {}) : {};
     
-    // Merge with new preferences
-    const updatedPrefs = {
-        ...existingPrefs,
-        ...preferences
-    };
+    // Recursive deep merge helper function for nested objects
+    function deepMerge(target, source) {
+        const result = { ...target };
+        for (const [key, value] of Object.entries(source)) {
+            if (value && typeof value === 'object' && !Array.isArray(value)) {
+                // If both target and source values are objects, recursively merge
+                if (result[key] && typeof result[key] === 'object' && !Array.isArray(result[key])) {
+                    result[key] = deepMerge(result[key], value); // RECURSIVE
+                } else {
+                    result[key] = { ...value };
+                }
+            } else {
+                // Direct assignment for primitives and arrays
+                result[key] = value;
+            }
+        }
+        return result;
+    }
+    
+    // Deep merge with new preferences to preserve nested objects like notificationPreferences
+    const updatedPrefs = deepMerge(existingPrefs, preferences);
     
     // Update document
     await setDoc(userRef, { preferences: updatedPrefs }, { merge: true });
@@ -23309,6 +23680,7 @@ async function loadSidebarIconsPreference() {
     }
     
     try {
+        const { doc, getDoc } = await import('https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js');
         const userDoc = await getDoc(doc(db, 'users', currentAuthUser.uid));
         if (userDoc.exists()) {
             const preferences = userDoc.data().preferences || {};
@@ -23755,7 +24127,9 @@ async function initNotificationForm() {
     const form = document.getElementById('notificationsForm');
     if (!form) return;
     
+    console.log('📋 Initializing notification form...');
     const preferences = await loadNotificationPreferences();
+    console.log('Loaded notification preferences:', preferences);
     
     // Map of toggle IDs to preference paths
     const toggleMap = {
@@ -23773,7 +24147,10 @@ async function initNotificationForm() {
         const toggle = document.getElementById(toggleId);
         if (toggle) {
             // Set initial state from preferences
-            toggle.checked = preferences[category]?.[key] ?? defaultNotificationPreferences[category][key];
+            const savedValue = preferences[category]?.[key];
+            const defaultValue = defaultNotificationPreferences[category][key];
+            toggle.checked = savedValue ?? defaultValue;
+            console.log(`  Toggle ${toggleId}: ${toggle.checked} (saved: ${savedValue}, default: ${defaultValue})`);
             
             // Add change listener for instant save
             toggle.addEventListener('change', async () => {
@@ -23802,13 +24179,16 @@ async function saveNotificationPreference(category, key, value) {
         cachedNotificationPreferences[category][key] = value;
         
         // Save to Firestore
+        console.log(`💾 Saving notification preference: ${category}.${key} = ${value}`);
+        console.log('Full preferences being saved:', cachedNotificationPreferences);
         await updateUserPreferences({ 
             notificationPreferences: cachedNotificationPreferences 
         });
         
+        console.log(`✅ Notification preference saved successfully: ${category}.${key} = ${value}`);
         debugLog(`✅ Notification preference saved: ${category}.${key} = ${value}`);
     } catch (error) {
-        console.error('Error saving notification preference:', error);
+        console.error('❌ Error saving notification preference:', error);
         showToast('Error saving preference. Please try again.', 'error');
     }
 }
@@ -26213,8 +26593,14 @@ async function subscribeLinkLobbyGroups() {
                     debugLog('Could not fetch links for group:', docSnapshot.id, linkError.message);
                 }
                 
-                // Sort links: favorites first, then by createdAt
+                // Sort links: by sortOrder (if set), then favorites first, then by createdAt
                 groupData.links.sort((a, b) => {
+                    // First sort by sortOrder if both have it
+                    const aOrder = typeof a.sortOrder === 'number' ? a.sortOrder : Infinity;
+                    const bOrder = typeof b.sortOrder === 'number' ? b.sortOrder : Infinity;
+                    if (aOrder !== bOrder) return aOrder - bOrder;
+                    
+                    // Then favorites first
                     if (a.favorite && !b.favorite) return -1;
                     if (!a.favorite && b.favorite) return 1;
                     return (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0);
@@ -26222,6 +26608,11 @@ async function subscribeLinkLobbyGroups() {
                 
                 Object.keys(groupData.domainGroups).forEach(domain => {
                     groupData.domainGroups[domain].sort((a, b) => {
+                        // First sort by sortOrder if both have it
+                        const aOrder = typeof a.sortOrder === 'number' ? a.sortOrder : Infinity;
+                        const bOrder = typeof b.sortOrder === 'number' ? b.sortOrder : Infinity;
+                        if (aOrder !== bOrder) return aOrder - bOrder;
+                        
                         if (a.favorite && !b.favorite) return -1;
                         if (!a.favorite && b.favorite) return 1;
                         return (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0);
@@ -26402,8 +26793,9 @@ function renderLinkLobby() {
         container.appendChild(groupEl);
     });
     
-    // Initialize drag and drop
+    // Initialize drag and drop for groups and individual links
     initGroupDragAndDrop();
+    initLinkDragAndDrop();
 }
 
 // Create group element
@@ -26522,7 +26914,10 @@ function renderLinkItem(link, groupId) {
     const faviconUrl = link.iconUrl || `https://www.google.com/s2/favicons?domain=${link.domain}&sz=32`;
     
     return `
-        <div class="link-item ${link.favorite ? 'favorite' : ''}" data-link-id="${link.id}" data-group-id="${groupId}" data-url="${escapeHtml(link.url)}">
+        <div class="link-item ${link.favorite ? 'favorite' : ''}" data-link-id="${link.id}" data-group-id="${groupId}" data-url="${escapeHtml(link.url)}" draggable="true">
+            <div class="link-item-drag-handle" title="Drag to reorder">
+                <i class="fas fa-grip-vertical"></i>
+            </div>
             <div class="link-item-collapsed" onclick="openLink('${escapeHtml(link.url)}')">
                 <img class="link-favicon" src="${faviconUrl}" alt="" onerror="this.outerHTML='<div class=\\'link-favicon-fallback\\'><i class=\\'fas fa-link\\'></i></div>'">
                 <span class="link-name">${escapeHtml(link.label)}</span>
@@ -27252,6 +27647,143 @@ async function updateGroupSortOrders() {
         
     } catch (error) {
         console.error('Error updating sort orders:', error);
+    }
+}
+
+// ===================================
+// LINK LOBBY - Individual Link Drag and Drop (within groups)
+// ===================================
+
+let draggedLink = null;
+
+function initLinkDragAndDrop() {
+    const container = document.getElementById('linkLobbyContainer');
+    if (!container) return;
+    
+    const linkItems = container.querySelectorAll('.link-item');
+    
+    linkItems.forEach(linkItem => {
+        const handle = linkItem.querySelector('.link-item-drag-handle');
+        if (!handle) return;
+        
+        // Drag start on handle
+        handle.addEventListener('dragstart', (e) => {
+            e.stopPropagation(); // Prevent group drag
+            draggedLink = linkItem;
+            linkItem.classList.add('dragging');
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', linkItem.dataset.linkId);
+            e.dataTransfer.setData('application/x-link-drag', 'true'); // Mark as link drag
+        });
+        
+        handle.addEventListener('dragend', () => {
+            draggedLink = null;
+            linkItem.classList.remove('dragging');
+            // Remove all drag-over classes
+            container.querySelectorAll('.link-item.drag-over').forEach(el => el.classList.remove('drag-over'));
+        });
+        
+        // Drag over link items
+        linkItem.addEventListener('dragover', (e) => {
+            // Only handle link drags, not group drags
+            if (!draggedLink || draggedLink === linkItem) return;
+            
+            // Only allow drop within same group
+            if (draggedLink.dataset.groupId !== linkItem.dataset.groupId) return;
+            
+            e.preventDefault();
+            e.stopPropagation();
+            linkItem.classList.add('drag-over');
+        });
+        
+        linkItem.addEventListener('dragleave', (e) => {
+            e.stopPropagation();
+            linkItem.classList.remove('drag-over');
+        });
+        
+        linkItem.addEventListener('drop', async (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            linkItem.classList.remove('drag-over');
+            
+            if (!draggedLink || draggedLink === linkItem) return;
+            
+            // Only allow drop within same group
+            const groupId = linkItem.dataset.groupId;
+            if (draggedLink.dataset.groupId !== groupId) return;
+            
+            // Find the links-list container
+            const linksList = linkItem.closest('.links-list');
+            if (!linksList) return;
+            
+            // Reorder in DOM
+            const allLinks = [...linksList.querySelectorAll('.link-item')];
+            const draggedIndex = allLinks.indexOf(draggedLink);
+            const dropIndex = allLinks.indexOf(linkItem);
+            
+            if (draggedIndex < dropIndex) {
+                linkItem.after(draggedLink);
+            } else {
+                linkItem.before(draggedLink);
+            }
+            
+            // Update sort orders in Firestore
+            await updateLinkSortOrders(groupId, linksList);
+        });
+    });
+    
+    // Also allow dropping on .links-list containers (for empty areas)
+    container.querySelectorAll('.links-list').forEach(linksList => {
+        linksList.addEventListener('dragover', (e) => {
+            if (!draggedLink) return;
+            const groupId = linksList.closest('.link-group')?.dataset.groupId;
+            if (draggedLink.dataset.groupId !== groupId) return;
+            
+            e.preventDefault();
+        });
+        
+        linksList.addEventListener('drop', async (e) => {
+            if (!draggedLink) return;
+            const groupId = linksList.closest('.link-group')?.dataset.groupId;
+            if (draggedLink.dataset.groupId !== groupId) return;
+            
+            e.preventDefault();
+            
+            // If dropped on empty area, move to end
+            const lastLink = linksList.querySelector('.link-item:last-child');
+            if (lastLink && lastLink !== draggedLink) {
+                lastLink.after(draggedLink);
+            }
+            
+            await updateLinkSortOrders(groupId, linksList);
+        });
+    });
+}
+
+// Update link sort orders in Firestore
+async function updateLinkSortOrders(groupId, linksList) {
+    if (!db || !appState.currentTeamId || !groupId) return;
+    
+    try {
+        const { doc, updateDoc } = 
+            await import('https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js');
+        
+        const links = linksList.querySelectorAll('.link-item');
+        const updates = [];
+        
+        links.forEach((link, index) => {
+            const linkId = link.dataset.linkId;
+            if (linkId && link.dataset.groupId === groupId) {
+                const linkRef = doc(db, 'teams', appState.currentTeamId, 'linkLobbyGroups', groupId, 'links', linkId);
+                updates.push(updateDoc(linkRef, { sortOrder: index }));
+            }
+        });
+        
+        await Promise.all(updates);
+        console.log('Link sort orders updated for group:', groupId);
+        
+    } catch (error) {
+        console.error('Error updating link sort orders:', error);
     }
 }
 
