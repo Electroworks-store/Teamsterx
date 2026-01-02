@@ -41,6 +41,7 @@ Thumbs.db
 logs/
 *.log
 npm-debug.log*
+md/
 
 # Build
 dist/

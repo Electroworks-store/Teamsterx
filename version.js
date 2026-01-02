@@ -1,2 +1,2 @@
 // Auto-generated version hash
-window.APP_VERSION = 1736290200000;
+window.APP_VERSION = 1735859100000;
