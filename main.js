@@ -28466,6 +28466,8 @@ function renderFinances() {
     // Render revenue column
     const revenueList = document.getElementById('revenueList');
     const revenueEmptyState = document.getElementById('revenueEmptyState');
+    const revenueFooter = document.getElementById('revenueFooter');
+    const MAX_VISIBLE_ROWS = 6; // Rows visible before "See All"
     
     if (revenueList) {
         if (revenueTransactions.length === 0) {
@@ -28475,15 +28477,32 @@ function renderFinances() {
                 const addBtn = revenueEmptyState.querySelector('button');
                 if (addBtn) addBtn.style.display = canEditFinances ? 'inline-flex' : 'none';
             }
+            if (revenueFooter) revenueFooter.style.display = 'none';
         } else {
             if (revenueEmptyState) revenueEmptyState.style.display = 'none';
-            revenueList.innerHTML = revenueTransactions.map(t => renderTransactionRow(t, canEditFinances)).join('');
+            // Show all if expanded, otherwise limit to MAX_VISIBLE_ROWS
+            const isExpanded = revenueList.classList.contains('expanded');
+            const visibleTransactions = isExpanded ? revenueTransactions.slice(0, 50) : revenueTransactions.slice(0, MAX_VISIBLE_ROWS);
+            revenueList.innerHTML = visibleTransactions.map(t => renderTransactionRow(t, canEditFinances)).join('');
+            // Show footer only if more than MAX_VISIBLE_ROWS transactions
+            if (revenueFooter) {
+                revenueFooter.style.display = revenueTransactions.length > MAX_VISIBLE_ROWS ? 'block' : 'none';
+                const btn = revenueFooter.querySelector('.see-all-btn');
+                if (btn) {
+                    const remaining = revenueTransactions.length - MAX_VISIBLE_ROWS;
+                    btn.innerHTML = isExpanded 
+                        ? '<span>Show Less</span><i class="fas fa-chevron-up"></i>'
+                        : `<span>See All (${remaining} more)</span><i class="fas fa-chevron-down"></i>`;
+                    btn.classList.toggle('active', isExpanded);
+                }
+            }
         }
     }
     
     // Render expenses column
     const expensesList = document.getElementById('expensesList');
     const expensesEmptyState = document.getElementById('expensesEmptyState');
+    const expensesFooter = document.getElementById('expensesFooter');
     
     if (expensesList) {
         if (expenseTransactions.length === 0) {
@@ -28493,9 +28512,25 @@ function renderFinances() {
                 const addBtn = expensesEmptyState.querySelector('button');
                 if (addBtn) addBtn.style.display = canEditFinances ? 'inline-flex' : 'none';
             }
+            if (expensesFooter) expensesFooter.style.display = 'none';
         } else {
             if (expensesEmptyState) expensesEmptyState.style.display = 'none';
-            expensesList.innerHTML = expenseTransactions.map(t => renderTransactionRow(t, canEditFinances)).join('');
+            // Show all if expanded, otherwise limit to MAX_VISIBLE_ROWS
+            const isExpanded = expensesList.classList.contains('expanded');
+            const visibleTransactions = isExpanded ? expenseTransactions.slice(0, 50) : expenseTransactions.slice(0, MAX_VISIBLE_ROWS);
+            expensesList.innerHTML = visibleTransactions.map(t => renderTransactionRow(t, canEditFinances)).join('');
+            // Show footer only if more than MAX_VISIBLE_ROWS transactions
+            if (expensesFooter) {
+                expensesFooter.style.display = expenseTransactions.length > MAX_VISIBLE_ROWS ? 'block' : 'none';
+                const btn = expensesFooter.querySelector('.see-all-btn');
+                if (btn) {
+                    const remaining = expenseTransactions.length - MAX_VISIBLE_ROWS;
+                    btn.innerHTML = isExpanded 
+                        ? '<span>Show Less</span><i class="fas fa-chevron-up"></i>'
+                        : `<span>See All (${remaining} more)</span><i class="fas fa-chevron-down"></i>`;
+                    btn.classList.toggle('active', isExpanded);
+                }
+            }
         }
     }
     
@@ -28511,6 +28546,22 @@ function renderFinances() {
         });
     });
 }
+
+/**
+ * Toggle See All/Show Less for finance transaction columns
+ */
+window.toggleSeeAll = function(column) {
+    const listId = column === 'revenue' ? 'revenueList' : 'expensesList';
+    const list = document.getElementById(listId);
+    if (!list) return;
+    
+    list.classList.toggle('expanded');
+    
+    // Re-render the transactions to show/hide rows
+    if (typeof renderFinances === 'function') {
+        renderFinances();
+    }
+};
 
 /**
  * Render a single transaction row with expandable details
@@ -28556,22 +28607,8 @@ function renderTransactionRow(transaction, canEdit = true) {
                 </div>
                 <div class="transaction-col-from-to">
                     <span class="transaction-from-to">${fromToDisplay}</span>
-                    ${t.party && t.description ? `<span class="transaction-desc-sub">${escapeHtml(t.description)}</span>` : ''}
-                </div>
-                <div class="transaction-col-date">
-                    <span class="transaction-date-short">${shortDateStr}</span>
                 </div>
                 <div class="transaction-col-actions">
-                    ${canEdit ? `
-                    <div class="transaction-actions">
-                        <button class="transaction-action-btn edit" onclick="event.stopPropagation(); editTransaction('${t.id}')" title="Edit">
-                            <i class="fas fa-pen"></i>
-                        </button>
-                        <button class="transaction-action-btn delete" onclick="event.stopPropagation(); openDeleteTransactionModal('${t.id}')" title="Delete">
-                            <i class="fas fa-trash"></i>
-                        </button>
-                    </div>
-                    ` : ''}
                     <span class="expand-icon"><i class="fas fa-chevron-down"></i></span>
                 </div>
             </div>
@@ -28622,6 +28659,16 @@ function renderTransactionRow(transaction, canEdit = true) {
                     </div>
                     ` : ''}
                 </div>
+                ${canEdit ? `
+                <div class="transaction-row-actions">
+                    <button class="btn-sm btn-edit" onclick="event.stopPropagation(); editTransaction('${t.id}')">
+                        <i class="fas fa-pen"></i> Edit
+                    </button>
+                    <button class="btn-sm btn-delete" onclick="event.stopPropagation(); openDeleteTransactionModal('${t.id}')">
+                        <i class="fas fa-trash"></i> Delete
+                    </button>
+                </div>
+                ` : ''}
             </div>
         </div>
     `;

@@ -954,6 +954,12 @@
                         <div class="transactions-column-list" id="revenueList">
                             <!-- Revenue transactions rendered here -->
                         </div>
+                        <div class="finance-column-footer" id="revenueFooter" style="display: none;">
+                            <button class="see-all-btn" id="revenueSeaAllBtn" onclick="toggleSeeAll('revenue')">
+                                <span>See All</span>
+                                <i class="fas fa-chevron-down"></i>
+                            </button>
+                        </div>
                         <div class="column-empty-state" id="revenueEmptyState">
                             <i class="fas fa-coins"></i>
                             <p>No revenue recorded yet</p>
@@ -977,6 +983,12 @@
                         </div>
                         <div class="transactions-column-list" id="expensesList">
                             <!-- Expense transactions rendered here -->
+                        </div>
+                        <div class="finance-column-footer" id="expensesFooter" style="display: none;">
+                            <button class="see-all-btn" id="expensesSeaAllBtn" onclick="toggleSeeAll('expenses')">
+                                <span>See All</span>
+                                <i class="fas fa-chevron-down"></i>
+                            </button>
                         </div>
                         <div class="column-empty-state" id="expensesEmptyState">
                             <i class="fas fa-receipt"></i>
