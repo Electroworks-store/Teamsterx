@@ -13838,7 +13838,6 @@ const CUSTOM_METRICS_CATALOG = {
         icon: 'fa-user-plus',
         color: '',
         getValue: () => {
-            // Always pull from Leads sheets
             const allLeads = getAllLeadsFromTables();
             const leadCount = allLeads.length;
             return {
@@ -13860,7 +13859,6 @@ const CUSTOM_METRICS_CATALOG = {
             const leadCount = allLeads.length;
             const customerCount = getUniqueCustomerCount();
             
-            // Handle edge cases logically
             if (leadCount === 0 && customerCount === 0) {
                 return {
                     value: '—',
@@ -13893,25 +13891,17 @@ const CUSTOM_METRICS_CATALOG = {
         icon: 'fa-calendar-minus',
         color: 'danger',
         getValue: () => {
-            // Get this month's expenses from transactions
             const now = new Date();
             const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-            const transactions = appState.transactions || [];
-            const monthlyExpenses = transactions.filter(t => {
-                if (t.type !== 'expense') return false;
+            const expenses = (appState.transactions || []).filter(t => t.type === 'expense');
+            const monthlyExpenses = expenses.filter(t => {
                 const transDate = t.date?.toDate?.() || new Date(t.date);
-                return transDate >= startOfMonth;
-            }).reduce((sum, t) => sum + (t.amount || 0), 0);
-            
-            const expenseCount = transactions.filter(t => {
-                if (t.type !== 'expense') return false;
-                const transDate = t.date?.toDate?.() || new Date(t.date);
-                return transDate >= startOfMonth;
-            }).length;
-            
+                return transDate >= startOfMonth && transDate <= now;
+            });
+            const monthlyTotal = monthlyExpenses.reduce((sum, t) => sum + (t.amount || 0), 0);
             return {
-                value: formatCurrency(monthlyExpenses),
-                subtitle: `${expenseCount} expense${expenseCount !== 1 ? 's' : ''} this month`,
+                value: formatCurrency(monthlyTotal),
+                subtitle: `${monthlyExpenses.length} expense${monthlyExpenses.length === 1 ? '' : 's'} this month`,
                 tooltip: 'Total expenses recorded this month'
             };
         },
@@ -13982,14 +13972,14 @@ function getUniqueCustomerCount() {
  */
 function generateFinanceTrendData(type = 'income') {
     if (!appState.transactions || appState.transactions.length === 0) {
-        return generatePlaceholderTrendData(7, 0, 0);
+        return generatePlaceholderTrendData(30, 0, 0);
     }
     
     const now = new Date();
     const data = [];
     
-    // Get last 7 days of data
-    for (let i = 6; i >= 0; i--) {
+    // Use last 30 days to ensure recent transactions appear in charts
+    for (let i = 29; i >= 0; i--) {
         const date = new Date(now);
         date.setDate(date.getDate() - i);
         const dayStart = new Date(date.setHours(0, 0, 0, 0));
@@ -14006,8 +13996,8 @@ function generateFinanceTrendData(type = 'income') {
         });
         
         data.push({
-            label: date.toLocaleDateString('en-US', { weekday: 'short' }),
-            value: dayTotal
+            label: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+            count: dayTotal
         });
     }
     
@@ -14111,14 +14101,12 @@ function generateCustomerGrowthData() {
  * Generate expenses by category data
  */
 function generateExpensesByCategoryData() {
-    const tx = appState.transactions || [];
+    const expenses = (appState.transactions || []).filter(t => t.type === 'expense');
     const byCategory = {};
     
-    // Aggregate expenses from transactions by category (falls back to 'Uncategorized')
-    tx.forEach(t => {
-        if (t.type !== 'expense') return;
-        const category = (t.category || 'Uncategorized').trim() || 'Uncategorized';
-        const amount = t.amount || 0;
+    expenses.forEach(exp => {
+        const category = exp.category || 'Other';
+        const amount = exp.amount || 0;
         byCategory[category] = (byCategory[category] || 0) + amount;
     });
     
@@ -14127,8 +14115,8 @@ function generateExpensesByCategoryData() {
         .sort((a, b) => b[1] - a[1])
         .slice(0, 6)
         .map(([label, value]) => ({
-            label,
-            value
+            label: label,
+            value: value
         }));
     
     return data.length > 0 ? data : [{ label: 'No data', value: 0 }];
@@ -17334,7 +17322,7 @@ function renderMetrics() {
             }
             
             // Render graph-view metrics (side by side)
-            if (graphMetrics.length > 0 && !metricsEditMode) {
+            if (graphMetrics.length > 0) {
                 html += '<div class="metrics-charts-row">';
                 
                 graphMetrics.forEach(metricId => {
@@ -19622,44 +19610,12 @@ function copyTeamCodeToClipboard(code) {
 
 // Show team creation error with retry option
 function showTeamCreationError() {
-    const modalHtml = `
-        <div class="modal-overlay" id="teamErrorModal">
-            <div class="modal-content" style="max-width: 500px;">
-                <div style="text-align: center; padding: 20px;">
-                    <div style="font-size: 48px; margin-bottom: 20px;">⚠️</div>
-                    <h2 style="color: #d13438; margin-bottom: 10px;">Team Creation Failed</h2>
-                    <p style="color: #666; margin-bottom: 20px;">We couldn't create your team automatically. This might be due to a connection issue or database permissions.</p>
-                    
-                    <div style="display: flex; gap: 10px; justify-content: center;">
-                        <button onclick="retryTeamCreation()" style="padding: 12px 24px; background-color: #0078D4; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 16px;">
-                            🔄 Retry
-                        </button>
-                        <button onclick="closeTeamErrorModal()" style="padding: 12px 24px; background-color: #f5f5f5; color: #333; border: none; border-radius: 4px; cursor: pointer; font-size: 16px;">
-                            Close
-                        </button>
-                    </div>
-                    
-                    <p style="margin-top: 20px; font-size: 12px; color: #999;">If the problem persists, try refreshing the page or contact support.</p>
-                </div>
-            </div>
-        </div>
-    `;
-    
-    document.body.insertAdjacentHTML('beforeend', modalHtml);
-}
-
-// Close team error modal
-function closeTeamErrorModal() {
-    const modal = document.getElementById('teamErrorModal');
-    if (modal) {
-        modal.remove();
+    showToast('We could not create your team. Open the Team tab and try again.', 'error', 6000, 'Team creation failed');
+    const createBtn = document.getElementById('createTeamBtn');
+    if (createBtn) {
+        createBtn.style.display = 'block';
+        createBtn.focus();
     }
-}
-
-// Retry team creation
-async function retryTeamCreation() {
-    closeTeamErrorModal();
-    await initializeUserTeam();
 }
 
 // Manual team creation (can be triggered from button)
