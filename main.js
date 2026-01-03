@@ -1915,7 +1915,8 @@ window.switchTab = function(sectionName) {
     
     // Render metrics when navigating to metrics tab
     if (sectionName === 'metrics') {
-        renderMetrics();
+        // Load subscriptions first for MRR chart data
+        loadSubscriptions().then(() => renderMetrics());
     }
     
     // Render finances when navigating to finances tab
@@ -13795,7 +13796,8 @@ const CUSTOM_METRICS_CATALOG = {
                 tooltip: 'Monthly recurring revenue from subscriptions'
             };
         },
-        hasChart: false
+        hasChart: true,
+        chartData: () => generateMRRTrendData()
     },
     topCustomer: {
         id: 'topCustomer',
@@ -13827,7 +13829,8 @@ const CUSTOM_METRICS_CATALOG = {
                 tooltip: 'Unique customers from revenue transactions'
             };
         },
-        hasChart: false
+        hasChart: true,
+        chartData: () => generateCustomerGrowthData()
     },
     leads: {
         id: 'leads',
@@ -13836,7 +13839,6 @@ const CUSTOM_METRICS_CATALOG = {
         icon: 'fa-user-plus',
         color: '',
         getValue: () => {
-            // Always pull from Leads sheets
             const allLeads = getAllLeadsFromTables();
             const leadCount = allLeads.length;
             return {
@@ -13858,7 +13860,6 @@ const CUSTOM_METRICS_CATALOG = {
             const leadCount = allLeads.length;
             const customerCount = getUniqueCustomerCount();
             
-            // Handle edge cases logically
             if (leadCount === 0 && customerCount === 0) {
                 return {
                     value: '—',
@@ -13884,34 +13885,69 @@ const CUSTOM_METRICS_CATALOG = {
         },
         hasChart: false
     },
-    support_tickets: {
-        id: 'support_tickets',
-        name: 'Support Tickets',
-        description: 'Track open support requests',
-        icon: 'fa-ticket-alt',
-        color: 'warning',
+    monthlyExpenses: {
+        id: 'monthlyExpenses',
+        name: 'Monthly Expenses',
+        description: 'Track monthly expenses from transactions',
+        icon: 'fa-calendar-minus',
+        color: 'danger',
         getValue: () => {
-            // Placeholder - could be connected to support system
+            const now = new Date();
+            const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+            const expenses = (appState.transactions || []).filter(t => t.type === 'expense');
+            const monthlyExpenses = expenses.filter(t => {
+                const transDate = t.date?.toDate?.() || new Date(t.date);
+                return transDate >= startOfMonth && transDate <= now;
+            });
+            const monthlyTotal = monthlyExpenses.reduce((sum, t) => sum + (t.amount || 0), 0);
             return {
-                value: '—',
-                subtitle: 'Not connected',
-                tooltip: 'Connect a support system to track tickets'
+                value: formatCurrency(monthlyTotal),
+                subtitle: `${monthlyExpenses.length} expense${monthlyExpenses.length === 1 ? '' : 's'} this month`,
+                tooltip: 'Total expenses recorded this month'
+            };
+        },
+        hasChart: true,
+        chartData: () => generateExpensesByCategoryData()
+    },
+    upcomingEvents: {
+        id: 'upcomingEvents',
+        name: 'Upcoming Events',
+        description: 'Events scheduled in the next 7 days',
+        icon: 'fa-calendar-day',
+        color: '',
+        getValue: () => {
+            const now = new Date();
+            const weekFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+            const upcoming = (appState.events || []).filter(e => {
+                const eventDate = e.date?.toDate?.() || new Date(e.date);
+                return eventDate >= now && eventDate <= weekFromNow;
+            });
+            return {
+                value: upcoming.length.toString(),
+                subtitle: upcoming.length === 0 ? 'No events this week' : `${upcoming.length} this week`,
+                tooltip: 'Number of events in the next 7 days'
             };
         },
         hasChart: false
     },
-    nps_score: {
-        id: 'nps_score',
-        name: 'NPS Score',
-        description: 'Net Promoter Score from surveys',
-        icon: 'fa-smile',
-        color: 'success',
+    totalTasks: {
+        id: 'totalTasks',
+        name: 'Active Tasks',
+        description: 'Total open tasks across all projects',
+        icon: 'fa-tasks',
+        color: 'warning',
         getValue: () => {
-            // Placeholder - could be connected to survey system
+            const openTasks = (appState.tasks || []).filter(t => t.status !== 'done');
+            const dueSoon = openTasks.filter(t => {
+                if (!t.dueDate) return false;
+                const due = t.dueDate?.toDate?.() || new Date(t.dueDate);
+                const threeDays = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
+                return due <= threeDays;
+            });
             return {
-                value: '—',
-                subtitle: 'Not connected',
-                tooltip: 'Connect a survey system to track NPS'
+                value: openTasks.length.toString(),
+                subtitle: dueSoon.length > 0 ? `${dueSoon.length} due soon` : 'No urgent tasks',
+                tooltip: 'Number of incomplete tasks across the team'
             };
         },
         hasChart: false
@@ -13937,14 +13973,14 @@ function getUniqueCustomerCount() {
  */
 function generateFinanceTrendData(type = 'income') {
     if (!appState.transactions || appState.transactions.length === 0) {
-        return generatePlaceholderTrendData(7, 0, 0);
+        return generatePlaceholderTrendData(30, 0, 0);
     }
     
     const now = new Date();
     const data = [];
     
-    // Get last 7 days of data
-    for (let i = 6; i >= 0; i--) {
+    // Use last 30 days to ensure recent transactions appear in charts
+    for (let i = 29; i >= 0; i--) {
         const date = new Date(now);
         date.setDate(date.getDate() - i);
         const dayStart = new Date(date.setHours(0, 0, 0, 0));
@@ -13961,8 +13997,8 @@ function generateFinanceTrendData(type = 'income') {
         });
         
         data.push({
-            label: date.toLocaleDateString('en-US', { weekday: 'short' }),
-            value: dayTotal
+            label: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+            count: dayTotal
         });
     }
     
@@ -13991,6 +14027,123 @@ function generatePlaceholderTrendData(days, min, max) {
 }
 
 /**
+ * Generate MRR trend data (monthly view)
+ * Uses both subscriptions and recurring transactions for comprehensive MRR data
+ */
+function generateMRRTrendData() {
+    const now = new Date();
+    const data = [];
+    
+    // Get last 6 months of MRR data
+    for (let i = 5; i >= 0; i--) {
+        const monthDate = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        const monthEnd = new Date(now.getFullYear(), now.getMonth() - i + 1, 0);
+        const monthLabel = monthDate.toLocaleDateString('en-US', { month: 'short' });
+        
+        let monthlyMrr = 0;
+        
+        // Calculate MRR from subscriptions
+        const subs = appState.subscriptions || [];
+        subs.forEach(sub => {
+            const startDate = sub.startDate?.toDate?.() || new Date(sub.startDate || 0);
+            if (startDate <= monthEnd) {
+                const amount = sub.amount || 0;
+                switch (sub.frequency) {
+                    case 'monthly': monthlyMrr += amount; break;
+                    case 'quarterly': monthlyMrr += amount / 3; break;
+                    case 'yearly': monthlyMrr += amount / 12; break;
+                    default: monthlyMrr += amount;
+                }
+            }
+        });
+        
+        // Also include recurring transactions if no subscriptions
+        if (subs.length === 0) {
+            const transactions = appState.transactions || [];
+            transactions.forEach(t => {
+                if (t.type === 'income' && t.isRecurring) {
+                    const transDate = t.date?.toDate?.() || new Date(t.date || 0);
+                    if (transDate <= monthEnd) {
+                        const amount = t.amount || 0;
+                        switch (t.frequency) {
+                            case 'monthly': monthlyMrr += amount; break;
+                            case 'quarterly': monthlyMrr += amount / 3; break;
+                            case 'yearly': monthlyMrr += amount / 12; break;
+                            default: monthlyMrr += amount;
+                        }
+                    }
+                }
+            });
+        }
+        
+        data.push({
+            label: monthLabel,
+            value: monthlyMrr
+        });
+    }
+    
+    return data;
+}
+
+/**
+ * Generate customer growth data (monthly cumulative)
+ */
+function generateCustomerGrowthData() {
+    const now = new Date();
+    const data = [];
+    
+    // Get last 6 months of customer data
+    for (let i = 5; i >= 0; i--) {
+        const monthDate = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        const monthEnd = new Date(now.getFullYear(), now.getMonth() - i + 1, 0);
+        const monthLabel = monthDate.toLocaleDateString('en-US', { month: 'short' });
+        
+        // Count unique customers up to that month
+        const customers = new Set();
+        (appState.transactions || []).forEach(t => {
+            if (t.type === 'income' && t.party) {
+                const transDate = t.date?.toDate?.() || new Date(t.date);
+                if (transDate <= monthEnd) {
+                    customers.add(t.party.toLowerCase().trim());
+                }
+            }
+        });
+        
+        data.push({
+            label: monthLabel,
+            value: customers.size
+        });
+    }
+    
+    return data;
+}
+
+/**
+ * Generate expenses by category data
+ */
+function generateExpensesByCategoryData() {
+    const expenses = (appState.transactions || []).filter(t => t.type === 'expense');
+    const byCategory = {};
+    
+    expenses.forEach(exp => {
+        const category = exp.category || 'Other';
+        const amount = exp.amount || 0;
+        byCategory[category] = (byCategory[category] || 0) + amount;
+    });
+    
+    // Convert to chart data format
+    const data = Object.entries(byCategory)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 6)
+        .map(([label, value]) => ({
+            label: label,
+            value: value
+        }));
+    
+    return data.length > 0 ? data : [{ label: 'No data', value: 0 }];
+}
+
+/**
  * State for metrics edit mode
  */
 let metricsEditMode = false;
@@ -14002,6 +14155,49 @@ let metricsEditMode = false;
 function getEnabledCustomMetrics() {
     return appState.currentTeamData?.settings?.enabledMetrics || [];
 }
+
+/**
+ * Get the display mode for a metric (card or graph)
+ * @param {string} metricId - The metric ID
+ * @returns {string} 'card' or 'graph'
+ */
+function getMetricDisplayMode(metricId) {
+    const modes = appState.currentTeamData?.settings?.metricsDisplayModes || {};
+    return modes[metricId] || 'card'; // Default to card view
+}
+
+/**
+ * Toggle the display mode for a metric
+ * @param {string} metricId - The metric ID
+ */
+async function toggleMetricDisplayMode(metricId) {
+    if (!canEditMetrics()) return;
+    
+    const currentMode = getMetricDisplayMode(metricId);
+    const newMode = currentMode === 'card' ? 'graph' : 'card';
+    
+    try {
+        const { doc, updateDoc } = await import('https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js');
+        const teamRef = doc(db, 'teams', appState.currentTeamId);
+        
+        const currentModes = appState.currentTeamData?.settings?.metricsDisplayModes || {};
+        currentModes[metricId] = newMode;
+        
+        await updateDoc(teamRef, {
+            'settings.metricsDisplayModes': currentModes
+        });
+        
+        // Update local state
+        if (!appState.currentTeamData.settings) appState.currentTeamData.settings = {};
+        appState.currentTeamData.settings.metricsDisplayModes = currentModes;
+        
+        renderMetrics();
+    } catch (error) {
+        console.error('Error toggling metric display mode:', error);
+    }
+}
+
+window.toggleMetricDisplayMode = toggleMetricDisplayMode;
 
 /**
  * Check if user can edit metrics (owner only)
@@ -14034,16 +14230,16 @@ window.toggleMetricsEditMode = toggleMetricsEditMode;
 
 /**
  * Available colors for chart customization
- * Apple-inspired palette
+ * Instagram-inspired palette
  */
 const CHART_COLOR_OPTIONS = [
+    { id: 'purple', label: 'Purple', value: '#833AB4', preview: '#833AB4' },
+    { id: 'pink', label: 'Pink', value: '#E1306C', preview: '#E1306C' },
     { id: 'accent', label: 'Blue', value: 'var(--accent)', preview: '#007AFF' },
     { id: 'green', label: 'Green', value: '#34C759', preview: '#34C759' },
     { id: 'orange', label: 'Orange', value: '#FF9F0A', preview: '#FF9F0A' },
-    { id: 'purple', label: 'Purple', value: '#AF52DE', preview: '#AF52DE' },
     { id: 'red', label: 'Red', value: '#FF3B30', preview: '#FF3B30' },
     { id: 'teal', label: 'Teal', value: '#5AC8FA', preview: '#5AC8FA' },
-    { id: 'pink', label: 'Pink', value: '#FF2D55', preview: '#FF2D55' },
     { id: 'indigo', label: 'Indigo', value: '#5856D6', preview: '#5856D6' }
 ];
 
@@ -14055,7 +14251,12 @@ const PIE_PALETTE_OPTIONS = [
     { 
         id: 'default', 
         label: 'Default', 
-        colors: ['var(--accent)', '#34C759', '#FF9F0A', '#AF52DE', '#FF3B30', '#5AC8FA', '#FF2D55', '#64D2FF']
+        colors: ['#E040FB', '#7C4DFF', '#536DFE', '#40C4FF', '#69F0AE', '#FFD740', '#FF6E40', '#FF4081']
+    },
+    { 
+        id: 'instagram', 
+        label: 'Instagram', 
+        colors: ['#E1306C', '#833AB4', '#5851DB', '#405DE6', '#C13584', '#F77737', '#FCAF45', '#FFDC80']
     },
     { 
         id: 'ocean', 
@@ -14107,6 +14308,7 @@ const DATA_SOURCE_OPTIONS = [
  */
 const DEFAULT_CHART_CONFIG = {
     type: 'bar',
+    visible: true, // Whether the chart/section is visible
     yAxis: {
         mode: 'auto', // 'auto' | 'custom'
         min: 0,
@@ -14125,6 +14327,124 @@ const DEFAULT_CHART_CONFIG = {
         metricKey: null
     }
 };
+
+/**
+ * Metrics section visibility state
+ * Tracks which sections are hidden
+ */
+let metricsHiddenSections = {
+    personalStats: false,
+    teamStats: false,
+    personalTrend: false,
+    teamCharts: false,
+    businessMetrics: false
+};
+
+/**
+ * Hidden individual metrics (not removed, just hidden)
+ * Contains array of metric IDs that are hidden
+ */
+let hiddenMetricIds = [];
+
+/**
+ * Load metrics section visibility from team settings
+ */
+function loadMetricsSectionVisibility() {
+    const visibility = appState.currentTeamData?.settings?.metricsVisibility || {};
+    metricsHiddenSections = {
+        personalStats: visibility.personalStats === false,
+        teamStats: visibility.teamStats === false,
+        personalTrend: visibility.personalTrend === false,
+        teamCharts: visibility.teamCharts === false,
+        businessMetrics: visibility.businessMetrics === false
+    };
+    
+    // Load hidden metrics
+    hiddenMetricIds = appState.currentTeamData?.settings?.hiddenMetrics || [];
+}
+
+/**
+ * Check if a metric is hidden
+ */
+function isMetricHidden(metricId) {
+    return hiddenMetricIds.includes(metricId);
+}
+
+/**
+ * Toggle individual metric visibility
+ */
+async function toggleMetricVisibility(metricId) {
+    if (!canEditMetrics()) return;
+    
+    const isHidden = hiddenMetricIds.includes(metricId);
+    
+    if (isHidden) {
+        hiddenMetricIds = hiddenMetricIds.filter(id => id !== metricId);
+    } else {
+        hiddenMetricIds.push(metricId);
+    }
+    
+    // Save to Firestore
+    try {
+        const { doc, updateDoc } = await import('https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js');
+        const teamRef = doc(db, 'teams', appState.currentTeamId);
+        
+        await updateDoc(teamRef, {
+            'settings.hiddenMetrics': hiddenMetricIds
+        });
+        
+        // Update local state
+        if (!appState.currentTeamData.settings) {
+            appState.currentTeamData.settings = {};
+        }
+        appState.currentTeamData.settings.hiddenMetrics = hiddenMetricIds;
+        
+        const metric = CUSTOM_METRICS_CATALOG[metricId];
+        const metricName = metric?.name || metricId;
+        showToast(isHidden ? `Showing "${metricName}"` : `Hiding "${metricName}"`, 'info');
+        
+        renderMetrics();
+    } catch (error) {
+        console.error('Error toggling metric visibility:', error);
+        showToast('Failed to update visibility', 'error');
+    }
+}
+
+window.toggleMetricVisibility = toggleMetricVisibility;
+
+/**
+ * Toggle section visibility
+ */
+async function toggleMetricsSectionVisibility(sectionId) {
+    if (!canEditMetrics()) return;
+    
+    metricsHiddenSections[sectionId] = !metricsHiddenSections[sectionId];
+    
+    // Save to Firestore
+    try {
+        const { doc, updateDoc } = await import('https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js');
+        const teamRef = doc(db, 'teams', appState.currentTeamId);
+        
+        const visibilitySettings = {
+            personalStats: !metricsHiddenSections.personalStats,
+            teamStats: !metricsHiddenSections.teamStats,
+            personalTrend: !metricsHiddenSections.personalTrend,
+            teamCharts: !metricsHiddenSections.teamCharts,
+            businessMetrics: !metricsHiddenSections.businessMetrics
+        };
+        
+        await updateDoc(teamRef, {
+            'settings.metricsSectionVisibility': visibilitySettings
+        });
+        
+        renderMetrics();
+    } catch (error) {
+        console.error('Error saving section visibility:', error);
+        showToast('Failed to save visibility settings', 'error');
+    }
+}
+
+window.toggleMetricsSectionVisibility = toggleMetricsSectionVisibility;
 
 /**
  * Debounce timer for saving chart config
@@ -14641,13 +14961,43 @@ async function saveEnabledMetrics(enabledMetrics) {
  * @param {Object} metric - The metric config from CUSTOM_METRICS_CATALOG
  * @param {number} index - The index in the enabled list
  * @param {number} total - Total number of enabled metrics
+ * @param {boolean} showHidden - Whether to show hidden metrics (in edit mode)
  * @returns {string} HTML string
  */
-function renderCustomMetricCard(metric, index, total) {
+function renderCustomMetricCard(metric, index, total, showHidden = false) {
+    const metricIsHidden = isMetricHidden(metric.id);
+    
+    // If hidden and not in edit mode, don't render
+    if (metricIsHidden && !metricsEditMode) {
+        return '';
+    }
+    
     const data = metric.getValue();
+    const hasChartOption = metric.hasChart;
+    const currentMode = getMetricDisplayMode(metric.id);
+    
+    // Display mode toggle (only in edit mode and for metrics that support charts)
+    const displayModeToggle = (metricsEditMode && hasChartOption) ? `
+        <button class="metric-display-toggle" onclick="toggleMetricDisplayMode('${metric.id}')" 
+                title="Switch to ${currentMode === 'card' ? 'graph' : 'card'} view">
+            <i class="fas fa-${currentMode === 'card' ? 'chart-line' : 'th-large'}"></i>
+        </button>
+    ` : '';
+    
+    // Hide/show toggle button
+    const hideToggle = metricsEditMode ? `
+        <button class="metric-edit-btn ${metricIsHidden ? 'hidden-state' : ''}" 
+                onclick="toggleMetricVisibility('${metric.id}')" 
+                title="${metricIsHidden ? 'Show metric' : 'Hide metric'}">
+            <i class="fas fa-${metricIsHidden ? 'eye-slash' : 'eye'}"></i>
+        </button>
+    ` : '';
+    
     const editControls = metricsEditMode ? `
         <div class="metric-edit-overlay">
             <div class="metric-edit-actions">
+                ${displayModeToggle}
+                ${hideToggle}
                 <button class="metric-edit-btn" onclick="reorderCustomMetric('${metric.id}', 'up')" 
                         ${index === 0 ? 'disabled' : ''} title="Move up">
                     <i class="fas fa-chevron-up"></i>
@@ -14664,9 +15014,10 @@ function renderCustomMetricCard(metric, index, total) {
     ` : '';
     
     const tooltipAttr = data.tooltip ? `data-tooltip="${data.tooltip}"` : '';
+    const hiddenClass = metricIsHidden ? 'metric-hidden' : '';
     
     return `
-        <div class="metrics-stat-card custom-metric-card ${metric.color} ${metricsEditMode ? 'edit-mode' : ''}" ${tooltipAttr}>
+        <div class="metrics-stat-card custom-metric-card ${metric.color} ${metricsEditMode ? 'edit-mode' : ''} ${hiddenClass}" ${tooltipAttr}>
             ${editControls}
             <div class="metrics-stat-icon">
                 <i class="fas ${metric.icon}"></i>
@@ -14813,7 +15164,7 @@ function computePersonalMetrics(state, userId) {
     
     // Daily breakdown based on time filter (for trend chart)
     const timeBounds = getMetricsTimeBoundaries();
-    const daysToShow = metricsTimeFilter === '7days' ? 7 : (metricsTimeFilter === '30days' ? 30 : 14);
+    const daysToShow = metricsTimeFilter === '7days' ? 7 : (metricsTimeFilter === '30days' ? 30 : 90);
     
     const dailyCompletions = [];
     for (let i = daysToShow - 1; i >= 0; i--) {
@@ -14847,6 +15198,9 @@ function computePersonalMetrics(state, userId) {
             open: myOpenTasks.length,
             completedLast7Days: completedLast7Days.length,
             completedLast30Days: completedLast30Days.length,
+            // Time-filtered stats based on current filter
+            completedInPeriod: metricsTimeFilter === '7days' ? completedLast7Days.length : 
+                              (metricsTimeFilter === '30days' ? completedLast30Days.length : myCompletedTasks.length),
             completionRate
         },
         events: {
@@ -14856,7 +15210,12 @@ function computePersonalMetrics(state, userId) {
         },
         messages: {
             total: myMessages.length,
-            last7Days: messagesLast7Days.length
+            last7Days: messagesLast7Days.length,
+            inPeriod: metricsTimeFilter === '7days' ? messagesLast7Days.length : 
+                     (metricsTimeFilter === '30days' ? myMessages.filter(m => {
+                         const createdAt = parseMetricsDate(m.createdAt);
+                         return createdAt && createdAt >= thirtyDaysAgo;
+                     }).length : myMessages.length)
         },
         activities: {
             total: myActivities.length,
@@ -14926,7 +15285,7 @@ function computeTeamMetrics(state) {
     });
     
     // Daily breakdown for team based on time filter
-    const daysToShow = metricsTimeFilter === '7days' ? 7 : (metricsTimeFilter === '30days' ? 30 : 14);
+    const daysToShow = metricsTimeFilter === '7days' ? 7 : (metricsTimeFilter === '30days' ? 30 : 90);
     
     const dailyCompletions = [];
     for (let i = daysToShow - 1; i >= 0; i--) {
@@ -14960,16 +15319,25 @@ function computeTeamMetrics(state) {
             open: openTasks.length,
             completedLast7Days: completedLast7Days.length,
             completedLast30Days: completedLast30Days.length,
+            // Time-filtered stats based on current filter
+            completedInPeriod: metricsTimeFilter === '7days' ? completedLast7Days.length : 
+                              (metricsTimeFilter === '30days' ? completedLast30Days.length : completedTasks.length),
             completionRate: teamCompletionRate
         },
         memberBreakdown: memberTaskBreakdown,
         events: {
             total: state.events.length,
-            upcomingThisWeek: upcomingEventsThisWeek.length
+            upcomingThisWeek: upcomingEventsThisWeek.length,
+            inPeriod: upcomingEventsThisWeek.length // Events in the upcoming week
         },
         messages: {
             total: state.messages.length,
-            last7Days: messagesLast7Days.length
+            last7Days: messagesLast7Days.length,
+            inPeriod: metricsTimeFilter === '7days' ? messagesLast7Days.length : 
+                     (metricsTimeFilter === '30days' ? state.messages.filter(m => {
+                         const createdAt = parseMetricsDate(m.createdAt);
+                         return createdAt && createdAt >= thirtyDaysAgo;
+                     }).length : state.messages.length)
         },
         memberCount: state.teammates.length,
         trends: {
@@ -15137,22 +15505,26 @@ window.computeLeadsMetrics = computeLeadsMetrics;
 
 /**
  * Render a progress ring (circular progress indicator)
- * Apple-inspired thin stroke with smooth animation
+ * Instagram-inspired vibrant gradient with smooth animation
  */
-function createProgressRing(percent, size = 72, strokeWidth = 4, color = 'var(--accent)') {
+function createProgressRing(percent, size = 60, strokeWidth = 5, color = '#833AB4') {
     const radius = (size - strokeWidth) / 2;
     const circumference = radius * 2 * Math.PI;
     const offset = circumference - (percent / 100) * circumference;
     
-    // Subtle gradient ID for uniqueness
+    // Vibrant gradient ID for uniqueness
     const gradientId = `ring-gradient-${Math.random().toString(36).substr(2, 9)}`;
+    
+    // Use a pink-to-purple gradient for modern look
+    const gradientStart = color === '#833AB4' ? '#E1306C' : color;
+    const gradientEnd = color === '#833AB4' ? '#833AB4' : color;
     
     return `
         <svg class="progress-ring" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
             <defs>
                 <linearGradient id="${gradientId}" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" style="stop-color:${color};stop-opacity:1" />
-                    <stop offset="100%" style="stop-color:${color};stop-opacity:0.7" />
+                    <stop offset="0%" style="stop-color:${gradientStart};stop-opacity:1" />
+                    <stop offset="100%" style="stop-color:${gradientEnd};stop-opacity:1" />
                 </linearGradient>
             </defs>
             <circle
@@ -15163,7 +15535,7 @@ function createProgressRing(percent, size = 72, strokeWidth = 4, color = 'var(--
                 r="${radius}"
                 cx="${size / 2}"
                 cy="${size / 2}"
-                opacity="0.4"
+                opacity="0.3"
             />
             <circle
                 class="progress-ring-progress"
@@ -15609,8 +15981,8 @@ function renderGraphByTypeWithConfig(data, type, dataType = 'trend', config = {}
     
     // Build options from config
     const options = {
-        primaryColor: config.primaryColor || 'var(--accent)',
-        secondaryColor: config.secondaryColor || '#34C759',
+        primaryColor: config.primaryColor || '#833AB4',
+        secondaryColor: config.secondaryColor || '#E1306C',
         showSecondaryAxis: config.showSecondaryAxis || false,
         yAxisMin: config.yAxisMode === 'auto' ? 0 : (config.yAxisMin ?? 0),
         yAxisMax: config.yAxisMode === 'auto' ? null : (config.yAxisMax ?? null),
@@ -15794,7 +16166,7 @@ function createSmoothPath(points, yMax = null, yMin = null) {
 
 /**
  * Create a modern line chart with dual-axis support
- * Clean, minimal Apple-style design
+ * Clean, minimal Instagram-style design
  * Clamps Y-axis to always start at 0 (no negative values)
  * Supports custom Y-axis config via options
  * @param {Array} data - Array of { label, count } objects
@@ -15810,8 +16182,8 @@ function createLineChart(data, options = {}) {
     const {
         showSecondaryAxis = false,
         secondaryData = null,
-        primaryColor = 'var(--accent)',
-        secondaryColor = '#34C759',
+        primaryColor = '#833AB4',
+        secondaryColor = '#E1306C',
         primaryLabel = '',
         secondaryLabel = '',
         height = 140,
@@ -16196,7 +16568,7 @@ function createPieChartFromTrend(data, options = {}) {
  * @param {Array} data - Graph data
  * @param {string} dataType - 'trend' | 'breakdown'
  */
-function createSwitchableGraphCard(graphId, title, icon, data, dataType = 'trend') {
+function createSwitchableGraphCard(graphId, title, icon, data, dataType = 'trend', options = {}) {
     const config = getChartConfig(graphId);
     const currentType = config.type || getGraphType(graphId);
     const graphContent = renderGraphByTypeWithConfig(data, currentType, dataType, config);
@@ -16213,6 +16585,10 @@ function createSwitchableGraphCard(graphId, title, icon, data, dataType = 'trend
         </button>
     ` : '';
     
+    // Get hide toggle from options (for custom metrics)
+    const hideToggle = options.hideToggle || '';
+    const hiddenClass = options.hiddenClass || '';
+    
     // Get the icon for the current graph type
     const graphTypeIcons = {
         'bar': 'fa-chart-bar',
@@ -16222,10 +16598,11 @@ function createSwitchableGraphCard(graphId, title, icon, data, dataType = 'trend
     const currentTypeIcon = graphTypeIcons[currentType] || 'fa-chart-bar';
     
     return `
-        <div class="metrics-card ${showSettings ? 'edit-mode' : ''}" data-graph-id="${graphId}" data-graph-data="${dataJson}" data-graph-data-type="${dataType}">
+        <div class="metrics-card ${showSettings ? 'edit-mode' : ''} ${hiddenClass}" data-graph-id="${graphId}" data-graph-data="${dataJson}" data-graph-data-type="${dataType}">
             <div class="metrics-card-header">
                 <h3><i class="fas ${icon}"></i> ${title}</h3>
                 <div class="graph-header-actions">
+                    ${hideToggle}
                     ${settingsToggleBtn}
                     <div class="graph-menu-container">
                         <button class="graph-menu-btn" onclick="toggleGraphMenu(event, '${graphId}')" aria-label="Change graph type" data-current-type="${currentType}">
@@ -16732,6 +17109,10 @@ function renderMetrics() {
     const hasPersonalTasks = personalMetrics.tasks.total > 0;
     const hasPersonalActivity = hasPersonalTasks || personalMetrics.events.total > 0 || personalMetrics.messages.total > 0;
     
+    // Get period label for stats
+    const periodLabel = metricsTimeFilter === '7days' ? 'This Week' : 
+                       (metricsTimeFilter === '30days' ? 'This Month' : 'All Time');
+    
     if (!hasPersonalActivity) {
         // Empty state for personal metrics
         html += createMetricsEmptyState(
@@ -16740,68 +17121,86 @@ function renderMetrics() {
             'Start completing tasks, creating events, or sending messages to see your performance metrics here.'
         );
     } else {
-        // Top row: Stat cards with tooltips
-        html += '<div class="metrics-stats-row">';
+        // Section visibility toggle for personal stats
+        const personalStatsHidden = metricsHiddenSections.personalStats;
+        const personalStatsToggle = metricsEditMode ? `
+            <button class="section-visibility-toggle ${personalStatsHidden ? 'hidden-section' : ''}" 
+                    onclick="toggleMetricsSectionVisibility('personalStats')" 
+                    title="${personalStatsHidden ? 'Show' : 'Hide'} Stats">
+                <i class="fas ${personalStatsHidden ? 'fa-eye-slash' : 'fa-eye'}"></i>
+            </button>
+        ` : '';
         
-        // Completion rate with progress ring (no tooltip on this one - self-explanatory)
-        html += `
-            <div class="metrics-stat-card metrics-stat-card-large" data-tooltip="${personalMetrics.tasks.completed} completed, ${personalMetrics.tasks.open} remaining">
-                <div class="metrics-progress-ring-container">
-                    ${createProgressRing(personalMetrics.tasks.completionRate)}
+        // Top row: Stat cards with tooltips (only show if not hidden)
+        if (!personalStatsHidden || metricsEditMode) {
+            html += `<div class="metrics-stats-row ${personalStatsHidden ? 'section-hidden' : ''}" data-section="personalStats">`;
+            if (metricsEditMode) html += personalStatsToggle;
+            
+            // Completion rate with progress ring
+            html += `
+                <div class="metrics-stat-card metrics-stat-card-large" data-tooltip="${personalMetrics.tasks.completed} completed, ${personalMetrics.tasks.open} remaining">
+                    <div class="metrics-progress-ring-container">
+                        ${createProgressRing(personalMetrics.tasks.completionRate)}
+                    </div>
+                    <div class="metrics-stat-content">
+                        <div class="metrics-stat-label">Task Completion Rate</div>
+                        <div class="metrics-stat-subtitle">${personalMetrics.tasks.completed} of ${personalMetrics.tasks.total} tasks</div>
+                    </div>
                 </div>
-                <div class="metrics-stat-content">
-                    <div class="metrics-stat-label">Task Completion Rate</div>
-                    <div class="metrics-stat-subtitle">${personalMetrics.tasks.completed} of ${personalMetrics.tasks.total} tasks</div>
-                </div>
-            </div>
-        `;
+            `;
+            
+            // Time-filtered completed tasks
+            const tasksTooltip = `Completed: ${personalMetrics.tasks.completedLast7Days} this week, ${personalMetrics.tasks.completedLast30Days} this month`;
+            html += createStatCard(
+                'fa-check-circle', 
+                personalMetrics.tasks.completedInPeriod, 
+                `Completed ${periodLabel}`, 
+                `${personalMetrics.tasks.open} open`, 
+                'success',
+                tasksTooltip
+            );
+            
+            const eventsTooltip = `${personalMetrics.events.total} total events created by you`;
+            html += createStatCard(
+                'fa-calendar-check', 
+                personalMetrics.events.upcoming, 
+                'Upcoming Events', 
+                `${personalMetrics.events.createdLast30Days} created this month`,
+                '',
+                eventsTooltip
+            );
+            
+            // Time-filtered messages
+            const messagesInPeriod = personalMetrics.messages.inPeriod;
+            const messagesAvg = messagesInPeriod > 0 
+                ? Math.round(messagesInPeriod / (metricsTimeFilter === '7days' ? 7 : (metricsTimeFilter === '30days' ? 30 : 90)) * 10) / 10 
+                : 0;
+            const messagesDesc = messagesAvg > 0 ? `~${messagesAvg} per day` : 'Keep chatting!';
+            html += createStatCard(
+                'fa-comment', 
+                messagesInPeriod, 
+                `Messages ${periodLabel}`, 
+                `${personalMetrics.messages.total} total`,
+                '',
+                messagesDesc
+            );
+            
+            html += '</div>';
+        }
         
-        // Stat cards with tooltips
-        const tasksTooltip = `Completed: ${personalMetrics.tasks.completedLast7Days} this week, ${personalMetrics.tasks.completedLast30Days} this month`;
-        html += createStatCard(
-            'fa-check-circle', 
-            personalMetrics.tasks.completedLast7Days, 
-            'Completed This Week', 
-            `${personalMetrics.tasks.open} open`, 
-            'success',
-            tasksTooltip
-        );
-        
-        const eventsTooltip = `${personalMetrics.events.total} total events created by you`;
-        html += createStatCard(
-            'fa-calendar-check', 
-            personalMetrics.events.upcoming, 
-            'Upcoming Events', 
-            `${personalMetrics.events.createdLast30Days} created this month`,
-            '',
-            eventsTooltip
-        );
-        
-        const messagesTotal = personalMetrics.messages.total;
-        const messagesWeek = personalMetrics.messages.last7Days;
-        const messagesAvg = messagesTotal > 0 && messagesWeek > 0 
-            ? Math.round(messagesWeek / 7 * 10) / 10 
-            : 0;
-        const messagesDesc = messagesAvg > 0 ? `~${messagesAvg} per day` : 'Keep chatting!';
-        html += createStatCard(
-            'fa-comment', 
-            personalMetrics.messages.last7Days, 
-            'Messages This Week', 
-            `${personalMetrics.messages.total} total`,
-            '',
-            messagesDesc
-        );
-        
-        html += '</div>';
+        // Personal trend chart visibility toggle
+        const personalTrendHidden = metricsHiddenSections.personalTrend;
         
         // Personal trend chart (or empty state if no completed tasks)
         if (personalMetrics.tasks.completed === 0) {
-            html += createMetricsEmptyState(
-                'fa-tasks',
-                'No Completed Tasks Yet',
-                'Complete your first task to see your progress trend!'
-            );
-        } else {
+            if (!personalTrendHidden || metricsEditMode) {
+                html += createMetricsEmptyState(
+                    'fa-tasks',
+                    'No Completed Tasks Yet',
+                    'Complete your first task to see your progress trend!'
+                );
+            }
+        } else if (!personalTrendHidden || metricsEditMode) {
             // Ensure dailyCompletions has proper structure for chart rendering
             const trendData = personalMetrics.trends.dailyCompletions.map(d => ({
                 label: d.label,
@@ -16837,105 +17236,141 @@ function renderMetrics() {
                 'Create tasks, events, and invite team members to see team performance metrics.'
             );
         } else {
-            // Team stat cards with tooltips
-            html += '<div class="metrics-stats-row">';
-            
-            const teamCompletionTooltip = `${teamMetrics.tasks.completed} tasks done, ${teamMetrics.tasks.open} in progress or pending`;
+            // Team stats visibility toggle
+            const teamStatsHidden = metricsHiddenSections.teamStats;
             html += `
-                <div class="metrics-stat-card metrics-stat-card-large" data-tooltip="${teamCompletionTooltip}">
-                    <div class="metrics-progress-ring-container">
-                        ${createProgressRing(teamMetrics.tasks.completionRate, 80, 8, 'var(--success)')}
-                    </div>
-                    <div class="metrics-stat-content">
-                        <div class="metrics-stat-label">Team Completion Rate</div>
-                        <div class="metrics-stat-subtitle">${teamMetrics.tasks.completed} of ${teamMetrics.tasks.total} tasks</div>
-                    </div>
+                <div class="metrics-section-header">
+                    <button class="section-visibility-toggle ${teamStatsHidden ? 'section-hidden' : ''}" 
+                            onclick="toggleMetricsSectionVisibility('teamStats')"
+                            title="${teamStatsHidden ? 'Show' : 'Hide'} team stats">
+                        <i class="fas fa-${teamStatsHidden ? 'eye-slash' : 'eye'}"></i>
+                    </button>
                 </div>
             `;
             
-            const openTasksTooltip = `${teamMetrics.tasks.completedLast30Days} completed this month`;
-            html += createStatCard(
-                'fa-tasks', 
-                teamMetrics.tasks.open, 
-                'Open Tasks', 
-                `${teamMetrics.tasks.completedLast7Days} completed this week`, 
-                'warning',
-                openTasksTooltip
-            );
-            
-            const eventsThisWeekTooltip = `${teamMetrics.events.total} events in total`;
-            html += createStatCard(
-                'fa-calendar-week', 
-                teamMetrics.events.upcomingThisWeek, 
-                'Events This Week', 
-                `${teamMetrics.events.total} total events`,
-                '',
-                eventsThisWeekTooltip
-            );
-            
-            const membersTooltip = `Team has ${teamMetrics.memberCount} ${teamMetrics.memberCount === 1 ? 'member' : 'members'}`;
-            html += createStatCard(
-                'fa-users', 
-                teamMetrics.memberCount, 
-                'Team Members', 
-                `${teamMetrics.messages.last7Days} messages this week`,
-                '',
-                membersTooltip
-            );
-            
-            html += '</div>';
-            
-            // Team trend chart (or empty state)
-            if (teamMetrics.tasks.completed === 0) {
-                html += createMetricsEmptyState(
-                    'fa-chart-bar',
-                    'No Completed Tasks Yet',
-                    'Team members haven\'t completed any tasks yet. Metrics will appear once tasks are done!'
+            if (!teamStatsHidden) {
+                // Team stat cards with tooltips - use time-filtered values
+                html += '<div class="metrics-stats-row">';
+                
+                const teamCompletionTooltip = `${teamMetrics.tasks.completedInPeriod} tasks done ${periodLabel}, ${teamMetrics.tasks.open} open`;
+                html += `
+                    <div class="metrics-stat-card metrics-stat-card-large" data-tooltip="${teamCompletionTooltip}">
+                        <div class="metrics-progress-ring-container">
+                            ${createProgressRing(teamMetrics.tasks.completionRate, 60, 5, '#34C759')}
+                        </div>
+                        <div class="metrics-stat-content">
+                            <div class="metrics-stat-label">Team Completion Rate</div>
+                            <div class="metrics-stat-subtitle">${teamMetrics.tasks.completedInPeriod} completed ${periodLabel}</div>
+                        </div>
+                    </div>
+                `;
+                
+                const openTasksTooltip = `${teamMetrics.tasks.open} tasks need attention`;
+                html += createStatCard(
+                    'fa-tasks', 
+                    teamMetrics.tasks.open, 
+                    'Open Tasks', 
+                    `${teamMetrics.tasks.completedInPeriod} done ${periodLabel}`, 
+                    'warning',
+                    openTasksTooltip
                 );
-            } else {
-                // Ensure proper data structure for trend chart
-                const teamTrendData = teamMetrics.trends.dailyCompletions.map(d => ({
-                    label: d.label,
-                    value: d.count,
-                    count: d.count
-                }));
-                html += createSwitchableGraphCard(
-                    'team-trend',
-                    `Team Task Completions (${timeBounds.label})`,
-                    'fa-chart-bar',
-                    teamTrendData,
-                    'trend'
+                
+                const eventsInPeriodTooltip = `${teamMetrics.events.inPeriod} events ${periodLabel}`;
+                html += createStatCard(
+                    'fa-calendar-week', 
+                    teamMetrics.events.inPeriod, 
+                    `Events ${periodLabel}`, 
+                    `${teamMetrics.events.total} total events`,
+                    '',
+                    eventsInPeriodTooltip
                 );
+                
+                const membersTooltip = `Team has ${teamMetrics.memberCount} ${teamMetrics.memberCount === 1 ? 'member' : 'members'}`;
+                html += createStatCard(
+                    'fa-users', 
+                    teamMetrics.memberCount, 
+                    'Team Members', 
+                    `${teamMetrics.messages.last7Days} messages this week`,
+                    '',
+                    membersTooltip
+                );
+                
+                html += '</div>';
             }
             
-            // Member breakdown bar chart (only show if there are members with tasks)
-            const memberData = Object.values(teamMetrics.memberBreakdown)
-                .filter(m => m.total > 0)
-                .sort((a, b) => b.completed - a.completed)
-                .slice(0, 10) // Top 10 members
-                .map((m, index) => ({
-                    label: m.name,
-                    value: m.completed,
-                    count: m.completed,
-                    // Don't assign color here - let pie chart auto-assign distinct colors
-                    color: undefined
-                }));
+            // Team charts - side by side layout
+            const teamChartsHidden = metricsHiddenSections.teamCharts;
+            html += `
+                <div class="metrics-section-header">
+                    <span class="metrics-section-subheading">Team Charts</span>
+                    <button class="section-visibility-toggle ${teamChartsHidden ? 'section-hidden' : ''}" 
+                            onclick="toggleMetricsSectionVisibility('teamCharts')"
+                            title="${teamChartsHidden ? 'Show' : 'Hide'} team charts">
+                        <i class="fas fa-${teamChartsHidden ? 'eye-slash' : 'eye'}"></i>
+                    </button>
+                </div>
+            `;
             
-            if (memberData.length > 0) {
-                html += createSwitchableGraphCard(
-                    'member-breakdown',
-                    'Tasks Completed by Member',
-                    'fa-trophy',
-                    memberData,
-                    'breakdown',
-                    { colorByMember: true }
-                );
-            } else if (teamMetrics.memberCount > 0) {
-                html += createMetricsEmptyState(
-                    'fa-trophy',
-                    'No Assigned Tasks Yet',
-                    'Assign tasks to team members to see individual performance breakdown.'
-                );
+            if (!teamChartsHidden) {
+                // Team trend chart (or empty state)
+                if (teamMetrics.tasks.completed === 0) {
+                    html += createMetricsEmptyState(
+                        'fa-chart-bar',
+                        'No Completed Tasks Yet',
+                        'Team members haven\'t completed any tasks yet. Metrics will appear once tasks are done!'
+                    );
+                } else {
+                    // Side-by-side charts container
+                    html += '<div class="metrics-charts-row">';
+                    
+                    // Ensure proper data structure for trend chart
+                    const teamTrendData = teamMetrics.trends.dailyCompletions.map(d => ({
+                        label: d.label,
+                        value: d.count,
+                        count: d.count
+                    }));
+                    html += createSwitchableGraphCard(
+                        'team-trend',
+                        `Team Completions (${timeBounds.label})`,
+                        'fa-chart-bar',
+                        teamTrendData,
+                        'trend'
+                    );
+                    
+                    // Member breakdown bar chart (only show if there are members with tasks)
+                    const memberData = Object.values(teamMetrics.memberBreakdown)
+                        .filter(m => m.total > 0)
+                        .sort((a, b) => b.completed - a.completed)
+                        .slice(0, 10) // Top 10 members
+                        .map((m, index) => ({
+                            label: m.name,
+                            value: m.completed,
+                            count: m.completed,
+                            color: undefined
+                        }));
+                    
+                    if (memberData.length > 0) {
+                        html += createSwitchableGraphCard(
+                            'member-breakdown',
+                            'By Member',
+                            'fa-trophy',
+                            memberData,
+                            'breakdown',
+                            { colorByMember: true }
+                        );
+                    } else if (teamMetrics.memberCount > 0) {
+                        html += `
+                            <div class="metrics-graph-card">
+                                <div class="metrics-empty-state-mini">
+                                    <i class="fas fa-trophy"></i>
+                                    <span>No assigned tasks yet</span>
+                                </div>
+                            </div>
+                        `;
+                    }
+                    
+                    html += '</div>'; // End metrics-charts-row
+                }
             }
         }
     }
@@ -16952,37 +17387,81 @@ function renderMetrics() {
             </div>
         `;
         
-        if (enabledMetrics.length > 0) {
-            html += '<div class="metrics-stats-row custom-metrics-row">';
-            
-            enabledMetrics.forEach((metricId, index) => {
-                const metric = CUSTOM_METRICS_CATALOG[metricId];
-                if (metric) {
-                    html += renderCustomMetricCard(metric, index, enabledMetrics.length);
-                }
+        // Business metrics visibility toggle
+        const businessMetricsHidden = metricsHiddenSections.businessMetrics;
+        html += `
+            <div class="metrics-section-header">
+                <button class="section-visibility-toggle ${businessMetricsHidden ? 'section-hidden' : ''}" 
+                        onclick="toggleMetricsSectionVisibility('businessMetrics')"
+                        title="${businessMetricsHidden ? 'Show' : 'Hide'} business metrics">
+                    <i class="fas fa-${businessMetricsHidden ? 'eye-slash' : 'eye'}"></i>
+                </button>
+            </div>
+        `;
+        
+        if (!businessMetricsHidden && enabledMetrics.length > 0) {
+            // Separate metrics by display mode, filtering hidden ones unless in edit mode
+            const cardMetrics = enabledMetrics.filter(id => {
+                const metric = CUSTOM_METRICS_CATALOG[id];
+                const isHidden = isMetricHidden(id);
+                if (isHidden && !metricsEditMode) return false;
+                return !metric?.hasChart || getMetricDisplayMode(id) === 'card';
+            });
+            const graphMetrics = enabledMetrics.filter(id => {
+                const metric = CUSTOM_METRICS_CATALOG[id];
+                const isHidden = isMetricHidden(id);
+                if (isHidden && !metricsEditMode) return false;
+                return metric?.hasChart && getMetricDisplayMode(id) === 'graph';
             });
             
-            html += '</div>';
-            
-            // Show charts for metrics that have them (only if not in edit mode for cleaner UI)
-            if (!metricsEditMode) {
-                const metricsWithCharts = enabledMetrics
-                    .map(id => CUSTOM_METRICS_CATALOG[id])
-                    .filter(m => m && m.hasChart);
+            // Render card-view metrics
+            if (cardMetrics.length > 0) {
+                html += '<div class="metrics-stats-row custom-metrics-row">';
                 
-                if (metricsWithCharts.length > 0) {
-                    const firstChartMetric = metricsWithCharts[0];
-                    const chartData = firstChartMetric.chartData();
-                    html += createSwitchableGraphCard(
-                        `custom-${firstChartMetric.id || 'metric'}`,
-                        `${firstChartMetric.name} Trend`,
-                        firstChartMetric.icon,
-                        chartData,
-                        'trend'
-                    );
-                }
+                cardMetrics.forEach((metricId, index) => {
+                    const metric = CUSTOM_METRICS_CATALOG[metricId];
+                    if (metric) {
+                        html += renderCustomMetricCard(metric, index, cardMetrics.length);
+                    }
+                });
+                
+                html += '</div>';
             }
-        } else if (metricsEditMode) {
+            
+            // Render graph-view metrics (side by side)
+            if (graphMetrics.length > 0) {
+                html += '<div class="metrics-charts-row">';
+                
+                graphMetrics.forEach(metricId => {
+                    const metric = CUSTOM_METRICS_CATALOG[metricId];
+                    if (metric && metric.hasChart) {
+                        const chartData = metric.chartData();
+                        const metricIsHidden = isMetricHidden(metricId);
+                        const hiddenClass = metricIsHidden ? 'metric-hidden' : '';
+                        
+                        // Add hide toggle for graph cards in edit mode
+                        const graphHideToggle = metricsEditMode ? `
+                            <button class="metric-graph-hide-btn ${metricIsHidden ? 'hidden-state' : ''}" 
+                                    onclick="toggleMetricVisibility('${metricId}')" 
+                                    title="${metricIsHidden ? 'Show metric' : 'Hide metric'}">
+                                <i class="fas fa-${metricIsHidden ? 'eye-slash' : 'eye'}"></i>
+                            </button>
+                        ` : '';
+                        
+                        html += createSwitchableGraphCard(
+                            `custom-${metric.id || 'metric'}`,
+                            `${metric.name}`,
+                            metric.icon,
+                            chartData,
+                            'trend',
+                            { hideToggle: graphHideToggle, hiddenClass }
+                        );
+                    }
+                });
+                
+                html += '</div>';
+            }
+        } else if (!businessMetricsHidden && metricsEditMode) {
             // Show empty state with add button when in edit mode
             html += `
                 <div class="metrics-empty-state custom-metrics-empty">
@@ -17013,6 +17492,114 @@ function renderMetrics() {
     
     // Initialize custom dropdown after rendering
     initMetricsTimeDropdown();
+    
+    // Initialize line chart dot tooltips
+    initLineChartTooltips(container);
+    
+    // Initialize pie chart hover effects
+    initPieChartHoverEffects(container);
+}
+
+/**
+ * Initialize line chart dot tooltips
+ */
+function initLineChartTooltips(container) {
+    const charts = container.querySelectorAll('.line-chart-v2');
+    
+    charts.forEach(chart => {
+        const dots = chart.querySelectorAll('.line-dot[data-tooltip]');
+        let tooltip = null;
+        
+        dots.forEach(dot => {
+            dot.addEventListener('mouseenter', (e) => {
+                const tooltipText = dot.getAttribute('data-tooltip');
+                if (!tooltipText) return;
+                
+                // Create tooltip element if not exists
+                if (!tooltip) {
+                    tooltip = document.createElement('div');
+                    tooltip.className = 'line-chart-tooltip';
+                    chart.appendChild(tooltip);
+                }
+                
+                tooltip.textContent = tooltipText;
+                
+                // Position tooltip above the dot
+                const cx = parseFloat(dot.getAttribute('cx'));
+                const cy = parseFloat(dot.getAttribute('cy'));
+                
+                tooltip.style.left = cx + 'px';
+                tooltip.style.top = cy + 'px';
+                tooltip.classList.add('visible');
+            });
+            
+            dot.addEventListener('mouseleave', () => {
+                if (tooltip) {
+                    tooltip.classList.remove('visible');
+                }
+            });
+        });
+    });
+}
+
+/**
+ * Initialize pie chart hover interactions
+ * Highlights corresponding legend item when a segment is hovered
+ */
+function initPieChartHoverEffects(container) {
+    const pieCharts = container.querySelectorAll('.metrics-pie-chart');
+    
+    pieCharts.forEach(pieChart => {
+        const segments = pieChart.querySelectorAll('.pie-segment');
+        const legendItems = pieChart.querySelectorAll('.pie-legend-item');
+        
+        segments.forEach((segment, index) => {
+            segment.addEventListener('mouseenter', () => {
+                // Highlight corresponding legend item
+                if (legendItems[index]) {
+                    legendItems[index].classList.add('highlighted');
+                }
+            });
+            
+            segment.addEventListener('mouseleave', () => {
+                // Remove highlight from legend item
+                if (legendItems[index]) {
+                    legendItems[index].classList.remove('highlighted');
+                }
+            });
+        });
+        
+        // Also allow legend items to highlight segments
+        legendItems.forEach((legendItem, index) => {
+            legendItem.addEventListener('mouseenter', () => {
+                if (segments[index]) {
+                    segments[index].style.transform = 'scale(1.08)';
+                    segments[index].style.filter = 'brightness(1.15) drop-shadow(0 2px 8px rgba(0, 0, 0, 0.15))';
+                    // Dim other segments
+                    segments.forEach((seg, i) => {
+                        if (i !== index) {
+                            seg.style.opacity = '0.5';
+                            seg.style.filter = 'brightness(0.9)';
+                        }
+                    });
+                }
+                legendItem.classList.add('highlighted');
+            });
+            
+            legendItem.addEventListener('mouseleave', () => {
+                if (segments[index]) {
+                    segments[index].style.transform = '';
+                    segments[index].style.filter = '';
+                    // Restore other segments
+                    segments.forEach(seg => {
+                        seg.style.opacity = '';
+                        seg.style.filter = '';
+                    });
+                }
+                legendItem.classList.remove('highlighted');
+            });
+        });
+    });
 }
 
 // Make renderMetrics available globally for data listener updates
@@ -19206,44 +19793,12 @@ function copyTeamCodeToClipboard(code) {
 
 // Show team creation error with retry option
 function showTeamCreationError() {
-    const modalHtml = `
-        <div class="modal-overlay" id="teamErrorModal">
-            <div class="modal-content" style="max-width: 500px;">
-                <div style="text-align: center; padding: 20px;">
-                    <div style="font-size: 48px; margin-bottom: 20px;">⚠️</div>
-                    <h2 style="color: #d13438; margin-bottom: 10px;">Team Creation Failed</h2>
-                    <p style="color: #666; margin-bottom: 20px;">We couldn't create your team automatically. This might be due to a connection issue or database permissions.</p>
-                    
-                    <div style="display: flex; gap: 10px; justify-content: center;">
-                        <button onclick="retryTeamCreation()" style="padding: 12px 24px; background-color: #0078D4; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 16px;">
-                            🔄 Retry
-                        </button>
-                        <button onclick="closeTeamErrorModal()" style="padding: 12px 24px; background-color: #f5f5f5; color: #333; border: none; border-radius: 4px; cursor: pointer; font-size: 16px;">
-                            Close
-                        </button>
-                    </div>
-                    
-                    <p style="margin-top: 20px; font-size: 12px; color: #999;">If the problem persists, try refreshing the page or contact support.</p>
-                </div>
-            </div>
-        </div>
-    `;
-    
-    document.body.insertAdjacentHTML('beforeend', modalHtml);
-}
-
-// Close team error modal
-function closeTeamErrorModal() {
-    const modal = document.getElementById('teamErrorModal');
-    if (modal) {
-        modal.remove();
+    showToast('We could not create your team. Open the Team tab and try again.', 'error', 6000, 'Team creation failed');
+    const createBtn = document.getElementById('createTeamBtn');
+    if (createBtn) {
+        createBtn.style.display = 'block';
+        createBtn.focus();
     }
-}
-
-// Retry team creation
-async function retryTeamCreation() {
-    closeTeamErrorModal();
-    await initializeUserTeam();
 }
 
 // Manual team creation (can be triggered from button)
