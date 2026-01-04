@@ -7672,6 +7672,7 @@ body.dark-mode .task-modal-content {
     padding-top: 8px;
     border-top: 1px solid var(--border-subtle);
     margin-top: auto;
+    flex-wrap: nowrap;
 }
 
 .task-modal-actions .btn-primary i {
@@ -8866,6 +8867,7 @@ body.dark-mode .dropdown-menu-option.active {
     margin-top: auto;
     padding-top: 20px;
     flex-shrink: 0;
+    flex-wrap: nowrap;
 }
 
 /* Security Warning Box */
@@ -8989,6 +8991,7 @@ body.dark-mode .dropdown-menu-option.active {
     body {
         padding: 0;
         margin: 0;
+        padding-bottom: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom));
     }
     
     /* Mobile bottom navigation - always visible with safe area support */
@@ -9005,7 +9008,7 @@ body.dark-mode .dropdown-menu-option.active {
         border-radius: 0;
         padding: 0;
         padding-bottom: env(safe-area-inset-bottom); /* iOS home indicator safe area */
-        z-index: 1000;
+        z-index: 1200;
         background: var(--bg-surface-soft);
         backdrop-filter: blur(20px);
         -webkit-backdrop-filter: blur(20px);
@@ -9104,6 +9107,7 @@ body.dark-mode .dropdown-menu-option.active {
     .top-bar {
         padding: 12px 16px;
         border-radius: 0;
+        align-items: flex-start;
     }
     
     /* Content sections - full width with proper scrolling and bottom nav clearance */
@@ -9116,9 +9120,8 @@ body.dark-mode .dropdown-menu-option.active {
         overflow-x: hidden; /* Prevent horizontal scroll except in specific containers */
         -webkit-overflow-scrolling: touch;
         /* Bottom padding ensures content is never hidden behind fixed nav */
-        /* Formula: 70px (nav height) + iOS safe area + 20px breathing room */
-        /* This ensures users can scroll past the last item and see all content */
-        padding-bottom: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom) + 20px);
+        /* Formula: 70px (nav height) + iOS safe area + breathing room */
+        padding-bottom: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom) + 24px);
     }
     
     /* Section headers - full width edge to edge */
@@ -9126,6 +9129,8 @@ body.dark-mode .dropdown-menu-option.active {
         padding: 16px;
         margin: 0 0 16px 0;
         background: var(--bg-surface);
+        flex-direction: row;
+        align-items: flex-start;
     }
     
     .section-header h1 {
@@ -9133,8 +9138,10 @@ body.dark-mode .dropdown-menu-option.active {
     }
     
     .section-header-actions {
-        flex-wrap: wrap;
+        flex-wrap: nowrap;
         gap: 8px;
+        margin-left: auto;
+        justify-content: flex-end;
     }
     
     /* Search bar */
@@ -9385,9 +9392,14 @@ body.dark-mode .dropdown-menu-option.active {
     }
     
     /* Settings cards */
+    .settings-container {
+        padding: 0 16px;
+        box-sizing: border-box;
+        width: 100%;
+    }
     .settings-card {
-        border-radius: 16px;
-        margin-bottom: 16px;
+        border-radius: 14px;
+        margin: 0 0 16px 0;
     }
     
     .settings-card-header,
@@ -9497,22 +9509,22 @@ body.dark-mode .dropdown-menu-option.active {
         border-radius: 12px;
     }
     
-    /* Settings - full width cards */
+    /* Settings - keep side padding and soft corners */
     .settings-card {
-        border-radius: 0;
-        margin: 0 0 1px 0;
-        border-left: none;
-        border-right: none;
+        border-radius: 14px;
+        margin: 0 0 16px 0;
+        border-left: 1px solid var(--border-subtle);
+        border-right: 1px solid var(--border-subtle);
     }
     
     .settings-card:first-child {
-        border-top-left-radius: 0;
-        border-top-right-radius: 0;
+        border-top-left-radius: 14px;
+        border-top-right-radius: 14px;
     }
     
     .settings-card:last-child {
-        border-bottom-left-radius: 0;
-        border-bottom-right-radius: 0;
+        border-bottom-left-radius: 14px;
+        border-bottom-right-radius: 14px;
     }
     
     /* ===================================
@@ -9722,11 +9734,19 @@ body.dark-mode .dropdown-menu-option.active {
     
     .top-bar-actions {
         gap: 4px;
+        margin-left: auto;
     }
     
     .top-bar-actions .icon-btn {
         width: 44px;
         height: 44px;
+    }
+
+    .header-toggle-row {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        align-items: center;
+        gap: 12px;
     }
 }
 
@@ -10840,58 +10860,66 @@ body.dark-mode .team-name-input {
 
 /* Join Requests Section */
 .join-requests-section {
-    background: var(--bg-body);
-    border-radius: 12px;
-    padding: 20px;
+    background: linear-gradient(135deg, rgba(0, 112, 243, 0.06), rgba(0, 112, 243, 0.02));
+    border-radius: 16px;
+    padding: 18px;
     margin-bottom: 30px;
+    border: 1px solid var(--border-subtle);
+    box-shadow: var(--shadow-subtle);
 }
 
 .join-requests-list {
     display: flex;
     flex-direction: column;
-    gap: 12px;
-    margin-top: 15px;
+    gap: 14px;
+    margin-top: 12px;
 }
 
 .join-request-item {
-    background: white;
-    padding: 16px;
-    border-radius: 8px;
-    border: 2px solid #e9ecef;
+    background: var(--bg-surface);
+    padding: 14px 16px;
+    border-radius: 14px;
+    border: 1px solid var(--border-subtle);
     display: flex;
     justify-content: space-between;
     align-items: center;
-    transition: all 0.2s;
+    gap: 16px;
+    transition: all 0.2s ease;
+    box-shadow: var(--shadow-card);
 }
 
 .join-request-item:hover {
     border-color: var(--accent);
-    box-shadow: var(--shadow-sm);
+    box-shadow: var(--shadow-soft);
+    transform: translateY(-2px);
 }
 
 .join-request-info {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 14px;
+    min-width: 0;
 }
 
 .join-request-avatar {
     width: 45px;
     height: 45px;
     border-radius: 50%;
-    background: var(--text-muted);
+    background: linear-gradient(135deg, var(--accent), var(--accent-hover));
     color: white;
     display: flex;
     align-items: center;
     justify-content: center;
     font-size: 18px;
     font-weight: 600;
+    box-shadow: 0 8px 18px rgba(0, 112, 243, 0.25);
 }
 
 .join-request-details .name {
     font-weight: 600;
     color: var(--text-main);
     margin-bottom: 4px;
+    font-size: 15px;
 }
 
 .join-request-details .email {
@@ -10901,41 +10929,58 @@ body.dark-mode .team-name-input {
 
 .join-request-actions {
     display: flex;
-    gap: 8px;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+    justify-content: flex-end;
 }
 
 .btn-accept {
     background: var(--success);
     color: white;
     border: none;
-    padding: 8px 16px;
-    border-radius: 6px;
+    padding: 10px 16px;
+    border-radius: 999px;
     cursor: pointer;
     font-weight: 600;
     font-size: 13px;
     transition: all 0.2s;
+    box-shadow: var(--shadow-card);
 }
 
 .btn-accept:hover {
     background: #0d6e0d;
-    transform: scale(1.05);
+    transform: translateY(-1px);
 }
 
 .btn-reject {
     background: var(--danger);
     color: white;
     border: none;
-    padding: 8px 16px;
-    border-radius: 6px;
+    padding: 10px 16px;
+    border-radius: 999px;
     cursor: pointer;
     font-weight: 600;
     font-size: 13px;
     transition: all 0.2s;
+    box-shadow: var(--shadow-card);
 }
 
 .btn-reject:hover {
     background: #b02a37;
-    transform: scale(1.05);
+    transform: translateY(-1px);
+}
+
+@media (max-width: 768px) {
+    .join-request-item {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .join-request-actions {
+        width: 100%;
+        justify-content: flex-end;
+    }
 }
 
 /* No Team State */
@@ -26686,3 +26731,248 @@ body.dark-mode .modal-overlay input[type="datetime-local"]:hover::-webkit-calend
     animation: modalInputFocus 0.3s ease forwards !important;
 }
 
+/* ===================================
+   MOBILE-FRIENDLY BUTTONS
+   Prevent text wrapping to 2 lines
+   =================================== */
+
+/* Global button no-wrap rule */
+.btn-primary,
+.btn-secondary,
+.btn-danger,
+.btn,
+button[class*="btn"],
+.panel-action-btn,
+.modal-btn,
+.batch-btn,
+.empty-state-cta {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Mobile button adjustments */
+@media (max-width: 768px) {
+    /* Reduce button padding and font size on mobile */
+    .btn-primary,
+    .btn-secondary,
+    .btn-danger {
+        padding: 10px 16px;
+        font-size: 13px;
+        gap: 6px;
+    }
+    
+    /* Section header button improvements */
+    .section-header-actions {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        gap: 8px;
+        padding-bottom: 4px;
+    }
+    
+    .section-header-actions button {
+        flex: 0 0 auto;
+        min-width: auto;
+        white-space: nowrap;
+    }
+    
+    /* Modal button row */
+    .modal-actions,
+    .task-modal-actions,
+    .unified-modal-footer {
+        flex-wrap: nowrap;
+        gap: 8px;
+    }
+    
+    .modal-actions button,
+    .task-modal-actions button,
+    .unified-modal-footer button {
+        flex: 1;
+        min-width: 0;
+        padding: 10px 12px;
+        font-size: 13px;
+    }
+    
+    /* Panel action buttons */
+    .panel-action-btn {
+        padding: 8px 12px;
+        font-size: 12px;
+    }
+    
+    /* Batch action bar buttons */
+    .batch-btn {
+        padding: 6px 10px;
+        font-size: 11px;
+    }
+    
+    /* Metrics buttons */
+    .metrics-add-metric-btn {
+        padding: 10px 14px;
+        font-size: 12px;
+    }
+    
+    .metrics-edit-btn-header {
+        padding: 8px 12px;
+        font-size: 12px;
+    }
+    
+    /* Finance tab buttons */
+    .finance-add-btn,
+    .add-transaction-btn,
+    .subscription-add-btn {
+        padding: 8px 14px;
+        font-size: 12px;
+    }
+    
+    /* Calendar buttons */
+    .calendar-add-btn {
+        width: 36px;
+        height: 36px;
+    }
+    
+    .view-toggle-btn {
+        padding: 6px 10px;
+        font-size: 11px;
+    }
+    
+    /* Spreadsheet buttons */
+    .empty-state-cta {
+        padding: 10px 16px;
+        font-size: 13px;
+    }
+    
+    /* Toast close button */
+    .toast-close {
+        padding: 4px;
+        min-width: 24px;
+    }
+    
+    /* Icon-only buttons on mobile - hide text */
+    .mobile-icon-only span:not(.sr-only) {
+        display: none;
+    }
+    
+    .mobile-icon-only {
+        padding: 10px;
+        gap: 0;
+    }
+}
+
+@media (max-width: 480px) {
+    /* Extra small screens - further reduce */
+    .btn-primary,
+    .btn-secondary,
+    .btn-danger {
+        padding: 8px 12px;
+        font-size: 12px;
+        gap: 4px;
+    }
+    
+    /* Section headers stack vertically with full-width buttons */
+    .section-header {
+        gap: 12px;
+    }
+    
+    .section-header-actions {
+        flex-direction: column;
+        width: 100%;
+    }
+    
+    .section-header-actions button {
+        width: 100%;
+        justify-content: center;
+    }
+    
+    /* Modal buttons full width on very small screens */
+    .modal-actions,
+    .task-modal-actions {
+        flex-direction: column;
+    }
+    
+    .modal-actions button,
+    .task-modal-actions button {
+        width: 100%;
+    }
+    
+    /* Filter toggle buttons */
+    .filter-btn,
+    .view-toggle-btn {
+        padding: 6px 8px;
+        font-size: 11px;
+    }
+    
+    /* Team member action buttons */
+    .teammate-actions {
+        gap: 4px;
+    }
+    
+    .teammate-actions button {
+        padding: 6px 8px;
+        font-size: 11px;
+    }
+}
+
+/* Ensure buttons with icons don't wrap oddly */
+button i + span,
+button span + i,
+.btn i + span,
+.btn span + i {
+    white-space: nowrap;
+}
+
+/* Fix specific problematic buttons */
+.pending-requests-btn {
+    white-space: nowrap;
+    padding: 8px 12px;
+}
+
+@media (max-width: 768px) {
+    .pending-requests-btn {
+        font-size: 12px;
+        padding: 6px 10px;
+    }
+    
+    .pending-requests-btn span {
+        display: none;
+    }
+    
+    .pending-requests-btn::after {
+        content: attr(data-count);
+    }
+}
+
+/* Settings page buttons */
+.settings-section button {
+    white-space: nowrap;
+}
+
+@media (max-width: 768px) {
+    .settings-row {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+    }
+    
+    .settings-row button {
+        width: 100%;
+        justify-content: center;
+    }
+}
+
+/* Join/Leave team buttons */
+.team-action-btn {
+    white-space: nowrap;
+}
+
+@media (max-width: 768px) {
+    .team-code-section,
+    .join-team-section {
+        flex-direction: column;
+    }
+    
+    .team-code-section button,
+    .join-team-section button {
+        width: 100%;
+    }
+}

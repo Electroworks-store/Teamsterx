@@ -1048,6 +1048,34 @@ service cloud.firestore {
     }
 
     // ============================
+    // USER TEAM MEMBERSHIPS
+    // Allows admins to notify users of their team membership after approval
+    // Solves the chicken-egg problem: user can't read team until they're a member,
+    // but they don't know which team to read without scanning all teams (which fails)
+    // ============================
+    match /userTeamMemberships/{membershipUserId} {
+      // User can read their own membership record
+      allow read: if request.auth != null && request.auth.uid == membershipUserId;
+      
+      // Team admins can create/update membership records for approved users
+      // This is written when a join request is approved
+      allow create, update: if request.auth != null
+        && request.resource.data.keys().hasOnly(['teamId', 'teamName', 'role', 'approvedAt', 'approvedBy'])
+        && request.resource.data.teamId is string
+        && request.resource.data.teamId.size() > 0
+        && isMemberInTeam(request.resource.data.teamId)
+        && isAdmin(request.resource.data.teamId)
+        && request.resource.data.role in ['member', 'admin', 'owner'];
+      
+      // User can delete their own membership record (after they've synced their teams array)
+      // Team admins can also delete it
+      allow delete: if request.auth != null && (
+        request.auth.uid == membershipUserId ||
+        (isMemberInTeam(resource.data.teamId) && isAdmin(resource.data.teamId))
+      );
+    }
+
+    // ============================
     // LEGACY / UNUSED JOIN REQUESTS
     // ============================
     match /joinRequests/{requestId} {

@@ -8561,7 +8561,7 @@ function initTasks() {
                     }
                     return `<td class="cell-editable">
                         <div class="custom-link-cell empty" data-task-id="${task.id}" data-column-id="${column}">
-                            <span class="link-placeholder">+ Add link</span>
+                            <span class="link-placeholder">+ Link</span>
                         </div>
                     </td>`;
                 
@@ -19578,32 +19578,51 @@ async function initializeUserTeam() {
             return;
         }
 
-        // No teams in user document - but check if user is a member of any team
-        // This handles the case where user was approved but their teams array wasn't updated
-        debugLog('🔍 No teams in user doc - scanning for team membership...');
+        // No teams in user document - check userTeamMemberships first (fastest, most reliable)
+        // This is written by admins when approving join requests
+        debugLog('🔍 No teams in user doc - checking userTeamMemberships...');
         
-        const teamsRef = collection(db, 'teams');
-        const teamsSnapshot = await getDocs(teamsRef);
-        
-        for (const teamDoc of teamsSnapshot.docs) {
-            const teamData = teamDoc.data();
-            const members = teamData.members || {};
+        try {
+            const membershipRef = doc(db, 'userTeamMemberships', currentAuthUser.uid);
+            const membershipDoc = await getDoc(membershipRef);
             
-            if (members[currentAuthUser.uid]) {
-                debugLog(`✅ Found team membership: ${teamDoc.id}`);
+            if (membershipDoc.exists()) {
+                const membership = membershipDoc.data();
+                debugLog(`✅ Found team membership via userTeamMemberships: ${membership.teamId}`);
                 
-                // Update user's teams array
-                await setDoc(userRef, {
-                    teams: [teamDoc.id]
-                }, { merge: true });
+                // Verify we're actually in this team
+                const teamRef = doc(db, 'teams', membership.teamId);
+                const teamDoc = await getDoc(teamRef);
                 
-                appState.currentTeamId = teamDoc.id;
-                appState.userTeams = [teamDoc.id];
-                
-                // Load team data
-                await loadTeamData();
-                return;
+                if (teamDoc.exists()) {
+                    const teamData = teamDoc.data();
+                    if (teamData.members && teamData.members[currentAuthUser.uid]) {
+                        // Update user's teams array
+                        await setDoc(userRef, {
+                            teams: [membership.teamId]
+                        }, { merge: true });
+                        
+                        appState.currentTeamId = membership.teamId;
+                        appState.userTeams = [membership.teamId];
+                        
+                        // Clean up the membership record since we've synced
+                        try {
+                            const { deleteDoc: delDoc } = await import('https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js');
+                            await delDoc(membershipRef);
+                            debugLog('✅ Cleaned up userTeamMemberships record');
+                        } catch (cleanupError) {
+                            // Not critical if cleanup fails
+                            debugLog('⚠️ Could not clean up membership record:', cleanupError.message);
+                        }
+                        
+                        // Load team data
+                        await loadTeamData();
+                        return;
+                    }
+                }
             }
+        } catch (membershipError) {
+            debugLog('⚠️ Could not check userTeamMemberships:', membershipError.message);
         }
 
         // No teams found - don't auto-create, just log and return
@@ -20725,7 +20744,7 @@ window.approveJoinRequest = async function(userId) {
 // Execute the actual approval after modal confirmation
 async function executeApproveJoinRequest(userId) {
     try {
-        const { doc, getDoc, updateDoc, deleteDoc, serverTimestamp } = 
+        const { doc, getDoc, updateDoc, deleteDoc, setDoc, serverTimestamp } = 
             await import('https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js');
 
         const teamRef = doc(db, 'teams', appState.currentTeamId);
@@ -20773,12 +20792,20 @@ async function executeApproveJoinRequest(userId) {
             }
         });
         
+        // CRITICAL: Write to userTeamMemberships so the approved user can find their team
+        // This solves the permission-denied issue when scanning for teams
+        const membershipRef = doc(db, 'userTeamMemberships', userId);
+        await setDoc(membershipRef, {
+            teamId: appState.currentTeamId,
+            teamName: teamData.name || teamData.teamName || 'Team',
+            role: 'member',
+            approvedAt: serverTimestamp(),
+            approvedBy: currentAuthUser.uid
+        });
+        debugLog('✅ Created userTeamMemberships record for:', userId);
+        
         // Delete the join request from subcollection
         await deleteDoc(joinRequestRef);
-
-        // NOTE: User's teams array will be updated automatically when they log in
-        // via the team membership scan in initializeUserTeam()
-        // We can't update their user document from here due to security rules
 
         debugLog('✅ Approved join request - user added to team members');
         
