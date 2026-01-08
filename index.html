@@ -1715,100 +1715,25 @@
                             <label class="unified-form-label">
                                 Start Time <span class="required">*</span>
                             </label>
-                            <div class="unified-time-input">
-                                <input type="number" id="eventHour" min="0" max="23" placeholder="09" required style="width: 48px; display: inline-block;">
-                                <span>:</span>
-                                <input type="number" id="eventMinute" min="0" max="59" placeholder="00" required style="width: 48px; display: inline-block;">
-                                <select id="eventHourDropdown" class="custom-time-select">
-                                    <option value="">hr</option>
-                                    <option value="0">00</option>
-                                    <option value="1">01</option>
-                                    <option value="2">02</option>
-                                    <option value="3">03</option>
-                                    <option value="4">04</option>
-                                    <option value="5">05</option>
-                                    <option value="6">06</option>
-                                    <option value="7">07</option>
-                                    <option value="8">08</option>
-                                    <option value="9">09</option>
-                                    <option value="10">10</option>
-                                    <option value="11">11</option>
-                                    <option value="12">12</option>
-                                    <option value="13">13</option>
-                                    <option value="14">14</option>
-                                    <option value="15">15</option>
-                                    <option value="16">16</option>
-                                    <option value="17">17</option>
-                                    <option value="18">18</option>
-                                    <option value="19">19</option>
-                                    <option value="20">20</option>
-                                    <option value="21">21</option>
-                                    <option value="22">22</option>
-                                    <option value="23">23</option>
-                                </select>
-                                <select id="eventMinuteDropdown" class="custom-time-select">
-                                    <option value="">min</option>
-                                    <option value="0">00</option>
-                                    <option value="1">01</option>
-                                    <option value="2">02</option>
-                                    <option value="3">03</option>
-                                    <option value="4">04</option>
-                                    <option value="5">05</option>
-                                    <option value="6">06</option>
-                                    <option value="7">07</option>
-                                    <option value="8">08</option>
-                                    <option value="9">09</option>
-                                    <option value="10">10</option>
-                                    <option value="11">11</option>
-                                    <option value="12">12</option>
-                                    <option value="13">13</option>
-                                    <option value="14">14</option>
-                                    <option value="15">15</option>
-                                    <option value="16">16</option>
-                                    <option value="17">17</option>
-                                    <option value="18">18</option>
-                                    <option value="19">19</option>
-                                    <option value="20">20</option>
-                                    <option value="21">21</option>
-                                    <option value="22">22</option>
-                                    <option value="23">23</option>
-                                    <option value="24">24</option>
-                                    <option value="25">25</option>
-                                    <option value="26">26</option>
-                                    <option value="27">27</option>
-                                    <option value="28">28</option>
-                                    <option value="29">29</option>
-                                    <option value="30">30</option>
-                                    <option value="31">31</option>
-                                    <option value="32">32</option>
-                                    <option value="33">33</option>
-                                    <option value="34">34</option>
-                                    <option value="35">35</option>
-                                    <option value="36">36</option>
-                                    <option value="37">37</option>
-                                    <option value="38">38</option>
-                                    <option value="39">39</option>
-                                    <option value="40">40</option>
-                                    <option value="41">41</option>
-                                    <option value="42">42</option>
-                                    <option value="43">43</option>
-                                    <option value="44">44</option>
-                                    <option value="45">45</option>
-                                    <option value="46">46</option>
-                                    <option value="47">47</option>
-                                    <option value="48">48</option>
-                                    <option value="49">49</option>
-                                    <option value="50">50</option>
-                                    <option value="51">51</option>
-                                    <option value="52">52</option>
-                                    <option value="53">53</option>
-                                    <option value="54">54</option>
-                                    <option value="55">55</option>
-                                    <option value="56">56</option>
-                                    <option value="57">57</option>
-                                    <option value="58">58</option>
-                                    <option value="59">59</option>
-                                </select>
+                            <div class="time-picker-wrapper" id="startTimeWrapper">
+                                <div class="time-picker-display" id="startTimeDisplay">
+                                    <input type="text" id="eventHour" class="time-input-field" placeholder="09" maxlength="2" inputmode="numeric">
+                                    <span class="time-separator">:</span>
+                                    <input type="text" id="eventMinute" class="time-input-field" placeholder="00" maxlength="2" inputmode="numeric">
+                                    <i class="fas fa-chevron-down time-picker-arrow"></i>
+                                </div>
+                                <div class="time-picker-dropdown" id="startTimeDropdown">
+                                    <div class="time-picker-columns">
+                                        <div class="time-picker-column" id="startHourColumn">
+                                            <div class="time-picker-column-header">Hour</div>
+                                            <div class="time-picker-options" id="startHourOptions"></div>
+                                        </div>
+                                        <div class="time-picker-column" id="startMinuteColumn">
+                                            <div class="time-picker-column-header">Minute</div>
+                                            <div class="time-picker-options" id="startMinuteOptions"></div>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                         
@@ -1817,100 +1742,25 @@
                             <label class="unified-form-label">
                                 End Time <span class="required">*</span>
                             </label>
-                            <div class="unified-time-input">
-                                <input type="number" id="eventEndHour" min="0" max="23" placeholder="17" required style="width: 48px; display: inline-block;">
-                                <span>:</span>
-                                <input type="number" id="eventEndMinute" min="0" max="59" placeholder="00" required style="width: 48px; display: inline-block;">
-                                <select id="eventEndHourDropdown" class="custom-time-select">
-                                    <option value="">hr</option>
-                                    <option value="0">00</option>
-                                    <option value="1">01</option>
-                                    <option value="2">02</option>
-                                    <option value="3">03</option>
-                                    <option value="4">04</option>
-                                    <option value="5">05</option>
-                                    <option value="6">06</option>
-                                    <option value="7">07</option>
-                                    <option value="8">08</option>
-                                    <option value="9">09</option>
-                                    <option value="10">10</option>
-                                    <option value="11">11</option>
-                                    <option value="12">12</option>
-                                    <option value="13">13</option>
-                                    <option value="14">14</option>
-                                    <option value="15">15</option>
-                                    <option value="16">16</option>
-                                    <option value="17">17</option>
-                                    <option value="18">18</option>
-                                    <option value="19">19</option>
-                                    <option value="20">20</option>
-                                    <option value="21">21</option>
-                                    <option value="22">22</option>
-                                    <option value="23">23</option>
-                                </select>
-                                <select id="eventEndMinuteDropdown" class="custom-time-select">
-                                    <option value="">min</option>
-                                    <option value="0">00</option>
-                                    <option value="1">01</option>
-                                    <option value="2">02</option>
-                                    <option value="3">03</option>
-                                    <option value="4">04</option>
-                                    <option value="5">05</option>
-                                    <option value="6">06</option>
-                                    <option value="7">07</option>
-                                    <option value="8">08</option>
-                                    <option value="9">09</option>
-                                    <option value="10">10</option>
-                                    <option value="11">11</option>
-                                    <option value="12">12</option>
-                                    <option value="13">13</option>
-                                    <option value="14">14</option>
-                                    <option value="15">15</option>
-                                    <option value="16">16</option>
-                                    <option value="17">17</option>
-                                    <option value="18">18</option>
-                                    <option value="19">19</option>
-                                    <option value="20">20</option>
-                                    <option value="21">21</option>
-                                    <option value="22">22</option>
-                                    <option value="23">23</option>
-                                    <option value="24">24</option>
-                                    <option value="25">25</option>
-                                    <option value="26">26</option>
-                                    <option value="27">27</option>
-                                    <option value="28">28</option>
-                                    <option value="29">29</option>
-                                    <option value="30">30</option>
-                                    <option value="31">31</option>
-                                    <option value="32">32</option>
-                                    <option value="33">33</option>
-                                    <option value="34">34</option>
-                                    <option value="35">35</option>
-                                    <option value="36">36</option>
-                                    <option value="37">37</option>
-                                    <option value="38">38</option>
-                                    <option value="39">39</option>
-                                    <option value="40">40</option>
-                                    <option value="41">41</option>
-                                    <option value="42">42</option>
-                                    <option value="43">43</option>
-                                    <option value="44">44</option>
-                                    <option value="45">45</option>
-                                    <option value="46">46</option>
-                                    <option value="47">47</option>
-                                    <option value="48">48</option>
-                                    <option value="49">49</option>
-                                    <option value="50">50</option>
-                                    <option value="51">51</option>
-                                    <option value="52">52</option>
-                                    <option value="53">53</option>
-                                    <option value="54">54</option>
-                                    <option value="55">55</option>
-                                    <option value="56">56</option>
-                                    <option value="57">57</option>
-                                    <option value="58">58</option>
-                                    <option value="59">59</option>
-                                </select>
+                            <div class="time-picker-wrapper" id="endTimeWrapper">
+                                <div class="time-picker-display" id="endTimeDisplay">
+                                    <input type="text" id="eventEndHour" class="time-input-field" placeholder="17" maxlength="2" inputmode="numeric">
+                                    <span class="time-separator">:</span>
+                                    <input type="text" id="eventEndMinute" class="time-input-field" placeholder="00" maxlength="2" inputmode="numeric">
+                                    <i class="fas fa-chevron-down time-picker-arrow"></i>
+                                </div>
+                                <div class="time-picker-dropdown" id="endTimeDropdown">
+                                    <div class="time-picker-columns">
+                                        <div class="time-picker-column" id="endHourColumn">
+                                            <div class="time-picker-column-header">Hour</div>
+                                            <div class="time-picker-options" id="endHourOptions"></div>
+                                        </div>
+                                        <div class="time-picker-column" id="endMinuteColumn">
+                                            <div class="time-picker-column-header">Minute</div>
+                                            <div class="time-picker-options" id="endMinuteOptions"></div>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                         
@@ -1937,36 +1787,27 @@
                             <label class="unified-form-label">
                                 <i class="fas fa-redo"></i> Repeat
                             </label>
-                            <div class="repeat-selector repeat-grid">
-                                <label class="repeat-chip selected" data-repeat="none">
+                            <div class="repeat-pills">
+                                <label class="repeat-pill selected" data-repeat="none">
                                     <input type="radio" name="eventRepeat" value="none" checked>
-                                    <span class="repeat-chip-icon"><i class="fas fa-ban"></i></span>
-                                    <span class="repeat-chip-title">One-time</span>
+                                    <span>None</span>
                                 </label>
-                                <label class="repeat-chip" data-repeat="daily">
+                                <label class="repeat-pill" data-repeat="daily">
                                     <input type="radio" name="eventRepeat" value="daily">
-                                    <span class="repeat-chip-icon"><i class="fas fa-sun"></i></span>
-                                    <span class="repeat-chip-title">Daily</span>
+                                    <span>Daily</span>
                                 </label>
-                                <label class="repeat-chip" data-repeat="weekly">
+                                <label class="repeat-pill" data-repeat="weekly">
                                     <input type="radio" name="eventRepeat" value="weekly">
-                                    <span class="repeat-chip-icon"><i class="fas fa-calendar-week"></i></span>
-                                    <span class="repeat-chip-title">Weekly</span>
+                                    <span>Weekly</span>
                                 </label>
-                                <label class="repeat-chip" data-repeat="monthly">
+                                <label class="repeat-pill" data-repeat="monthly">
                                     <input type="radio" name="eventRepeat" value="monthly">
-                                    <span class="repeat-chip-icon"><i class="fas fa-calendar-alt"></i></span>
-                                    <span class="repeat-chip-title">Monthly</span>
+                                    <span>Monthly</span>
                                 </label>
-                                <label class="repeat-chip" data-repeat="yearly">
+                                <label class="repeat-pill" data-repeat="yearly">
                                     <input type="radio" name="eventRepeat" value="yearly">
-                                    <span class="repeat-chip-icon"><i class="fas fa-infinity"></i></span>
-                                    <span class="repeat-chip-title">Yearly</span>
+                                    <span>Yearly</span>
                                 </label>
-                            </div>
-                            <div class="repeat-helper" id="repeatHelper" style="display: none;">
-                                <i class="fas fa-info-circle"></i>
-                                <span id="repeatHelperText"></span>
                             </div>
                         </div>
                         
@@ -2290,16 +2131,11 @@
                         
                         <!-- Show on Calendar Toggle -->
                         <div class="unified-form-field full-width">
-                            <label class="toggle-label compact">
-                                <div class="toggle-label-content">
-                                    <div class="toggle-label-text">
-                                        <i class="fas fa-calendar-alt"></i> Show on calendar
-                                    </div>
-                                    <small>Display this task in the calendar view when it has a due date</small>
-                                </div>
-                                <div class="toggle-switch">
+                            <label class="inline-toggle-row">
+                                <span class="inline-toggle-label"><i class="fas fa-calendar-alt"></i> Show on calendar</span>
+                                <div class="mini-toggle">
                                     <input type="checkbox" id="taskShowOnCalendar" checked>
-                                    <span class="toggle-slider"></span>
+                                    <span class="mini-toggle-track"></span>
                                 </div>
                             </label>
                         </div>

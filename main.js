@@ -1921,8 +1921,8 @@ window.switchTab = function(sectionName) {
     
     // Render finances when navigating to finances tab
     if (sectionName === 'finances') {
-        loadTransactions(); // This will also call renderFinances
-        loadSubscriptions(); // Load subscriptions data
+        // Load subscriptions first, then transactions (which calls renderFinances)
+        loadSubscriptions().then(() => loadTransactions());
     }
 };
 
@@ -1995,8 +1995,8 @@ function initNavigation() {
                     window.switchTab('activity');
                     return;
                 }
-                loadTransactions(); // This will also call renderFinances
-                loadSubscriptions(); // Load subscriptions data
+                // Load subscriptions first, then transactions
+                loadSubscriptions().then(() => loadTransactions());
             }
         });
     });
@@ -18201,75 +18201,9 @@ function initModals() {
     const durationText = document.getElementById('durationText');
     const eventColorInput = document.getElementById('eventColor');
     
-    // Custom time dropdowns: hours (0-23) and minutes (0-59)
-    const startHourDropdown = document.getElementById('eventHourDropdown');
-    const startMinuteDropdown = document.getElementById('eventMinuteDropdown');
-    const endHourDropdown = document.getElementById('eventEndHourDropdown');
-    const endMinuteDropdown = document.getElementById('eventEndMinuteDropdown');
-    
-    // Sync start hour dropdown with input
-    if (startHourDropdown && startHourInput) {
-        startHourDropdown.addEventListener('change', function() {
-            if (this.value !== '') {
-                startHourInput.value = this.value;
-                calculateDuration();
-            }
-        });
-        startHourInput.addEventListener('input', function() {
-            const val = parseInt(this.value);
-            if (!isNaN(val) && val >= 0 && val <= 23) {
-                startHourDropdown.value = val.toString();
-            }
-        });
-    }
-    
-    // Sync start minute dropdown with input
-    if (startMinuteDropdown && startMinuteInput) {
-        startMinuteDropdown.addEventListener('change', function() {
-            if (this.value !== '') {
-                startMinuteInput.value = this.value;
-                calculateDuration();
-            }
-        });
-        startMinuteInput.addEventListener('input', function() {
-            const val = parseInt(this.value);
-            if (!isNaN(val) && val >= 0 && val <= 59) {
-                startMinuteDropdown.value = val.toString();
-            }
-        });
-    }
-    
-    // Sync end hour dropdown with input
-    if (endHourDropdown && endHourInput) {
-        endHourDropdown.addEventListener('change', function() {
-            if (this.value !== '') {
-                endHourInput.value = this.value;
-                calculateDuration();
-            }
-        });
-        endHourInput.addEventListener('input', function() {
-            const val = parseInt(this.value);
-            if (!isNaN(val) && val >= 0 && val <= 23) {
-                endHourDropdown.value = val.toString();
-            }
-        });
-    }
-    
-    // Sync end minute dropdown with input
-    if (endMinuteDropdown && endMinuteInput) {
-        endMinuteDropdown.addEventListener('change', function() {
-            if (this.value !== '') {
-                endMinuteInput.value = this.value;
-                calculateDuration();
-            }
-        });
-        endMinuteInput.addEventListener('input', function() {
-            const val = parseInt(this.value);
-            if (!isNaN(val) && val >= 0 && val <= 59) {
-                endMinuteDropdown.value = val.toString();
-            }
-        });
-    }
+    // Initialize custom time pickers
+    initializeTimePicker('startTimeWrapper', 'eventHour', 'eventMinute', 'startHourOptions', 'startMinuteOptions');
+    initializeTimePicker('endTimeWrapper', 'eventEndHour', 'eventEndMinute', 'endHourOptions', 'endMinuteOptions');
     
     // Event color option buttons - updated for unified color picker
     const eventColorOptions = document.querySelectorAll('#eventModal .unified-color-option');
@@ -18288,46 +18222,11 @@ function initModals() {
     const visibilityToggles = document.querySelectorAll('#eventModal .visibility-toggle');
     initVisibilityToggles(visibilityToggles);
     
-    // Event repeat option buttons
-    const repeatOptions = document.querySelectorAll('#eventModal .repeat-chip');
-    const repeatHelper = document.getElementById('repeatHelper');
-    const repeatHelperText = document.getElementById('repeatHelperText');
+    // Event repeat option buttons (support both old .repeat-chip and new .repeat-pill)
+    const repeatOptions = document.querySelectorAll('#eventModal .repeat-chip, #eventModal .repeat-pill');
     
     function updateRepeatHelper() {
-        const selectedRepeat = document.querySelector('input[name="eventRepeat"]:checked')?.value || 'none';
-        const dateInput = document.getElementById('eventDate');
-        const dateStr = dateInput?.value;
-        
-        if (selectedRepeat === 'none' || !dateStr) {
-            if (repeatHelper) repeatHelper.style.display = 'none';
-            return;
-        }
-        
-        const startDate = new Date(dateStr + 'T00:00:00');
-        const dayName = startDate.toLocaleDateString('en-US', { weekday: 'long' });
-        const dayOfMonth = startDate.getDate();
-        const monthName = startDate.toLocaleDateString('en-US', { month: 'long' });
-        
-        let helperText = '';
-        switch (selectedRepeat) {
-            case 'daily':
-                helperText = `This will repeat every day starting from ${startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
-                break;
-            case 'weekly':
-                helperText = `This will repeat every ${dayName} starting from ${startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
-                break;
-            case 'monthly':
-                helperText = `This will repeat on the ${dayOfMonth}${getOrdinalSuffix(dayOfMonth)} of every month`;
-                break;
-            case 'yearly':
-                helperText = `This will repeat every ${monthName} ${dayOfMonth}${getOrdinalSuffix(dayOfMonth)}`;
-                break;
-        }
-        
-        if (repeatHelper && repeatHelperText) {
-            repeatHelperText.textContent = helperText;
-            repeatHelper.style.display = 'flex';
-        }
+        // Removed the helper text display since we simplified the UI
     }
     
     repeatOptions.forEach(option => {
@@ -18339,16 +18238,8 @@ function initModals() {
             // Check the corresponding radio
             const radio = option.querySelector('input[type="radio"]');
             if (radio) radio.checked = true;
-            
-            updateRepeatHelper();
         });
     });
-    
-    // Update repeat helper when date changes
-    const eventDateInput = document.getElementById('eventDate');
-    if (eventDateInput) {
-        eventDateInput.addEventListener('change', updateRepeatHelper);
-    }
     
     // Helper function to convert to total minutes from midnight
     function toMinutes(hour, minute) {
@@ -19093,6 +18984,144 @@ function closeModal(modalId) {
     const modal = document.getElementById(modalId);
     if (!modal) return;
     modal.classList.remove('active');
+}
+
+/**
+ * Initialize a custom time picker with dropdown
+ * @param {string} wrapperId - The ID of the wrapper element
+ * @param {string} hourInputId - The ID of the hour input
+ * @param {string} minuteInputId - The ID of the minute input  
+ * @param {string} hourOptionsId - The ID of the hour options container
+ * @param {string} minuteOptionsId - The ID of the minute options container
+ */
+function initializeTimePicker(wrapperId, hourInputId, minuteInputId, hourOptionsId, minuteOptionsId) {
+    const wrapper = document.getElementById(wrapperId);
+    const hourInput = document.getElementById(hourInputId);
+    const minuteInput = document.getElementById(minuteInputId);
+    const hourOptions = document.getElementById(hourOptionsId);
+    const minuteOptions = document.getElementById(minuteOptionsId);
+    
+    if (!wrapper || !hourInput || !minuteInput || !hourOptions || !minuteOptions) return;
+    
+    // Generate hour options (0-23)
+    hourOptions.innerHTML = '';
+    for (let i = 0; i < 24; i++) {
+        const option = document.createElement('div');
+        option.className = 'time-picker-option';
+        option.textContent = i.toString().padStart(2, '0');
+        option.dataset.value = i;
+        hourOptions.appendChild(option);
+    }
+    
+    // Generate minute options (0-59)
+    minuteOptions.innerHTML = '';
+    for (let i = 0; i < 60; i++) {
+        const option = document.createElement('div');
+        option.className = 'time-picker-option';
+        option.textContent = i.toString().padStart(2, '0');
+        option.dataset.value = i;
+        minuteOptions.appendChild(option);
+    }
+    
+    // Toggle dropdown
+    const display = wrapper.querySelector('.time-picker-display');
+    display.addEventListener('click', (e) => {
+        // Don't toggle if clicking on input
+        if (e.target.tagName === 'INPUT') return;
+        wrapper.classList.toggle('open');
+        if (wrapper.classList.contains('open')) {
+            updateSelectedOptions();
+            scrollToSelected();
+        }
+    });
+    
+    // Close dropdown when clicking outside
+    document.addEventListener('click', (e) => {
+        if (!wrapper.contains(e.target)) {
+            wrapper.classList.remove('open');
+        }
+    });
+    
+    // Handle hour option click
+    hourOptions.addEventListener('click', (e) => {
+        const option = e.target.closest('.time-picker-option');
+        if (option) {
+            const value = option.dataset.value;
+            hourInput.value = value.toString().padStart(2, '0');
+            updateSelectedOptions();
+            hourInput.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+    });
+    
+    // Handle minute option click
+    minuteOptions.addEventListener('click', (e) => {
+        const option = e.target.closest('.time-picker-option');
+        if (option) {
+            const value = option.dataset.value;
+            minuteInput.value = value.toString().padStart(2, '0');
+            updateSelectedOptions();
+            minuteInput.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+    });
+    
+    // Handle input changes
+    hourInput.addEventListener('input', (e) => {
+        let val = e.target.value.replace(/\D/g, '');
+        if (val.length > 2) val = val.slice(0, 2);
+        const num = parseInt(val);
+        if (!isNaN(num) && num > 23) val = '23';
+        e.target.value = val;
+        updateSelectedOptions();
+    });
+    
+    minuteInput.addEventListener('input', (e) => {
+        let val = e.target.value.replace(/\D/g, '');
+        if (val.length > 2) val = val.slice(0, 2);
+        const num = parseInt(val);
+        if (!isNaN(num) && num > 59) val = '59';
+        e.target.value = val;
+        updateSelectedOptions();
+    });
+    
+    // Format on blur (add leading zero)
+    hourInput.addEventListener('blur', () => {
+        const val = parseInt(hourInput.value);
+        if (!isNaN(val) && val >= 0 && val <= 23) {
+            hourInput.value = val.toString().padStart(2, '0');
+        }
+    });
+    
+    minuteInput.addEventListener('blur', () => {
+        const val = parseInt(minuteInput.value);
+        if (!isNaN(val) && val >= 0 && val <= 59) {
+            minuteInput.value = val.toString().padStart(2, '0');
+        }
+    });
+    
+    function updateSelectedOptions() {
+        const hourVal = parseInt(hourInput.value);
+        const minuteVal = parseInt(minuteInput.value);
+        
+        hourOptions.querySelectorAll('.time-picker-option').forEach(opt => {
+            opt.classList.toggle('selected', parseInt(opt.dataset.value) === hourVal);
+        });
+        
+        minuteOptions.querySelectorAll('.time-picker-option').forEach(opt => {
+            opt.classList.toggle('selected', parseInt(opt.dataset.value) === minuteVal);
+        });
+    }
+    
+    function scrollToSelected() {
+        const selectedHour = hourOptions.querySelector('.time-picker-option.selected');
+        const selectedMinute = minuteOptions.querySelector('.time-picker-option.selected');
+        
+        if (selectedHour) {
+            selectedHour.scrollIntoView({ block: 'center', behavior: 'instant' });
+        }
+        if (selectedMinute) {
+            selectedMinute.scrollIntoView({ block: 'center', behavior: 'instant' });
+        }
+    }
 }
 
 // Shared visibility toggle helpers (calendar-style segmented control)
