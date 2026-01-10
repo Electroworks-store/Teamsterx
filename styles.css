@@ -17508,6 +17508,41 @@ body.dark-mode .pill-toggle:hover .pill-toggle-slider {
     margin-bottom: 4px;
 }
 
+/* Nested list styles - second level */
+.doc-editor ul ul,
+.doc-editor ol ol,
+.doc-editor ul ol,
+.doc-editor ol ul {
+    margin: 4px 0 4px 0;
+    padding-left: 20px;
+}
+
+/* Different bullet styles for nested levels */
+.doc-editor ul {
+    list-style-type: disc;
+}
+
+.doc-editor ul ul {
+    list-style-type: circle;
+}
+
+.doc-editor ul ul ul {
+    list-style-type: square;
+}
+
+/* Numbered list nested styles */
+.doc-editor ol {
+    list-style-type: decimal;
+}
+
+.doc-editor ol ol {
+    list-style-type: lower-alpha;
+}
+
+.doc-editor ol ol ol {
+    list-style-type: lower-roman;
+}
+
 .doc-editor a {
     color: var(--accent);
     text-decoration: underline;

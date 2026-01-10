@@ -10455,6 +10455,37 @@ function initTasks() {
                 }
             }
             
+            // Handle Tab key for list indentation
+            if (e.key === 'Tab') {
+                const selection = window.getSelection();
+                if (selection.rangeCount > 0) {
+                    const range = selection.getRangeAt(0);
+                    const listItem = range.startContainer.nodeType === Node.TEXT_NODE 
+                        ? range.startContainer.parentElement?.closest('li')
+                        : range.startContainer.closest?.('li');
+                    
+                    if (listItem) {
+                        e.preventDefault();
+                        
+                        if (e.shiftKey) {
+                            // Shift+Tab: Outdent - move list item to parent level
+                            document.execCommand('outdent', false, null);
+                        } else {
+                            // Tab: Indent - make this a child of the previous sibling
+                            const prevSibling = listItem.previousElementSibling;
+                            if (prevSibling && prevSibling.tagName === 'LI') {
+                                // Use execCommand for better browser compatibility
+                                document.execCommand('indent', false, null);
+                            }
+                        }
+                        
+                        appState.isDocDirty = true;
+                        scheduleDocSave();
+                        return;
+                    }
+                }
+            }
+            
             if ((e.ctrlKey || e.metaKey) && !e.shiftKey) {
                 switch (e.key.toLowerCase()) {
                     case 'b':
