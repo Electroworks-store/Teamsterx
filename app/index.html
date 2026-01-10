@@ -2,17 +2,11 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <!-- Default redirect for production (Firebase rewrites /app to index.html) -->
-    <meta http-equiv="refresh" content="0;url=/app">
+    <!-- Default redirect for hash routing on static hosts -->
+    <meta http-equiv="refresh" content="0;url=/#/app">
     <script>
-        const isLocal = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
-        if (isLocal) {
-            // Local static servers lack rewrites; use the hash route so main.js can boot
-            window.location.replace('../index.html#/app' + location.search + location.hash);
-        } else {
-            // Production keeps clean /app path
-            window.location.replace('/app' + location.search + location.hash);
-        }
+        // Always send to root hash route so the SPA boots correctly on static hosts
+        window.location.replace('/#/app' + location.search + location.hash);
     </script>
     <title>Redirecting...</title>
 </head>

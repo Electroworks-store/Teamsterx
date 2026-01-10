@@ -7,11 +7,11 @@ let auth, googleProvider;
 
 /**
  * Get the correct app URL for redirects
- * Works with Firebase Hosting clean URLs
+ * Uses hash routing for static hosts (GitHub Pages)
  */
 function getAppUrl() {
-    // Use clean /app path (Firebase Hosting handles the rewrite)
-    return '/app';
+    // Hash route keeps SPA working on static hosts like GitHub Pages
+    return '/#/app';
 }
 
 // Initialize when DOM is loaded
