@@ -30,7 +30,7 @@
     </style>
 </head>
 <body>
-    <button class="back-button" onclick="window.location.href='index.html'"> Back</button>
+    <button class="back-button" onclick="window.location.href='/app'"> Back</button>
     <div class="container">
         <div class="team-header">
             <h1 id="teamName">My Team <span class="team-code" id="teamCode">Loading...</span></h1>
@@ -55,13 +55,13 @@
          * See SECURITY.md for details.
          */
         const firebaseConfig = {
-            apiKey: window.__ENV__?.VITE_FIREBASE_API_KEY || "AIzaSyBsV-g9DBRTCE9sk1bsYy4TRsohAETF7vg",
-            authDomain: window.__ENV__?.VITE_FIREBASE_AUTH_DOMAIN || "teamhub-bf61f.firebaseapp.com",
-            projectId: window.__ENV__?.VITE_FIREBASE_PROJECT_ID || "teamhub-bf61f",
+            apiKey: window.__ENV__?.VITE_FIREBASE_API_KEY || "AIzaSyBsV-g9DBRTCEsk1bsYy4TRsohAETF7vg",
+            authDomain: window.__ENV__?.VITE_FIREBASE_AUTH_DOMAIN || "teamhub-bf1f.firebaseapp.com",
+            projectId: window.__ENV__?.VITE_FIREBASE_PROJECT_ID || "teamhub-bf1f",
             storageBucket: window.__ENV__?.VITE_FIREBASE_STORAGE_BUCKET || "teamhub-bf61f.firebasestorage.app",
-            messagingSenderId: window.__ENV__?.VITE_FIREBASE_MESSAGING_SENDER_ID || "186552753103",
-            appId: window.__ENV__?.VITE_FIREBASE_APP_ID || "1:186552753103:web:4a102aa3b91aa71c4150ba",
-            measurementId: window.__ENV__?.VITE_FIREBASE_MEASUREMENT_ID || "G-1VH5ZLCH63"
+            messagingSenderId: window.__ENV__?.VITE_FIREBASE_MESSAGING_SENDER_ID || "18655753103",
+            appId: window.__ENV__?.VITE_FIREBASE_APP_ID || "1:186552753103:web:4a102aa3b91a71c4150ba",
+            measurementId: window.__ENV__?.VITE_FIREBASE_MEASUREMENT_ID || "G-1VH5ZLH63"
         };
 
         const app = initializeApp(firebaseConfig);
@@ -81,7 +81,7 @@
                     document.getElementById("membersContainer").innerHTML = "<div class='loading'>No team found. Please create or join a team first.</div>";
                 }
             } else {
-                window.location.href = "account.html";
+                window.location.href = "/account";
             }
         });
 

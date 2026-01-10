@@ -11,11 +11,22 @@
     <script src="version.js"></script>
     <link rel="stylesheet" href="styles.css?v=65" id="styles-link">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- DOMPurify for XSS protection in rich text content -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.6/purify.min.js" integrity="sha512-H+rglffZ6f5gF7UJgvH4Naa+fGCgjrHKMgoFOGmcPjXeDNcgnxv5PxTDHVYdlxOQ1KLjTueLj3F6QMC7JVxKNw==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
     <!-- Apply dark mode immediately to prevent flash -->
     <script>
-        if (localStorage.getItem('darkMode') === 'true') {
-            document.documentElement.classList.add('dark-mode');
-        }
+        (function() {
+            const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+            let themePref = localStorage.getItem('themePreference');
+            if (!themePref) {
+                const legacy = localStorage.getItem('darkMode');
+                themePref = legacy === 'true' ? 'dark' : legacy === 'false' ? 'light' : 'system';
+            }
+            const isDark = themePref === 'dark' || (themePref === 'system' && prefersDark);
+            if (isDark) {
+                document.documentElement.classList.add('dark-mode');
+            }
+        })();
         // Auto-update version on links
         if (window.APP_VERSION) {
             document.getElementById('styles-link').href = `styles.css?v=${window.APP_VERSION}`;
@@ -25,9 +36,18 @@
 <body>
     <!-- Apply dark mode class to body immediately -->
     <script>
-        if (localStorage.getItem('darkMode') === 'true') {
-            document.body.classList.add('dark-mode');
-        }
+        (function() {
+            const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+            let themePref = localStorage.getItem('themePreference');
+            if (!themePref) {
+                const legacy = localStorage.getItem('darkMode');
+                themePref = legacy === 'true' ? 'dark' : legacy === 'false' ? 'light' : 'system';
+            }
+            const isDark = themePref === 'dark' || (themePref === 'system' && prefersDark);
+            if (isDark) {
+                document.body.classList.add('dark-mode');
+            }
+        })();
     </script>
 
     <!-- ============================================
@@ -796,6 +816,12 @@
                             </button>
                             <button class="toolbar-btn" data-command="insertOrderedList" title="Numbered List">
                                 <i class="fas fa-list-ol"></i>
+                            </button>
+                            <button class="toolbar-btn" data-command="outdent" title="Decrease Indent (Shift+Tab)">
+                                <i class="fas fa-outdent"></i>
+                            </button>
+                            <button class="toolbar-btn" data-command="indent" title="Increase Indent (Tab)">
+                                <i class="fas fa-indent"></i>
                             </button>
                         </div>
                         <div class="toolbar-divider"></div>
@@ -1687,7 +1713,7 @@
                         <!-- Event Title - Full Width -->
                         <div class="unified-form-field full-width">
                             <label class="unified-form-label">
-                                Event Title <span class="required">*</span>
+                                Event Title <span class="required">*place th</span>
                             </label>
                             <input type="text" class="unified-input" id="eventTitle" required placeholder="Enter event name">
                         </div>
@@ -2528,7 +2554,7 @@
                             </div>
                         </div>
                         <button type="button" class="unified-btn unified-btn-secondary" id="addDropdownOption" style="margin-top: 8px;">
-                            <i class="fas fa-plus"></i> + Option
+                            <i class="fas fa-plus"></i> Option
                         </button>
                     </div>
 

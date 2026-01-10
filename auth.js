@@ -7,12 +7,11 @@ let auth, googleProvider;
 
 /**
  * Get the correct app URL for redirects
- * Works with GitHub Pages subdirectories (e.g., /Teamsterx/)
+ * Works with Firebase Hosting clean URLs
  */
 function getAppUrl() {
-    // For hash-based routing (GitHub Pages compatible)
-    const basePath = window.location.pathname.replace(/\/[^/]*$/, '');
-    return `${basePath}/index.html#/app`;
+    // Use clean /app path (Firebase Hosting handles the rewrite)
+    return '/app';
 }
 
 // Initialize when DOM is loaded
@@ -178,8 +177,16 @@ async function handleEmailSignUp(e) {
         return;
     }
 
-    if (password.length < 6) {
-        showAlert('Password must be at least 6 characters', 'error');
+    // Password strength validation - minimum 8 characters with complexity
+    if (password.length < 8) {
+        showAlert('Password must be at least 8 characters', 'error');
+        return;
+    }
+    
+    // Check password complexity (at least 3 of: lowercase, uppercase, number, special char)
+    const strength = checkPasswordStrength(password);
+    if (strength < 3) {
+        showAlert('Password needs more complexity: use uppercase, lowercase, numbers, or special characters', 'error');
         return;
     }
 

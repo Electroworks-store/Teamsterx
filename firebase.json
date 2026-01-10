@@ -9,6 +9,8 @@
       "**/.*",
       "**/node_modules/**"
     ],
+    "cleanUrls": true,
+    "trailingSlash": false,
     "rewrites": [
       {
         "source": "/app",
@@ -19,9 +21,32 @@
         "destination": "/index.html"
       },
       {
+        "source": "/account",
+        "destination": "/account.html"
+      },
+      {
+        "source": "/account/**",
+        "destination": "/account.html"
+      },
+      {
+        "source": "/team",
+        "destination": "/team.html"
+      },
+      {
+        "source": "/accept-invitation",
+        "destination": "/accept-invitation.html"
+      },
+      {
         "source": "/home",
         "destination": "/index.html"
+    ],
+    "redirects": [
+      {
+        "source": "/account.html",
+        "destination": "/account",
+        "type": 301
       }
+    ]
     ],
     "headers": [
       {

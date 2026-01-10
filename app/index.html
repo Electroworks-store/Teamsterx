@@ -2,10 +2,17 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta http-equiv="refresh" content="0;url=../index.html?route=app">
+    <!-- Default redirect for production (Firebase rewrites /app to index.html) -->
+    <meta http-equiv="refresh" content="0;url=/app">
     <script>
-        // Immediate redirect for browsers that don't support meta refresh
-        window.location.href = '../index.html?route=app';
+        const isLocal = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+        if (isLocal) {
+            // Local static servers lack rewrites; use the hash route so main.js can boot
+            window.location.replace('../index.html#/app' + location.search + location.hash);
+        } else {
+            // Production keeps clean /app path
+            window.location.replace('/app' + location.search + location.hash);
+        }
     </script>
     <title>Redirecting...</title>
 </head>

@@ -583,8 +583,8 @@ window.generateJoinLink = function() {
         showToast('No team code available', 'error');
         return;
     }
-    const baseUrl = window.location.origin + window.location.pathname.replace(/\/[^\/]*$/, '');
-    const joinUrl = `${baseUrl}/index.html?join=${appState.currentTeamData.teamCode}`;
+    const baseUrl = window.location.origin;
+    const joinUrl = `${baseUrl}/app?join=${appState.currentTeamData.teamCode}`;
     
     navigator.clipboard.writeText(joinUrl).then(() => {
         showToast('Join link copied to clipboard!', 'success');
@@ -1439,7 +1439,7 @@ async function initializeFirebaseAuth() {
                 // Only redirect to login if user is trying to access the app (not homepage)
                 if (currentRoute === 'app') {
                     // Redirect to account page for authentication
-                    window.location.href = 'account.html';
+                    window.location.href = '/account';
                 } else if (currentRoute === 'home') {
                     // User on homepage without auth - this is fine, keep them there
                     // Don't redirect, homepage is public
@@ -1467,7 +1467,7 @@ async function initializeFirebaseAuth() {
         
         // Only redirect to login on Firebase error if on /app route
         if (currentRoute === 'app') {
-            window.location.href = 'account.html';
+            window.location.href = '/account';
         }
     }
 }
@@ -1778,7 +1778,7 @@ async function signOutUser() {
         localStorage.clear();
         
         // Redirect to login
-        window.location.href = 'account.html';
+        window.location.href = '/account';
     } catch (error) {
         console.error('Sign out error:', error.code || error.message);
         debugError('Full error:', error);
@@ -1829,12 +1829,113 @@ const appState = {
 
 // ===================================
 // RATE LIMITING STATE
+// Prevents spam and abuse for all create operations
 // ===================================
 const rateLimitState = {
+    // Task creation
     lastTaskCreation: 0,
     taskCreationCooldown: 1500, // 1.5 second cooldown between task creations
-    isCreatingTask: false // Prevents double-submit
+    isCreatingTask: false, // Prevents double-submit
+    
+    // Message rate limiting
+    lastMessageSent: 0,
+    messageCooldown: 500, // 0.5 second between messages
+    messageCount: 0,
+    messageWindowStart: 0,
+    maxMessagesPerMinute: 30, // Max 30 messages per minute
+    
+    // Event creation rate limiting
+    lastEventCreation: 0,
+    eventCreationCooldown: 1000, // 1 second between events
+    eventCount: 0,
+    eventWindowStart: 0,
+    maxEventsPerHour: 50, // Max 50 events per hour
+    
+    // Document creation rate limiting
+    lastDocCreation: 0,
+    docCreationCooldown: 1000, // 1 second between documents
+    docCount: 0,
+    docWindowStart: 0,
+    maxDocsPerHour: 30 // Max 30 docs per hour
 };
+
+/**
+ * Check if message sending is allowed (rate limiting)
+ * @returns {Object} { allowed: boolean, reason?: string }
+ */
+function canSendMessage() {
+    const now = Date.now();
+    
+    // Check cooldown between messages
+    if (now - rateLimitState.lastMessageSent < rateLimitState.messageCooldown) {
+        return { allowed: false, reason: 'Sending too fast' };
+    }
+    
+    // Check messages per minute limit
+    if (now - rateLimitState.messageWindowStart > 60000) {
+        // Reset window
+        rateLimitState.messageWindowStart = now;
+        rateLimitState.messageCount = 0;
+    }
+    
+    if (rateLimitState.messageCount >= rateLimitState.maxMessagesPerMinute) {
+        return { allowed: false, reason: 'Message limit reached. Please wait a moment.' };
+    }
+    
+    return { allowed: true };
+}
+
+/**
+ * Check if event creation is allowed (rate limiting)
+ * @returns {Object} { allowed: boolean, reason?: string }
+ */
+function canCreateEvent() {
+    const now = Date.now();
+    
+    // Check cooldown between events
+    if (now - rateLimitState.lastEventCreation < rateLimitState.eventCreationCooldown) {
+        return { allowed: false, reason: 'Please wait before creating another event' };
+    }
+    
+    // Check events per hour limit
+    if (now - rateLimitState.eventWindowStart > 3600000) {
+        // Reset window
+        rateLimitState.eventWindowStart = now;
+        rateLimitState.eventCount = 0;
+    }
+    
+    if (rateLimitState.eventCount >= rateLimitState.maxEventsPerHour) {
+        return { allowed: false, reason: 'Event limit reached. Please wait an hour.' };
+    }
+    
+    return { allowed: true };
+}
+
+/**
+ * Check if document creation is allowed (rate limiting)
+ * @returns {Object} { allowed: boolean, reason?: string }
+ */
+function canCreateDocument() {
+    const now = Date.now();
+    
+    // Check cooldown between documents
+    if (now - rateLimitState.lastDocCreation < rateLimitState.docCreationCooldown) {
+        return { allowed: false, reason: 'Please wait before creating another document' };
+    }
+    
+    // Check docs per hour limit
+    if (now - rateLimitState.docWindowStart > 3600000) {
+        // Reset window
+        rateLimitState.docWindowStart = now;
+        rateLimitState.docCount = 0;
+    }
+    
+    if (rateLimitState.docCount >= rateLimitState.maxDocsPerHour) {
+        return { allowed: false, reason: 'Document limit reached. Please wait an hour.' };
+    }
+    
+    return { allowed: true };
+}
 
 /**
  * Check if task creation is allowed (rate limiting)
@@ -2271,6 +2372,13 @@ function initChat() {
         
         if (messageText === '') return;
 
+        // RATE LIMITING: Check if user can send message
+        const rateCheck = canSendMessage();
+        if (!rateCheck.allowed) {
+            showToast(rateCheck.reason, 'warning', 2000);
+            return;
+        }
+
         // TYPING INDICATOR: Clear typing status when message is sent
         clearTypingStatus();
 
@@ -2321,6 +2429,10 @@ function initChat() {
                 if (mentions.length > 0) {
                     sendMentionNotifications(mentions, messageText);
                 }
+                
+                // RATE LIMITING: Update rate limit state after successful send
+                rateLimitState.lastMessageSent = Date.now();
+                rateLimitState.messageCount++;
                 
             } catch (error) {
                 console.error('Message encryption failed:', error.code || error.message);
@@ -5308,6 +5420,9 @@ function initTasks() {
         if (progressBadge) {
             progressBadge.textContent = value + '%';
         }
+        if (progressSlider) {
+            progressSlider.style.setProperty('--progress', value + '%');
+        }
     }
     
     if (progressSlider && progressInput) {
@@ -6012,41 +6127,37 @@ function initTasks() {
                     const isLeadsTable = spreadsheet?.type === 'leads';
                     const firstCol = isLeadsTable ? 'leadName' : 'title';
                     
-                    // Build new column order from current DOM order
-                    const allItems = Array.from(container.querySelectorAll('.column-toggle-item'));
-                    const activeIds = [];
+                    // Can't reorder the first column
+                    if (draggedId === firstCol) return;
                     
-                    // Always include first column at the beginning (can't be reordered)
-                    if (spreadsheet.columns.includes(firstCol)) {
-                        activeIds.push(firstCol);
+                    // Perform DOM move first for immediate visual feedback
+                    if (insertBefore) {
+                        container.insertBefore(draggedItem, item);
+                    } else {
+                        container.insertBefore(draggedItem, item.nextSibling);
                     }
                     
+                    // Now read the new order from DOM
+                    const allItems = Array.from(container.querySelectorAll('.column-toggle-item'));
+                    const newColumnOrder = [];
+                    
+                    // Always include first column at the beginning
+                    if (spreadsheet.columns.includes(firstCol)) {
+                        newColumnOrder.push(firstCol);
+                    }
+                    
+                    // Add columns in their new DOM order (only if they were active)
                     allItems.forEach(el => {
                         const id = el.dataset.columnId;
-                        // Skip first column (already added) and dragged column (will be inserted at target position)
-                        if (spreadsheet.columns.includes(id) && id !== draggedId && id !== firstCol) {
-                            activeIds.push(id);
+                        if (spreadsheet.columns.includes(id) && id !== firstCol) {
+                            newColumnOrder.push(id);
                         }
                     });
                     
-                    // Find where to insert dragged column (only if it's not the first column)
-                    if (spreadsheet.columns.includes(draggedId) && draggedId !== firstCol) {
-                        const targetIndex = activeIds.indexOf(targetId);
-                        if (targetIndex >= 0) {
-                            if (insertBefore) {
-                                activeIds.splice(targetIndex, 0, draggedId);
-                            } else {
-                                activeIds.splice(targetIndex + 1, 0, draggedId);
-                            }
-                        } else {
-                            activeIds.push(draggedId);
-                        }
-                        
-                        spreadsheet.columns = activeIds;
-                        saveSpreadsheetToFirestore(spreadsheet);
-                        populateColumnToggles(spreadsheet);
-                        renderSpreadsheetTable(spreadsheet);
-                    }
+                    // Update spreadsheet columns
+                    spreadsheet.columns = newColumnOrder;
+                    saveSpreadsheetToFirestore(spreadsheet);
+                    renderSpreadsheetTable(spreadsheet);
                 }
             });
 
@@ -6923,12 +7034,16 @@ function initTasks() {
     // ===================================
     // SPREADSHEET TABLE RENDERING
     // =================================== 
+    // ===================================
+    // OPTIMIZED TABLE RENDERING
+    // Uses DocumentFragment and batch DOM operations for speed
+    // ===================================
     function renderSpreadsheetTable(spreadsheet) {
         const tableContainer = document.getElementById('tableContainer');
         if (!tableContainer) return;
 
         // Get filtered and sorted tasks for this spreadsheet
-        let tasks = getFilteredAndSortedTasks();
+        const tasks = getFilteredAndSortedTasks();
         
         // Get all tasks for this spreadsheet (without search/filter applied)
         const spreadsheetTasks = getTasksForSpreadsheet(spreadsheet);
@@ -6937,7 +7052,6 @@ function initTasks() {
         const isLeadsTable = spreadsheet.type === 'leads';
         const itemName = isLeadsTable ? 'lead' : 'task';
         const itemNamePlural = isLeadsTable ? 'leads' : 'tasks';
-        const addBtnId = isLeadsTable ? 'addLeadPanelBtn' : 'addTaskPanelBtn';
 
         if (tasks.length === 0 && spreadsheetTasks.length === 0) {
             tableContainer.innerHTML = `
@@ -6969,50 +7083,40 @@ function initTasks() {
             return;
         }
 
-        // Build table HTML - use spreadsheet.columns as the single source of truth for visible columns
-        // This array contains both built-in and custom column IDs that are currently visible
-        // Deduplicate columns and set proper defaults based on table type
+        // Deduplicate and set default columns
         let visibleColumns = spreadsheet.columns;
         if (!visibleColumns || visibleColumns.length === 0) {
             visibleColumns = isLeadsTable 
                 ? ['leadName', 'status', 'source', 'value', 'contact', 'createdAt', 'notes']
                 : ['title', 'status', 'assignee', 'priority', 'dueDate'];
         } else {
-            // Remove duplicates
             visibleColumns = [...new Set(visibleColumns)];
         }
         const firstColHeader = isLeadsTable ? 'Lead' : 'Task';
         
-        let tableHTML = `
-            <table class="spreadsheet-table">
-                <thead>
-                    <tr>
-                        ${visibleColumns.map(col => {
-                            // Column header - clickable icon to edit column settings (except title/leadName column)
-                            const isCustom = col.startsWith('custom_');
-                            const icon = getColumnIcon(col, spreadsheet);
-                            const label = getColumnLabel(col, spreadsheet);
-                            const isFirstCol = col === 'title' || col === 'leadName';
-                            const clickableClass = isFirstCol ? '' : 'column-header-clickable';
-                            return `<th title="${label}" class="${clickableClass}" data-column-id="${col}" data-is-custom="${isCustom}">
-                                ${isFirstCol ? firstColHeader : `<i class="fas ${icon} column-header-icon"></i>`}
-                            </th>`;
-                        }).join('')}
-                        <th title="Actions"><i class="fas fa-ellipsis-h"></i></th>
-                    </tr>
-                </thead>
-                <tbody>
-        `;
+        // Pre-compute column metadata once
+        const columnMeta = visibleColumns.map(col => ({
+            id: col,
+            isCustom: col.startsWith('custom_'),
+            icon: getColumnIcon(col, spreadsheet),
+            label: getColumnLabel(col, spreadsheet),
+            isFirstCol: col === 'title' || col === 'leadName'
+        }));
 
-        tasks.forEach(task => {
+        // Build header row efficiently
+        const headerCells = columnMeta.map(meta => {
+            const clickableClass = meta.isFirstCol ? '' : 'column-header-clickable';
+            return `<th title="${meta.label}" class="${clickableClass}" data-column-id="${meta.id}" data-is-custom="${meta.isCustom}">
+                ${meta.isFirstCol ? firstColHeader : `<i class="fas ${meta.icon} column-header-icon"></i>`}
+            </th>`;
+        }).join('');
+        
+        // Build all rows in a single pass using array join (faster than string concatenation)
+        const rowsHTML = tasks.map(task => {
             const isCompleted = task.status === 'done';
-            tableHTML += `<tr class="${isCompleted ? 'row-completed' : ''}" data-task-id="${task.id}">`;
-            
-            visibleColumns.forEach(col => {
-                tableHTML += renderTableCell(task, col, spreadsheet);
-            });
-
-            tableHTML += `
+            const cells = visibleColumns.map(col => renderTableCell(task, col, spreadsheet)).join('');
+            return `<tr class="${isCompleted ? 'row-completed' : ''}" data-task-id="${task.id}">
+                ${cells}
                 <td>
                     <div class="row-actions">
                         <button class="row-action-btn" onclick="editTask(appState.tasks.find(t => t.id === '${task.id}'))" data-tooltip="Edit">
@@ -7023,22 +7127,22 @@ function initTasks() {
                         </button>
                     </div>
                 </td>
-            `;
-            tableHTML += '</tr>';
-        });
+            </tr>`;
+        }).join('');
 
-        tableHTML += `
-                </tbody>
+        // Single DOM write
+        tableContainer.innerHTML = `
+            <table class="spreadsheet-table">
+                <thead><tr>${headerCells}<th title="Actions"><i class="fas fa-ellipsis-h"></i></th></tr></thead>
+                <tbody>${rowsHTML}</tbody>
             </table>
             <button class="add-row-btn" onclick="openAddItemModal()">
                 <i class="fas fa-plus"></i> Add new ${isLeadsTable ? 'lead' : 'task'}
             </button>
         `;
 
-        tableContainer.innerHTML = tableHTML;
-
-        // Add event listeners
-        initTableEventListeners(spreadsheet);
+        // Defer event listener initialization to next frame
+        requestAnimationFrame(() => initTableEventListeners(spreadsheet));
     }
 
     // Initialize table event listeners
@@ -7691,10 +7795,6 @@ function initTasks() {
         // Position dropdown
         positionInlineDropdown(dropdown, badge);
         
-        // Append to spreadsheet container for proper scrolling
-        const spreadsheetContainer = document.querySelector('.spreadsheet-table-area') || document.body;
-        spreadsheetContainer.appendChild(dropdown);
-        
         // Add animation class
         requestAnimationFrame(() => dropdown.classList.add('visible'));
         
@@ -7810,10 +7910,6 @@ function initTasks() {
         // Position dropdown
         positionInlineDropdown(dropdown, cell);
         
-        // Append to spreadsheet container for proper scrolling
-        const spreadsheetContainer = document.querySelector('.spreadsheet-table-area') || document.body;
-        spreadsheetContainer.appendChild(dropdown);
-        
         // Add animation class
         requestAnimationFrame(() => dropdown.classList.add('visible'));
         
@@ -7890,45 +7986,54 @@ function initTasks() {
     function positionInlineDropdown(dropdown, trigger) {
         const triggerRect = trigger.getBoundingClientRect();
         
-        // Find the spreadsheet table area to get its scroll offset
-        const spreadsheetContainer = document.querySelector('.spreadsheet-table-area');
-        if (!spreadsheetContainer) return;
+        // Append dropdown to body for proper viewport-based positioning
+        // This prevents cutoff issues from container overflow
+        if (dropdown.parentElement !== document.body) {
+            document.body.appendChild(dropdown);
+        }
         
-        const containerRect = spreadsheetContainer.getBoundingClientRect();
+        // Use fixed positioning relative to viewport
+        dropdown.style.position = 'fixed';
+        dropdown.style.zIndex = '100001';
         
-        // Calculate position relative to the scrollable container
-        // Account for both the container's position and its scroll offset
-        const scrollTop = spreadsheetContainer.scrollTop;
-        const scrollLeft = spreadsheetContainer.scrollLeft;
+        // Get viewport dimensions
+        const viewportWidth = window.innerWidth;
+        const viewportHeight = window.innerHeight;
         
-        // Position relative to container's content (including scrolled area)
-        const relativeTop = triggerRect.top - containerRect.top + scrollTop;
-        const relativeLeft = triggerRect.left - containerRect.left + scrollLeft;
-        
-        // Estimated dropdown dimensions
-        const dropdownHeight = 200;
-        const dropdownWidth = 200;
+        // Get dropdown dimensions (render first to measure)
+        dropdown.style.visibility = 'hidden';
+        dropdown.style.display = 'block';
+        const dropdownRect = dropdown.getBoundingClientRect();
+        const dropdownHeight = dropdownRect.height || 200;
+        const dropdownWidth = dropdownRect.width || 200;
+        dropdown.style.visibility = '';
         
         // Default: position below the trigger
-        let top = relativeTop + triggerRect.height + 4;
+        let top = triggerRect.bottom + 4;
+        let left = triggerRect.left;
         
-        // Check if dropdown would go off bottom of visible area
-        const triggerBottomInViewport = triggerRect.bottom - containerRect.top;
-        if (triggerBottomInViewport + dropdownHeight > containerRect.height) {
+        // Check if dropdown would go off bottom of viewport
+        if (top + dropdownHeight > viewportHeight - 20) {
             // Position above the trigger instead
-            top = relativeTop - dropdownHeight - 4;
+            top = triggerRect.top - dropdownHeight - 4;
+            // If still off-screen (trigger near top), position at top of viewport
+            if (top < 20) {
+                top = 20;
+            }
         }
         
-        // Check if dropdown would go off right of container
-        let left = relativeLeft;
-        if (left + dropdownWidth > spreadsheetContainer.clientWidth + scrollLeft) {
-            left = spreadsheetContainer.clientWidth + scrollLeft - dropdownWidth - 20;
+        // Check if dropdown would go off right of viewport
+        if (left + dropdownWidth > viewportWidth - 20) {
+            left = viewportWidth - dropdownWidth - 20;
         }
         
-        dropdown.style.position = 'absolute';
+        // Check if dropdown would go off left of viewport
+        if (left < 20) {
+            left = 20;
+        }
+        
         dropdown.style.top = top + 'px';
         dropdown.style.left = left + 'px';
-        dropdown.style.zIndex = '100001';
     }
     
     function closeAllInlineDropdowns() {
@@ -8229,10 +8334,6 @@ function initTasks() {
         dropdown.innerHTML = optionsHTML;
         
         positionInlineDropdown(dropdown, cell);
-        
-        // Append to spreadsheet container for proper scrolling
-        const spreadsheetContainer = document.querySelector('.spreadsheet-table-area') || document.body;
-        spreadsheetContainer.appendChild(dropdown);
         
         requestAnimationFrame(() => dropdown.classList.add('visible'));
         
@@ -9030,6 +9131,7 @@ function initTasks() {
             progressInput.value = progress;
             if (progressSlider) {
                 progressSlider.value = progress;
+                progressSlider.style.setProperty('--progress', progress + '%');
             }
             if (progressFill) {
                 progressFill.style.width = progress + '%';
@@ -10353,6 +10455,37 @@ function initTasks() {
                 }
             }
             
+            // Handle Tab key for list indentation
+            if (e.key === 'Tab') {
+                const selection = window.getSelection();
+                if (selection.rangeCount > 0) {
+                    const range = selection.getRangeAt(0);
+                    const listItem = range.startContainer.nodeType === Node.TEXT_NODE 
+                        ? range.startContainer.parentElement?.closest('li')
+                        : range.startContainer.closest?.('li');
+                    
+                    if (listItem) {
+                        e.preventDefault();
+                        
+                        if (e.shiftKey) {
+                            // Shift+Tab: Outdent - move list item to parent level
+                            document.execCommand('outdent', false, null);
+                        } else {
+                            // Tab: Indent - make this a child of the previous sibling
+                            const prevSibling = listItem.previousElementSibling;
+                            if (prevSibling && prevSibling.tagName === 'LI') {
+                                // Use execCommand for better browser compatibility
+                                document.execCommand('indent', false, null);
+                            }
+                        }
+                        
+                        appState.isDocDirty = true;
+                        scheduleDocSave();
+                        return;
+                    }
+                }
+            }
+            
             if ((e.ctrlKey || e.metaKey) && !e.shiftKey) {
                 switch (e.key.toLowerCase()) {
                     case 'b':
@@ -10658,6 +10791,13 @@ function initTasks() {
             return;
         }
         
+        // RATE LIMITING: Check if user can create document
+        const rateCheck = canCreateDocument();
+        if (!rateCheck.allowed) {
+            showToast(rateCheck.reason, 'warning', 3000);
+            return;
+        }
+        
         try {
             const { collection, addDoc, serverTimestamp } = 
                 await import('https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js');
@@ -10676,6 +10816,10 @@ function initTasks() {
             };
             
             const docRef = await addDoc(docsRef, docData);
+            
+            // RATE LIMITING: Update rate limit state after successful creation
+            rateLimitState.lastDocCreation = Date.now();
+            rateLimitState.docCount++;
             
             closeCreateDocModal();
             showToast('Document created', 'success');
@@ -10726,7 +10870,15 @@ function initTasks() {
         }
         
         if (editor) {
-            editor.innerHTML = doc.contentHtml || '<p></p>';
+            // SECURITY: Sanitize HTML with DOMPurify to prevent XSS
+            const sanitizedHtml = typeof DOMPurify !== 'undefined' 
+                ? DOMPurify.sanitize(doc.contentHtml || '<p></p>', {
+                    ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'u', 's', 'a', 'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'blockquote', 'code', 'pre', 'span', 'div'],
+                    ALLOWED_ATTR: ['href', 'target', 'rel', 'class', 'style', 'data-task-id', 'data-spreadsheet-id', 'data-type', 'contenteditable'],
+                    ALLOW_DATA_ATTR: true
+                })
+                : doc.contentHtml || '<p></p>';
+            editor.innerHTML = sanitizedHtml;
             editor.contentEditable = !isReadOnly;
             editor.classList.toggle('read-only', isReadOnly);
         }
@@ -12661,7 +12813,15 @@ function populateTaskAssigneeDropdown() {
     let optionsHTML = '';
     let firstMember = null;
     
-    // Add current user first - use unified identity resolver
+    // Add "Team" option first - for tasks with no specific owner
+    optionsHTML += `
+        <div class="dropdown-menu-option" data-value="team" data-name="Team">
+            <div class="dropdown-assignee-avatar" style="background: var(--accent)"><i class="fas fa-users" style="font-size: 10px;"></i></div>
+            <span>Team</span>
+        </div>
+    `;
+    
+    // Add current user - use unified identity resolver
     if (currentAuthUser) {
         const identity = getIdentity(currentAuthUser.uid, currentAuthUser.displayName || currentAuthUser.email);
         const displayName = identity.displayName;
@@ -13089,6 +13249,7 @@ function resetTaskModalDropdowns() {
         progressInput.value = 0;
         if (progressSlider) {
             progressSlider.value = 0;
+            progressSlider.style.setProperty('--progress', '0%');
         }
         if (progressFill) {
             progressFill.style.width = '0%';
@@ -18459,6 +18620,23 @@ function initModals() {
     const cancelTaskBtn = document.getElementById('cancelTaskBtn');
     const taskDueDateInput = document.getElementById('taskDueDate');
     const dueDateHelper = document.getElementById('dueDateHelper');
+    const taskShowOnCalendar = document.getElementById('taskShowOnCalendar');
+
+    const resetTaskModalProgress = () => {
+        const progressInput = document.getElementById('taskProgress');
+        const progressSlider = document.getElementById('taskProgressSlider');
+        const progressFill = document.getElementById('taskProgressFill');
+        const progressBadge = document.getElementById('taskProgressBadge');
+
+        if (progressInput) progressInput.value = 0;
+        if (progressSlider) {
+            progressSlider.value = 0;
+            progressSlider.style.setProperty('--progress', '0%');
+        }
+        if (progressFill) progressFill.style.width = '0%';
+        if (progressBadge) progressBadge.textContent = '0%';
+        if (taskShowOnCalendar) taskShowOnCalendar.checked = true;
+    };
 
     // Show helper text when due date is selected
     if (taskDueDateInput && dueDateHelper) {
@@ -18473,12 +18651,14 @@ function initModals() {
 
     closeTaskModal.addEventListener('click', () => {
         taskForm.reset();
+        resetTaskModalProgress();
         if (dueDateHelper) dueDateHelper.style.display = 'none';
         closeModal('taskModal');
     });
     
     cancelTaskBtn.addEventListener('click', () => {
         taskForm.reset();
+        resetTaskModalProgress();
         if (dueDateHelper) dueDateHelper.style.display = 'none';
         closeModal('taskModal');
     });
@@ -18670,6 +18850,7 @@ function initModals() {
             resetProgressInput.value = 0;
             if (resetProgressSlider) {
                 resetProgressSlider.value = 0;
+                resetProgressSlider.style.setProperty('--progress', '0%');
             }
             if (resetProgressFill) {
                 resetProgressFill.style.width = '0%';
@@ -20545,8 +20726,8 @@ window.generateJoinLink = function() {
         showToast('No team code available', 'error');
         return;
     }
-    const baseUrl = window.location.origin + window.location.pathname.replace(/\/[^\/]*$/, '');
-    const joinUrl = `${baseUrl}/index.html?join=${appState.currentTeamData.teamCode}`;
+    const baseUrl = window.location.origin;
+    const joinUrl = `${baseUrl}/app?join=${appState.currentTeamData.teamCode}`;
     
     navigator.clipboard.writeText(joinUrl).then(() => {
         showToast('Join link copied to clipboard!', 'success');
@@ -22426,31 +22607,36 @@ function initLeadModalDropdowns() {
     if (statusTrigger && statusMenu && statusInput) {
         statusTrigger.addEventListener('click', (e) => {
             e.stopPropagation();
+            // Close other lead dropdowns first
+            document.querySelectorAll('#leadModal .unified-dropdown-menu').forEach(m => {
+                if (m !== statusMenu) {
+                    m.classList.remove('visible');
+                    m.style.display = 'none';
+                }
+            });
             const show = !statusMenu.classList.contains('visible');
             statusMenu.classList.toggle('visible', show);
             statusMenu.style.display = show ? 'block' : 'none';
         });
         
-        statusMenu.querySelectorAll('.dropdown-menu-option').forEach(opt => {
-            opt.addEventListener('click', () => {
+        // Use unified-dropdown-option class (matching HTML)
+        statusMenu.querySelectorAll('.unified-dropdown-option').forEach(opt => {
+            opt.addEventListener('click', (e) => {
+                e.stopPropagation();
                 const value = opt.dataset.value;
                 const color = opt.dataset.color || '#007AFF';
                 statusInput.value = value;
-                const statusContent = statusTrigger.querySelector('.dropdown-trigger-content') || statusTrigger.querySelector('.unified-dropdown-value');
+                const statusContent = statusTrigger.querySelector('.unified-dropdown-value');
                 if (statusContent) {
                     statusContent.innerHTML = `
-                        <span class="status-dot" style="background: ${color};"></span>
-                        <span>${value}</span>
+                        <span class="unified-status-dot" style="background: ${color};"></span>
+                        <span>${escapeHtml(value)}</span>
                     `;
                 }
-                statusMenu.querySelectorAll('.dropdown-menu-option').forEach(o => {
-                    o.classList.remove('active');
-                    o.querySelector('.fa-check')?.remove();
+                statusMenu.querySelectorAll('.unified-dropdown-option').forEach(o => {
+                    o.classList.remove('selected');
                 });
-                opt.classList.add('active');
-                if (!opt.querySelector('.fa-check')) {
-                    opt.insertAdjacentHTML('beforeend', '<i class="fas fa-check"></i>');
-                }
+                opt.classList.add('selected');
                 statusMenu.classList.remove('visible');
                 statusMenu.style.display = 'none';
             });
@@ -22465,31 +22651,36 @@ function initLeadModalDropdowns() {
     if (sourceTrigger && sourceMenu && sourceInput) {
         sourceTrigger.addEventListener('click', (e) => {
             e.stopPropagation();
+            // Close other lead dropdowns first
+            document.querySelectorAll('#leadModal .unified-dropdown-menu').forEach(m => {
+                if (m !== sourceMenu) {
+                    m.classList.remove('visible');
+                    m.style.display = 'none';
+                }
+            });
             const show = !sourceMenu.classList.contains('visible');
             sourceMenu.classList.toggle('visible', show);
             sourceMenu.style.display = show ? 'block' : 'none';
         });
         
-        sourceMenu.querySelectorAll('.dropdown-menu-option').forEach(opt => {
-            opt.addEventListener('click', () => {
+        // Use unified-dropdown-option class (matching HTML)
+        sourceMenu.querySelectorAll('.unified-dropdown-option').forEach(opt => {
+            opt.addEventListener('click', (e) => {
+                e.stopPropagation();
                 const value = opt.dataset.value;
                 const color = opt.dataset.color || '#007AFF';
                 sourceInput.value = value;
-                const sourceContent = sourceTrigger.querySelector('.dropdown-trigger-content') || sourceTrigger.querySelector('.unified-dropdown-value');
+                const sourceContent = sourceTrigger.querySelector('.unified-dropdown-value');
                 if (sourceContent) {
                     sourceContent.innerHTML = `
-                        <span class="source-dot" style="background: ${color};"></span>
-                        <span>${value}</span>
+                        <span class="unified-status-dot" style="background: ${color};"></span>
+                        <span>${escapeHtml(value)}</span>
                     `;
                 }
-                sourceMenu.querySelectorAll('.dropdown-menu-option').forEach(o => {
-                    o.classList.remove('active');
-                    o.querySelector('.fa-check')?.remove();
+                sourceMenu.querySelectorAll('.unified-dropdown-option').forEach(o => {
+                    o.classList.remove('selected');
                 });
-                opt.classList.add('active');
-                if (!opt.querySelector('.fa-check')) {
-                    opt.insertAdjacentHTML('beforeend', '<i class="fas fa-check"></i>');
-                }
+                opt.classList.add('selected');
                 sourceMenu.classList.remove('visible');
                 sourceMenu.style.display = 'none';
             });
@@ -22511,8 +22702,10 @@ function initLeadModalDropdowns() {
     }
     
     // Close dropdowns on outside click
-    document.addEventListener('click', () => {
-        document.querySelectorAll('#leadModal .custom-dropdown-menu').forEach(m => {
+    document.addEventListener('click', (e) => {
+        // Don't close if clicking inside a dropdown
+        if (e.target.closest('.unified-dropdown')) return;
+        document.querySelectorAll('#leadModal .unified-dropdown-menu').forEach(m => {
             m.classList.remove('visible');
             m.style.display = 'none';
         });
@@ -26097,8 +26290,8 @@ window.generateJoinLink = function() {
         showToast('No team code available', 'error');
         return;
     }
-    const baseUrl = window.location.origin + window.location.pathname.replace(/\/[^\/]*$/, '');
-    const joinUrl = `${baseUrl}/index.html?join=${appState.currentTeamData.teamCode}`;
+    const baseUrl = window.location.origin;
+    const joinUrl = `${baseUrl}/app?join=${appState.currentTeamData.teamCode}`;
     
     navigator.clipboard.writeText(joinUrl).then(() => {
         showToast('Join link copied to clipboard!', 'success');
@@ -27128,6 +27321,13 @@ async function saveEventToFirestore(event) {
         return;
     }
     
+    // RATE LIMITING: Check if user can create event
+    const rateCheck = canCreateEvent();
+    if (!rateCheck.allowed) {
+        showToast(rateCheck.reason, 'warning', 3000);
+        return;
+    }
+    
     try {
         const { collection, addDoc, serverTimestamp, Timestamp } = 
             await import('https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js');
@@ -27160,6 +27360,10 @@ async function saveEventToFirestore(event) {
         console.log('Saving event to Firestore for team:', event.teamId);
         const docRef = await addDoc(eventsRef, eventData);
         console.log('✅ Event saved to Firestore with ID:', docRef.id);
+        
+        // RATE LIMITING: Update rate limit state after successful save
+        rateLimitState.lastEventCreation = Date.now();
+        rateLimitState.eventCount++;
         
     } catch (error) {
         console.error('❌ Error saving event to Firestore:', error.code || error.message);

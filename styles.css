@@ -6807,85 +6807,31 @@ body.dark-mode .day-event-time {
     display: flex;
     align-items: center;
     gap: 10px;
-    min-width: 120px;
+    min-width: 130px;
     cursor: pointer;
 }
 
 /* ===================================
    PROGRESS SLIDER - Gradient Colors
-   Red → Orange → Yellow → Green
+   Fixed gradient revealed by gray overlay from right
    =================================== */
-.progress-cell-inline {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    min-width: 130px;
-}
-
 .progress-range-slider {
     -webkit-appearance: none;
     appearance: none;
     flex: 1;
     height: 6px;
-    background: linear-gradient(to right, #FF3B30, #FF9500, #FFCC00, #34C759);
     border-radius: 3px;
     outline: none;
     cursor: pointer;
-    position: relative;
+    /* Fixed full-width gradient as bottom layer, gray overlay covering unrevealed portion */
+    background:
+        linear-gradient(to right, transparent 0%, transparent var(--progress, 0%), #e5e5ea var(--progress, 0%), #e5e5ea 100%),
+        linear-gradient(90deg, #FF3B30 0%, #FF9500 33%, #FFCC00 66%, #34C759 100%);
+    background-size: 100% 100%, 100% 100%;
 }
 
-/* Overlay to show unfilled portion */
-.progress-range-slider::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    right: 0;
-    height: 100%;
-    width: calc(100% - var(--progress, 0%));
-    background: #e5e5ea;
-    border-radius: 0 3px 3px 0;
-    pointer-events: none;
-}
-
-.progress-range-slider::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    appearance: none;
-    width: 10px;
-    height: 10px;
-    background: white;
-    border-radius: 50%;
-    cursor: pointer;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
-    transition: transform 0.15s ease, box-shadow 0.15s ease;
-    position: relative;
-    z-index: 2;
-    margin-top: -2px;
-}
-
-.progress-range-slider::-webkit-slider-thumb:hover {
-    transform: scale(1.15);
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
-}
-
-.progress-range-slider::-webkit-slider-thumb:active {
-    background: white;
-    transform: scale(1.1);
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
-}
-
-.progress-range-slider::-moz-range-thumb {
-    width: 10px;
-    height: 10px;
-    background: white;
-    border-radius: 50%;
-    border: none;
-    cursor: pointer;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
-}
-
-.progress-range-slider::-moz-range-thumb:active {
-    background: white;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+.progress-range-slider::-webkit-slider-container {
+    height: 6px;
 }
 
 .progress-range-slider::-webkit-slider-runnable-track {
@@ -6894,10 +6840,53 @@ body.dark-mode .day-event-time {
     border-radius: 3px;
 }
 
+.progress-range-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 14px;
+    height: 14px;
+    margin-top: -4px; /* Center the thumb vertically: (thumb_height - track_height) / 2 = (14-6)/2 = 4 */
+    background: white;
+    border-radius: 50%;
+    cursor: pointer;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    border: none;
+}
+
+.progress-range-slider::-webkit-slider-thumb:hover {
+    transform: scale(1.15);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.35);
+}
+
+.progress-range-slider::-webkit-slider-thumb:active {
+    background: white;
+    transform: scale(1.1);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+}
+
+.progress-range-slider::-moz-range-thumb {
+    width: 14px;
+    height: 14px;
+    background: white;
+    border-radius: 50%;
+    border: none;
+    cursor: pointer;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+.progress-range-slider::-moz-range-thumb:active {
+    background: white;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+}
+
 .progress-range-slider::-moz-range-track {
     height: 6px;
-    background: linear-gradient(to right, #FF3B30, #FF9500, #FFCC00, #34C759);
     border-radius: 3px;
+    background:
+        linear-gradient(to right, transparent 0%, transparent var(--progress, 0%), #e5e5ea var(--progress, 0%), #e5e5ea 100%),
+        linear-gradient(90deg, #FF3B30 0%, #FF9500 33%, #FFCC00 66%, #34C759 100%);
+    background-size: 100% 100%, 100% 100%;
 }
 
 .progress-text {
@@ -7154,18 +7143,32 @@ body.dark-mode .cell-time-editable:hover {
     background: rgba(10, 132, 255, 0.1);
 }
 
-/* Dark Mode: Progress Slider - Gradient */
+/* Dark Mode: Progress Slider - Gradient with reveal overlay */
 body.dark-mode .progress-range-slider {
-    background: linear-gradient(to right, #FF3B30, #FF9500, #FFCC00, #34C759);
-}
-
-body.dark-mode .progress-range-slider::before {
-    background: #2c2c2e;
+    background:
+        linear-gradient(to right, transparent 0%, transparent var(--progress, 0%), #3a3a3c var(--progress, 0%), #3a3a3c 100%),
+        linear-gradient(90deg, #FF3B30 0%, #FF9500 33%, #FFCC00 66%, #34C759 100%) !important;
+    background-size: 100% 100%, 100% 100% !important;
 }
 
 body.dark-mode .progress-range-slider::-webkit-slider-thumb {
     background: #f5f5f7;
-    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+}
+
+body.dark-mode .progress-range-slider::-webkit-slider-thumb:active {
+    background: #f5f5f7;
+}
+
+body.dark-mode .progress-range-slider::-moz-range-thumb {
+    background: #f5f5f7;
+}
+
+body.dark-mode .progress-range-slider::-moz-range-track {
+    background:
+        linear-gradient(to right, transparent 0%, transparent var(--progress, 0%), #3a3a3c var(--progress, 0%), #3a3a3c 100%),
+        linear-gradient(90deg, #FF3B30 0%, #FF9500 33%, #FFCC00 66%, #34C759 100%);
+    background-size: 100% 100%, 100% 100%;
 }
 
 /* Mention Pill Styling */
@@ -7886,7 +7889,7 @@ body.dark-mode .task-progress-slider {
     flex-shrink: 0;
 }
 
-/* Modal Progress Container - bigger version of table slider */
+/* Modal Progress Container - bigger version of table slider (Safari-compatible) */
 .modal-progress-container {
     display: flex;
     align-items: center;
@@ -7899,14 +7902,9 @@ body.dark-mode .task-progress-slider {
     border-radius: 5px;
 }
 
-.modal-progress-container .progress-range-slider::before {
-    border-radius: 0 5px 5px 0;
-}
-
 .modal-progress-container .progress-range-slider::-webkit-slider-thumb {
     width: 16px;
     height: 16px;
-    margin-top: -3px;
 }
 
 .modal-progress-container .progress-range-slider::-moz-range-thumb {
@@ -16513,8 +16511,9 @@ body.dark-mode .add-column-btn:hover {
 .custom-slider-cell .progress-range-slider {
     flex: 1;
     height: 5px;
+    background: var(--bg-surface-soft);
 }
-
+    
 .custom-slider-cell .custom-slider-value {
     font-size: 12px;
     font-weight: 500;
@@ -16825,7 +16824,7 @@ body.dark-mode .custom-number-input:focus {
     position: relative;
     width: 36px;
     height: 20px;
-    background: #e5e5e5;
+    margin-top: -4px;
     border-radius: 10px;
     cursor: pointer;
     transition: background 0.2s ease;
@@ -17507,6 +17506,41 @@ body.dark-mode .pill-toggle:hover .pill-toggle-slider {
 
 .doc-editor li {
     margin-bottom: 4px;
+}
+
+/* Nested list styles - second level */
+.doc-editor ul ul,
+.doc-editor ol ol,
+.doc-editor ul ol,
+.doc-editor ol ul {
+    margin: 4px 0 4px 0;
+    padding-left: 20px;
+}
+
+/* Different bullet styles for nested levels */
+.doc-editor ul {
+    list-style-type: disc;
+}
+
+.doc-editor ul ul {
+    list-style-type: circle;
+}
+
+.doc-editor ul ul ul {
+    list-style-type: square;
+}
+
+/* Numbered list nested styles */
+.doc-editor ol {
+    list-style-type: decimal;
+}
+
+.doc-editor ol ol {
+    list-style-type: lower-alpha;
+}
+
+.doc-editor ol ol ol {
+    list-style-type: lower-roman;
 }
 
 .doc-editor a {
@@ -23992,27 +24026,35 @@ body.dark-mode .repeat-pill.selected {
 
 /* ===================================
    INLINE TOGGLE ROW (Calendar Toggle)
+   Simple horizontal: label left, toggle right
    =================================== */
-.inline-toggle-row {
-    display: flex;
+.unified-form-field.full-width:has(label.inline-toggle-row) {
+    margin-top: 8px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border-subtle);
+}
+
+.unified-form-field label.inline-toggle-row {
+    display: inline-flex !important;
     flex-direction: row;
-    align-items: center;
-    justify-content: space-between;
+    align-items: center !important;
     gap: 12px;
+    width: 100%;
     padding: 0;
+    margin: 0;
     background: transparent;
     cursor: pointer;
 }
 
-.inline-toggle-row:hover {
+.unified-form-field label.inline-toggle-row:hover {
     background: transparent;
 }
 
-body.dark-mode .inline-toggle-row {
+body.dark-mode .unified-form-field label.inline-toggle-row {
     background: transparent;
 }
 
-body.dark-mode .inline-toggle-row:hover {
+body.dark-mode .unified-form-field label.inline-toggle-row:hover {
     background: transparent;
 }
 
@@ -24023,6 +24065,7 @@ body.dark-mode .inline-toggle-row:hover {
     font-size: 13px;
     font-weight: 500;
     color: var(--text-main);
+    flex: 1;
 }
 
 .inline-toggle-label i {
@@ -24030,17 +24073,23 @@ body.dark-mode .inline-toggle-row:hover {
     color: var(--accent);
 }
 
-/* Mini Toggle Switch */
+.inline-toggle-row .mini-toggle {
+    margin-left: auto;
+}
+
+/* Mini Toggle Switch - Blue/Accent Style */
 .mini-toggle {
     position: relative;
     width: 44px;
-    height: 26px;
+    height: 24px;
+    flex-shrink: 0;
 }
 
 .mini-toggle input {
     opacity: 0;
     width: 0;
     height: 0;
+    position: absolute;
 }
 
 .mini-toggle-track {
@@ -24049,17 +24098,17 @@ body.dark-mode .inline-toggle-row:hover {
     left: 0;
     right: 0;
     bottom: 0;
-    background: rgba(0, 0, 0, 0.15);
-    border-radius: 26px;
-    transition: all 0.25s ease;
+    background: #e5e5ea;
+    border-radius: 24px;
+    transition: background 0.25s ease;
     cursor: pointer;
 }
 
 .mini-toggle-track::before {
     content: '';
     position: absolute;
-    height: 22px;
-    width: 22px;
+    height: 20px;
+    width: 20px;
     left: 2px;
     bottom: 2px;
     background: #ffffff;
@@ -24073,11 +24122,15 @@ body.dark-mode .inline-toggle-row:hover {
 }
 
 .mini-toggle input:checked + .mini-toggle-track::before {
-    transform: translateX(18px);
+    transform: translateX(20px);
 }
 
 body.dark-mode .mini-toggle-track {
     background: rgba(255, 255, 255, 0.2);
+}
+
+body.dark-mode .mini-toggle input:checked + .mini-toggle-track {
+    background: var(--accent);
 }
 
 /* ===================================
@@ -26341,7 +26394,8 @@ body.dark-mode .accent-color-swatch {
 }
 
 /* ===================================
-   TASK MODAL PROGRESS BAR (Filled Style)
+   TASK MODAL PROGRESS BAR 
+   Clean gradient slider matching sheet style
    =================================== */
 .task-modal-progress-control {
     display: flex;
@@ -26351,84 +26405,104 @@ body.dark-mode .accent-color-swatch {
 
 .task-modal-progress-track {
     flex: 1;
-    height: 8px;
-    background: rgba(0, 0, 0, 0.08);
-    border-radius: 4px;
     position: relative;
-    overflow: visible;
-}
-
-body.dark-mode .task-modal-progress-track {
-    background: rgba(255, 255, 255, 0.1);
 }
 
 .task-modal-progress-fill {
-    position: absolute;
-    left: 0;
-    top: 0;
-    height: 100%;
-    background: linear-gradient(90deg, var(--accent) 0%, var(--accent) 100%);
-    border-radius: 4px;
-    transition: width 0.15s ease;
-    pointer-events: none;
+    display: none; /* Not needed - slider has its own gradient */
 }
 
 .task-modal-progress-slider {
-    position: absolute;
-    top: 50%;
-    left: 0;
-    right: 0;
-    transform: translateY(-50%);
-    width: 100%;
-    height: 24px;
     -webkit-appearance: none;
     appearance: none;
-    background: transparent;
+    width: 100%;
+    height: 8px;
+    border-radius: 4px;
+    outline: none;
     cursor: pointer;
     margin: 0;
+    background:
+        linear-gradient(to right, transparent 0%, transparent var(--progress, 0%), #e5e5ea var(--progress, 0%), #e5e5ea 100%),
+        linear-gradient(90deg, #FF3B30 0%, #FF9500 33%, #FFCC00 66%, #34C759 100%);
+    background-size: 100% 100%, 100% 100%;
+}
+
+.task-modal-progress-slider::-webkit-slider-container {
+    height: 8px;
+}
+
+.task-modal-progress-slider::-webkit-slider-runnable-track {
+    height: 8px;
+    background: transparent;
+    border-radius: 4px;
 }
 
 .task-modal-progress-slider::-webkit-slider-thumb {
     -webkit-appearance: none;
     appearance: none;
-    width: 20px;
-    height: 20px;
+    width: 18px;
+    height: 18px;
+    margin-top: -5px; /* Center thumb: (18-8)/2 = 5 */
     border-radius: 50%;
-    background: var(--accent);
+    background: white;
     cursor: grab;
-    box-shadow: 0 2px 8px rgba(0, 122, 255, 0.4);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
     transition: transform 0.15s ease, box-shadow 0.15s ease;
-    border: 3px solid white;
-}
-
-body.dark-mode .task-modal-progress-slider::-webkit-slider-thumb {
-    border-color: var(--bg-surface);
+    border: none;
 }
 
 .task-modal-progress-slider::-webkit-slider-thumb:hover {
     transform: scale(1.15);
-    box-shadow: 0 3px 12px rgba(0, 122, 255, 0.5);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
 }
 
 .task-modal-progress-slider::-webkit-slider-thumb:active {
     cursor: grabbing;
-    transform: scale(1.05);
+    transform: scale(1.1);
+    background: white;
 }
 
 .task-modal-progress-slider::-moz-range-thumb {
-    width: 20px;
-    height: 20px;
+    width: 18px;
+    height: 18px;
     border-radius: 50%;
-    background: var(--accent);
+    background: white;
     cursor: grab;
-    border: 3px solid white;
-    box-shadow: 0 2px 8px rgba(0, 122, 255, 0.4);
+    border: none;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
 }
 
 .task-modal-progress-slider::-moz-range-track {
     height: 8px;
-    background: transparent;
     border-radius: 4px;
+    background:
+        linear-gradient(to right, transparent 0%, transparent var(--progress, 0%), #e5e5ea var(--progress, 0%), #e5e5ea 100%),
+        linear-gradient(90deg, #FF3B30 0%, #FF9500 33%, #FFCC00 66%, #34C759 100%);
+    background-size: 100% 100%, 100% 100%;
+}
+
+/* Dark mode */
+body.dark-mode .task-modal-progress-slider {
+    background:
+        linear-gradient(to right, transparent 0%, transparent var(--progress, 0%), #3a3a3c var(--progress, 0%), #3a3a3c 100%),
+        linear-gradient(90deg, #FF3B30 0%, #FF9500 33%, #FFCC00 66%, #34C759 100%);
+    background-size: 100% 100%, 100% 100%;
+}
+
+body.dark-mode .task-modal-progress-slider::-webkit-slider-thumb {
+    background: #f5f5f7;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+}
+
+body.dark-mode .task-modal-progress-slider::-webkit-slider-thumb:active {
+    background: #f5f5f7;
+}
+
+body.dark-mode .task-modal-progress-slider::-moz-range-track {
+    background:
+        linear-gradient(to right, transparent 0%, transparent var(--progress, 0%), #3a3a3c var(--progress, 0%), #3a3a3c 100%),
+        linear-gradient(90deg, #FF3B30 0%, #FF9500 33%, #FFCC00 66%, #34C759 100%);
+    background-size: 100% 100%, 100% 100%;
 }
 
 .task-modal-progress-badge {
