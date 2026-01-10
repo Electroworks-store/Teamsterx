@@ -4634,6 +4634,112 @@ body.dark-mode .day-event-time {
     z-index: 100;
 }
 
+/* Event resize handle */
+.week-event-resize-handle {
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 8px;
+    cursor: ns-resize;
+    background: transparent;
+    transition: background 0.15s ease;
+    z-index: 2;
+}
+
+.week-event-resize-top {
+    top: 0;
+    border-radius: 6px 6px 0 0;
+}
+
+.week-event-resize-bottom {
+    bottom: 0;
+    border-radius: 0 0 6px 6px;
+}
+
+.week-event-resize-handle::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 20px;
+    height: 3px;
+    background: rgba(0, 0, 0, 0.15);
+    border-radius: 2px;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+}
+
+.week-event-resize-top::after {
+    top: 2px;
+}
+
+.week-event-resize-bottom::after {
+    bottom: 2px;
+}
+
+.week-col-event:hover .week-event-resize-handle::after {
+    opacity: 1;
+}
+
+.week-event-resize-handle:hover {
+    background: rgba(0, 122, 255, 0.1);
+}
+
+.week-event-resize-handle:hover::after {
+    background: var(--accent);
+    opacity: 1;
+}
+
+/* Resizing state */
+.week-col-event.resizing {
+    z-index: 100;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+    transition: none;
+}
+
+.week-col-event.resizing .week-event-resize-handle {
+    background: rgba(0, 122, 255, 0.2);
+}
+
+.week-col-event.resizing .week-event-resize-handle::after {
+    background: var(--accent);
+    opacity: 1;
+}
+
+/* Month view event dragging */
+.month-event-item[draggable="true"] {
+    cursor: grab;
+}
+
+.month-event-item[draggable="true"]:active {
+    cursor: grabbing;
+}
+
+.month-event-item.dragging {
+    opacity: 0.5;
+    transform: scale(1.05);
+}
+
+/* Calendar day drag-over state (month view) */
+.calendar-day.drag-over {
+    background: rgba(0, 122, 255, 0.1) !important;
+    position: relative;
+}
+
+.calendar-day.drag-over::after {
+    content: '';
+    position: absolute;
+    inset: 2px;
+    border: 2px dashed var(--accent);
+    border-radius: 6px;
+    pointer-events: none;
+    z-index: 5;
+}
+
+body.dark-mode .calendar-day.drag-over {
+    background: rgba(0, 122, 255, 0.15) !important;
+}
+
 .week-day-column.drag-over {
     background: rgba(0, 122, 255, 0.08) !important;
 }

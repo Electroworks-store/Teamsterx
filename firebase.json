@@ -1,63 +1,9 @@
 {
   "firestore": {
-    "rules": "firestore.rules"
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
   },
-  "hosting": {
-    "public": ".",
-    "ignore": [
-      "firebase.json",
-      "**/.*",
-      "**/node_modules/**"
-    ],
-    "cleanUrls": true,
-    "trailingSlash": false,
-    "rewrites": [
-      {
-        "source": "/app",
-        "destination": "/index.html"
-      },
-      {
-        "source": "/app/**",
-        "destination": "/index.html"
-      },
-      {
-        "source": "/account",
-        "destination": "/account.html"
-      },
-      {
-        "source": "/account/**",
-        "destination": "/account.html"
-      },
-      {
-        "source": "/team",
-        "destination": "/team.html"
-      },
-      {
-        "source": "/accept-invitation",
-        "destination": "/accept-invitation.html"
-      },
-      {
-        "source": "/home",
-        "destination": "/index.html"
-    ],
-    "redirects": [
-      {
-        "source": "/account.html",
-        "destination": "/account",
-        "type": 301
-      }
-    ]
-    ],
-    "headers": [
-      {
-        "source": "/home/**",
-        "headers": [
-          {
-            "key": "Cache-Control",
-            "value": "public, max-age=3600"
-          }
-        ]
-      }
-    ]
+  "storage": {
+    "rules": "storage.rules"
   }
 }

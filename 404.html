@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teamster - Redirecting...</title>
+    <script>
+        // GitHub Pages SPA Redirect
+        // This script captures the current path and redirects to index.html
+        // while preserving the route information in sessionStorage
+        
+        (function() {
+            // Store the attempted path for the main app to read
+            var path = window.location.pathname;
+            var search = window.location.search;
+            var hash = window.location.hash;
+            
+            // Save the full path to sessionStorage so index.html can restore it
+            sessionStorage.setItem('ghPagesRedirect', JSON.stringify({
+                path: path,
+                search: search,
+                hash: hash
+            }));
+            
+            // Redirect to root (where index.html lives)
+            // GitHub Pages will serve index.html for the root path
+            var basePath = '';
+            
+            // Check if we're in a repo subdirectory (e.g., username.github.io/Teamster/)
+            var pathParts = path.split('/').filter(Boolean);
+            if (pathParts.length > 0) {
+                // Check if first part looks like a repo name (not a route like 'app')
+                var firstPart = pathParts[0];
+                var knownRoutes = ['app', 'home', 'account', 'team', 'accept-invitation'];
+                
+                // If it's not a known route, it might be the repo name
+                if (!knownRoutes.includes(firstPart) && !firstPart.includes('.')) {
+                    basePath = '/' + firstPart;
+                }
+            }
+            
+            // Redirect to the base path (root of the site or repo)
+            window.location.replace(basePath + '/');
+        })();
+    </script>
+</head>
+<body>
+    <p>Redirecting...</p>
+</body>
+</html>

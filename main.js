@@ -96,20 +96,43 @@ function initializeRouting() {
     const path = window.location.pathname;
     const hash = window.location.hash;
     
-    // GITHUB PAGES / STATIC HOST DETECTION
-    // GitHub Pages and static hosts don't support server-side routing
-    // Use hash-based routing for compatibility
-    const isStaticHost = window.location.hostname.includes('github.io') || 
-                        window.location.hostname.includes('gitlab.io') ||
-                        window.location.hostname.includes('netlify.app') ||
-                        window.location.hostname.includes('vercel.app');
+    // GITHUB PAGES SPA REDIRECT HANDLER
+    // Check if we were redirected from 404.html and restore the original path
+    const ghRedirect = sessionStorage.getItem('ghPagesRedirect');
+    if (ghRedirect) {
+        sessionStorage.removeItem('ghPagesRedirect');
+        try {
+            const redirectData = JSON.parse(ghRedirect);
+            const originalPath = redirectData.path || '';
+            const originalHash = redirectData.hash || '';
+            
+            // Determine route from the original path
+            if (originalPath.includes('/app') || originalPath === '/app' || originalPath === '/app/') {
+                window.history.replaceState({}, '', originalHash || '#/app');
+                currentRoute = 'app';
+                showAppContainer();
+                return 'app';
+            }
+            
+            if (originalPath.includes('/home') || originalPath === '/home') {
+                window.history.replaceState({}, '', originalHash || '#/home');
+                currentRoute = 'home';
+                showHomePage();
+                return 'home';
+            }
+            
+            // For other paths like /account, /team - just go to app
+            // Those pages have their own HTML files
+            window.history.replaceState({}, '', '#/app');
+            currentRoute = 'app';
+            showAppContainer();
+            return 'app';
+        } catch (e) {
+            console.warn('Failed to parse GitHub Pages redirect data:', e);
+        }
+    }
     
-    // LOCAL DEVELOPMENT FALLBACK
-    const isLocalhost = window.location.hostname === 'localhost' || 
-                       window.location.hostname === '127.0.0.1' ||
-                       window.location.hostname === '';
-    
-    // Handle hash-based routing (works on all static hosts including GitHub Pages)
+    // PREVENT INFINITE LOOP: If we already have a valid hash route, don't re-process
     if (hash === '#/app' || hash === '#app') {
         currentRoute = 'app';
         showAppContainer();
@@ -122,9 +145,23 @@ function initializeRouting() {
         return 'home';
     }
     
+    // GITHUB PAGES / STATIC HOST DETECTION
+    // GitHub Pages and static hosts don't support server-side routing
+    // Use hash-based routing for compatibility
+    const isStaticHost = window.location.hostname.includes('github.io') || 
+                        window.location.hostname.includes('gitlab.io') ||
+                        window.location.hostname.includes('netlify.app') ||
+                        window.location.hostname.includes('vercel.app') ||
+                        window.location.hostname.includes('teamsterx.com');
+    
+    // LOCAL DEVELOPMENT FALLBACK
+    const isLocalhost = window.location.hostname === 'localhost' || 
+                       window.location.hostname === '127.0.0.1' ||
+                       window.location.hostname === '';
+    
     // For static hosts, if no hash, default to app and update hash
     if (isStaticHost && !hash) {
-        window.history.replaceState({}, '', '#/app');
+        window.history.replaceState({}, '', window.location.pathname + '#/app');
         currentRoute = 'app';
         showAppContainer();
         return 'app';
@@ -150,25 +187,24 @@ function initializeRouting() {
         }
     }
     
-    // Handle /app path for servers that support it
+    // Handle /app path for servers that support server-side routing
     if (path === '/app' || path === '/app/' || path.startsWith('/app/')) {
-        // Redirect to hash-based for compatibility
-        window.history.replaceState({}, '', '#/app');
+        window.history.replaceState({}, '', window.location.pathname + '#/app');
         currentRoute = 'app';
         showAppContainer();
         return 'app';
     }
     
-    // Handle root path - TEMPORARILY redirect to app (homepage disabled)
+    // Handle root path - show app
     if (path === '/' || path === '' || path === '/index.html' || path.endsWith('/Teamster/')) {
-        window.history.replaceState({}, '', '#/app');
+        window.history.replaceState({}, '', window.location.pathname + '#/app');
         currentRoute = 'app';
         showAppContainer();
         return 'app';
     }
     
     // Default fallback: show app
-    window.history.replaceState({}, '', '#/app');
+    window.history.replaceState({}, '', window.location.pathname + '#/app');
     currentRoute = 'app';
     showAppContainer();
     return 'app';
@@ -4215,7 +4251,12 @@ function renderMonthEventItems(dayEvents) {
         const lockIcon = isPrivate ? '<i class="fas fa-lock month-event-lock"></i>' : '';
         const repeatIcon = evt.isRecurrence ? '<i class="fas fa-redo month-event-repeat"></i>' : '';
         const eventId = evt.masterId || evt.id;
-        return `<div class="month-event-item" onclick="viewEventDetails('${escapeHtml(eventId)}', '${evt.occurrenceDate ? evt.occurrenceDate.toISOString() : ''}'); event.stopPropagation();" style="background: ${escapeHtml(color)}15; border-left: 3px solid ${escapeHtml(color)};">
+        return `<div class="month-event-item" 
+            draggable="true"
+            data-event-id="${escapeHtml(eventId)}"
+            data-original-time="${timeStr}"
+            onclick="if(!monthDragStarted){viewEventDetails('${escapeHtml(eventId)}', '${evt.occurrenceDate ? evt.occurrenceDate.toISOString() : ''}');} event.stopPropagation();" 
+            style="background: ${escapeHtml(color)}15; border-left: 3px solid ${escapeHtml(color)};">
             <span class="month-event-time" style="color: ${escapeHtml(color)};">${timeStr}</span>
             <span class="month-event-title">${escapeHtml(evt.title)}</span>
             ${lockIcon}${repeatIcon}
@@ -4533,9 +4574,12 @@ function renderDesktopColumnWeek(titleEl, daysEl, startOfWeek, allOccurrences) {
                      data-event-id="${escapeHtml(eventId)}"
                      data-occurrence-date="${occurrenceDateStr}"
                      data-time-range="${startTimeStr}–${endTimeStr}"
+                     data-start-minutes="${event.startMinutes}"
+                     data-end-minutes="${event.endMinutes}"
                      data-visibility="${event.visibility || 'team'}"
-                     onclick="event.stopPropagation(); viewEventDetails('${escapeHtml(eventId)}', '${occurrenceDateStr}')" 
+                     onclick="if(!event.target.closest('.week-event-resize-handle')){event.stopPropagation(); viewEventDetails('${escapeHtml(eventId)}', '${occurrenceDateStr}')}" 
                      style="top: ${topPosition}px; height: ${height}px; left: ${leftPercent}%; width: ${widthPercent}%; border-left: 4px solid ${escapeHtml(eventColor)};">
+                    <div class="week-event-resize-handle week-event-resize-top" data-resize="top" title="Drag to change start time"></div>
                     <div class="week-event-content">
                         <div class="week-event-title">${escapeHtml(event.title)}</div>
                         ${!shortEvent ? `<div class="week-event-time-inline">${startTimeStr}</div>` : ''}
@@ -4546,6 +4590,7 @@ function renderDesktopColumnWeek(titleEl, daysEl, startOfWeek, allOccurrences) {
                         ${isPrivate ? '<span class="hover-badge private-badge">Private</span>' : ''}
                         ${isAdmins ? '<span class="hover-badge admins-badge">Admins</span>' : ''}
                     </div>
+                    <div class="week-event-resize-handle week-event-resize-bottom" data-resize="bottom" title="Drag to change end time"></div>
                 </div>
             `;
         });
@@ -5086,11 +5131,27 @@ function initCalendarDragDrop() {
     const timeCells = document.querySelectorAll('.week-time-cell');
     const gridCells = document.querySelectorAll('.week-grid-cell'); // New column view cells
     
-    console.log('[DragDrop] Initializing with', eventBlocks.length, 'events,', gridCells.length, 'grid cells');
+    // Month view elements
+    const monthEventItems = document.querySelectorAll('.month-event-item[draggable="true"]');
+    const calendarDays = document.querySelectorAll('.calendar-day');
+    
+    console.log('[DragDrop] Initializing with', eventBlocks.length, 'week events,', monthEventItems.length, 'month events,', gridCells.length, 'grid cells');
     
     eventBlocks.forEach(block => {
         block.addEventListener('dragstart', handleEventDragStart);
         block.addEventListener('dragend', handleEventDragEnd);
+    });
+    
+    // Month view drag and drop
+    monthEventItems.forEach(item => {
+        item.addEventListener('dragstart', handleMonthEventDragStart);
+        item.addEventListener('dragend', handleMonthEventDragEnd);
+    });
+    
+    calendarDays.forEach(day => {
+        day.addEventListener('dragover', handleMonthDayDragOver);
+        day.addEventListener('dragleave', handleMonthDayDragLeave);
+        day.addEventListener('drop', handleMonthDayDrop);
     });
     
     dayColumns.forEach(column => {
@@ -5111,6 +5172,385 @@ function initCalendarDragDrop() {
         cell.addEventListener('dragleave', handleGridCellDragLeave);
         cell.addEventListener('drop', handleGridCellDrop);
     });
+    
+    // Initialize week view resize functionality
+    initWeekEventResize();
+}
+
+// ===================================
+// WEEK VIEW EVENT RESIZE
+// ===================================
+let resizingEvent = null;
+let resizeStartY = 0;
+let resizeStartHeight = 0;
+let resizeStartTop = 0;
+let resizeEventId = null;
+let resizeDirection = null; // 'top' or 'bottom'
+
+function initWeekEventResize() {
+    const resizeHandles = document.querySelectorAll('.week-event-resize-handle');
+    
+    resizeHandles.forEach(handle => {
+        handle.addEventListener('mousedown', startResize);
+    });
+    
+    // Also set up touch events for mobile
+    resizeHandles.forEach(handle => {
+        handle.addEventListener('touchstart', startResizeTouch, { passive: false });
+    });
+}
+
+function startResize(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    const handle = e.target.closest('.week-event-resize-handle');
+    const eventEl = e.target.closest('.week-col-event');
+    if (!eventEl || !handle) return;
+    
+    resizingEvent = eventEl;
+    resizeEventId = eventEl.dataset.eventId;
+    resizeStartY = e.clientY;
+    resizeStartHeight = eventEl.offsetHeight;
+    resizeStartTop = parseFloat(eventEl.style.top);
+    resizeDirection = handle.dataset.resize; // 'top' or 'bottom'
+    
+    // Disable dragging while resizing
+    eventEl.setAttribute('draggable', 'false');
+    eventEl.classList.add('resizing');
+    
+    document.addEventListener('mousemove', doResize);
+    document.addEventListener('mouseup', stopResize);
+}
+
+function startResizeTouch(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    const touch = e.touches[0];
+    const handle = e.target.closest('.week-event-resize-handle');
+    const eventEl = e.target.closest('.week-col-event');
+    if (!eventEl || !handle) return;
+    
+    resizingEvent = eventEl;
+    resizeEventId = eventEl.dataset.eventId;
+    resizeStartY = touch.clientY;
+    resizeStartHeight = eventEl.offsetHeight;
+    resizeStartTop = parseFloat(eventEl.style.top);
+    resizeDirection = handle.dataset.resize;
+    
+    eventEl.setAttribute('draggable', 'false');
+    eventEl.classList.add('resizing');
+    
+    document.addEventListener('touchmove', doResizeTouch, { passive: false });
+    document.addEventListener('touchend', stopResizeTouch);
+}
+
+function doResize(e) {
+    if (!resizingEvent) return;
+    
+    const SLOT_HEIGHT = 60; // px per hour
+    const MIN_HEIGHT = 30; // minimum 30 minutes
+    const START_HOUR = 6;
+    
+    const deltaY = e.clientY - resizeStartY;
+    
+    if (resizeDirection === 'bottom') {
+        // Dragging bottom - change end time
+        let newHeight = resizeStartHeight + deltaY;
+        const snapInterval = SLOT_HEIGHT / 4; // 15px for 15 minutes
+        newHeight = Math.round(newHeight / snapInterval) * snapInterval;
+        newHeight = Math.max(MIN_HEIGHT, newHeight);
+        
+        resizingEvent.style.height = newHeight + 'px';
+    } else if (resizeDirection === 'top') {
+        // Dragging top - change start time (move top and adjust height)
+        const snapInterval = SLOT_HEIGHT / 4;
+        let newTop = resizeStartTop + deltaY;
+        newTop = Math.round(newTop / snapInterval) * snapInterval;
+        newTop = Math.max(0, newTop); // Can't go above 6:00
+        
+        // Adjust height to keep the same end position
+        const topDelta = newTop - resizeStartTop;
+        let newHeight = resizeStartHeight - topDelta;
+        newHeight = Math.max(MIN_HEIGHT, newHeight);
+        
+        // Recalculate top based on constrained height
+        if (newHeight === MIN_HEIGHT && topDelta > 0) {
+            newTop = resizeStartTop + resizeStartHeight - MIN_HEIGHT;
+        }
+        
+        resizingEvent.style.top = newTop + 'px';
+        resizingEvent.style.height = newHeight + 'px';
+    }
+    
+    // Update the time display
+    const topPosition = parseFloat(resizingEvent.style.top);
+    const height = parseFloat(resizingEvent.style.height);
+    const startMinutes = (topPosition / SLOT_HEIGHT) * 60 + START_HOUR * 60;
+    const durationMinutes = (height / SLOT_HEIGHT) * 60;
+    const endMinutes = startMinutes + durationMinutes;
+    
+    const startHour = Math.floor(startMinutes / 60);
+    const startMin = Math.round(startMinutes % 60);
+    const endHour = Math.floor(endMinutes / 60);
+    const endMin = Math.round(endMinutes % 60);
+    
+    const startTimeStr = formatTime24(startHour, startMin);
+    const endTimeStr = formatTime24(endHour, endMin);
+    
+    // Update the time range display
+    resizingEvent.dataset.timeRange = `${startTimeStr}–${endTimeStr}`;
+    const hoverTime = resizingEvent.querySelector('.hover-time');
+    if (hoverTime) {
+        hoverTime.textContent = `${startTimeStr}–${endTimeStr}`;
+    }
+    
+    // Update inline time display
+    const inlineTime = resizingEvent.querySelector('.week-event-time-inline');
+    if (inlineTime) {
+        inlineTime.textContent = startTimeStr;
+    }
+}
+
+function doResizeTouch(e) {
+    if (!resizingEvent) return;
+    e.preventDefault();
+    
+    // Create a fake mouse event with touch coordinates
+    const touch = e.touches[0];
+    const fakeEvent = { clientY: touch.clientY };
+    doResize(fakeEvent);
+}
+
+async function stopResize(e) {
+    if (!resizingEvent || !resizeEventId) {
+        cleanup();
+        return;
+    }
+    
+    const SLOT_HEIGHT = 60;
+    const START_HOUR = 6;
+    
+    const newHeight = resizingEvent.offsetHeight;
+    const topPosition = parseFloat(resizingEvent.style.top);
+    
+    // Calculate new start and end times
+    const startMinutes = (topPosition / SLOT_HEIGHT) * 60 + START_HOUR * 60;
+    const durationMinutes = (newHeight / SLOT_HEIGHT) * 60;
+    const endMinutes = startMinutes + durationMinutes;
+    
+    const startHour = Math.floor(startMinutes / 60);
+    const startMin = Math.round(startMinutes % 60);
+    const endHour = Math.floor(endMinutes / 60);
+    const endMin = Math.round(endMinutes % 60);
+    
+    // Update event in Firestore
+    await resizeEventTime(resizeEventId, startHour, startMin, endHour, endMin);
+    
+    cleanup();
+    
+    function cleanup() {
+        if (resizingEvent) {
+            resizingEvent.setAttribute('draggable', 'true');
+            resizingEvent.classList.remove('resizing');
+        }
+        resizingEvent = null;
+        resizeEventId = null;
+        resizeStartY = 0;
+        resizeStartHeight = 0;
+        resizeStartTop = 0;
+        resizeDirection = null;
+        document.removeEventListener('mousemove', doResize);
+        document.removeEventListener('mouseup', stopResize);
+    }
+}
+
+async function stopResizeTouch(e) {
+    await stopResize(e);
+    document.removeEventListener('touchmove', doResizeTouch);
+    document.removeEventListener('touchend', stopResizeTouch);
+}
+
+async function resizeEventTime(eventId, newStartHour, newStartMin, newEndHour, newEndMin) {
+    const event = appState.events.find(e => e.id === eventId);
+    if (!event) {
+        showToast('Event not found', 'error');
+        return;
+    }
+    
+    const oldStartDate = new Date(event.date);
+    
+    // Create new start date keeping the same day
+    const newStartDate = new Date(oldStartDate);
+    newStartDate.setHours(newStartHour, newStartMin, 0, 0);
+    
+    // Create new end date
+    const newEndDate = new Date(oldStartDate);
+    newEndDate.setHours(newEndHour, newEndMin, 0, 0);
+    
+    // Make sure end is after start
+    if (newEndDate <= newStartDate) {
+        newEndDate.setTime(newStartDate.getTime() + 30 * 60 * 1000); // Minimum 30 minutes
+    }
+    
+    // Update local state
+    event.date = newStartDate;
+    event.endDate = newEndDate;
+    event.time = newStartDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+    event.endTime = newEndDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+    
+    // Update in Firestore
+    try {
+        await updateEventInFirestore(event);
+        showToast('Event time updated', 'success');
+        // Preserve scroll position when re-rendering after resize
+        const scrollContainer = document.querySelector('.week-view-scroll-container');
+        const scrollTop = scrollContainer ? scrollContainer.scrollTop : 0;
+        renderCalendar();
+        // Restore scroll position after render
+        requestAnimationFrame(() => {
+            const newScrollContainer = document.querySelector('.week-view-scroll-container');
+            if (newScrollContainer) {
+                newScrollContainer.scrollTop = scrollTop;
+            }
+        });
+    } catch (error) {
+        console.error('Error resizing event:', error);
+        showToast('Failed to update event', 'error');
+    }
+}
+
+// ===================================
+// MONTH VIEW DRAG AND DROP
+// ===================================
+let monthDraggedEventId = null;
+let monthDraggedElement = null;
+let monthDraggedOriginalTime = null;
+let monthDragStarted = false;
+
+function handleMonthEventDragStart(e) {
+    const eventItem = e.target.closest('.month-event-item');
+    if (!eventItem) return;
+    
+    monthDraggedEventId = eventItem.dataset.eventId;
+    monthDraggedElement = eventItem;
+    monthDraggedOriginalTime = eventItem.dataset.originalTime;
+    monthDragStarted = true;
+    
+    eventItem.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', monthDraggedEventId);
+    
+    // Create a drag image
+    const dragImage = eventItem.cloneNode(true);
+    dragImage.style.position = 'absolute';
+    dragImage.style.top = '-1000px';
+    document.body.appendChild(dragImage);
+    e.dataTransfer.setDragImage(dragImage, 0, 0);
+    setTimeout(() => dragImage.remove(), 0);
+    
+    console.log('[MonthDrag] Started dragging:', monthDraggedEventId, 'time:', monthDraggedOriginalTime);
+}
+
+function handleMonthEventDragEnd(e) {
+    const eventItem = e.target.closest('.month-event-item');
+    if (eventItem) {
+        eventItem.classList.remove('dragging');
+    }
+    
+    monthDraggedEventId = null;
+    monthDraggedElement = null;
+    monthDraggedOriginalTime = null;
+    
+    // Reset drag flag after a short delay to prevent click firing
+    setTimeout(() => {
+        monthDragStarted = false;
+    }, 100);
+    
+    // Remove all drag-over highlights
+    document.querySelectorAll('.calendar-day.drag-over').forEach(el => el.classList.remove('drag-over'));
+    console.log('[MonthDrag] Drag ended');
+}
+
+function handleMonthDayDragOver(e) {
+    // Always prevent default to allow drop
+    e.preventDefault();
+    e.stopPropagation();
+    
+    // Only show visual feedback if we're dragging a month event
+    if (!monthDraggedEventId) {
+        e.dataTransfer.dropEffect = 'none';
+        return;
+    }
+    
+    const day = e.currentTarget;
+    day.classList.add('drag-over');
+    e.dataTransfer.dropEffect = 'move';
+}
+
+function handleMonthDayDragLeave(e) {
+    e.currentTarget.classList.remove('drag-over');
+}
+
+async function handleMonthDayDrop(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    const day = e.currentTarget;
+    day.classList.remove('drag-over');
+    
+    // Remove all drag-over states
+    document.querySelectorAll('.calendar-day.drag-over').forEach(el => el.classList.remove('drag-over'));
+    
+    if (!monthDraggedEventId) {
+        console.log('[MonthDrag] No dragged event ID');
+        return;
+    }
+    
+    const dateStr = day.dataset.date;
+    if (!dateStr) {
+        console.log('[MonthDrag] Invalid drop target - missing date');
+        return;
+    }
+    
+    const newDate = new Date(dateStr);
+    console.log('[MonthDrag] Dropping event:', monthDraggedEventId, 'onto date:', newDate.toDateString());
+    
+    // Reschedule the event keeping the same time but changing the date
+    await rescheduleMonthEvent(monthDraggedEventId, newDate);
+}
+
+async function rescheduleMonthEvent(eventId, newDate) {
+    const event = appState.events.find(e => e.id === eventId);
+    if (!event) {
+        showToast('Event not found', 'error');
+        return;
+    }
+    
+    // Get the original times
+    const oldStartDate = new Date(event.date);
+    const oldEndDate = event.endDate ? new Date(event.endDate) : new Date(oldStartDate.getTime() + 60 * 60 * 1000);
+    const duration = oldEndDate.getTime() - oldStartDate.getTime();
+    
+    // Create new date keeping the same time
+    const newStartDate = new Date(newDate);
+    newStartDate.setHours(oldStartDate.getHours(), oldStartDate.getMinutes(), 0, 0);
+    const newEndDate = new Date(newStartDate.getTime() + duration);
+    
+    // Update local state
+    event.date = newStartDate;
+    event.endDate = newEndDate;
+    
+    // Update in Firestore
+    try {
+        await updateEventInFirestore(event);
+        showToast('Event moved to ' + newStartDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }), 'success');
+        renderCalendar();
+    } catch (error) {
+        console.error('Error moving event:', error);
+        showToast('Failed to move event', 'error');
+    }
 }
 
 let draggedEventId = null;
@@ -18688,21 +19128,27 @@ function initModals() {
             rateLimitState.isCreatingTask = true;
         }
         
-        // Validate assignee is a team member
+        // Validate assignee is a team member or "team" (for unassigned/team tasks)
         if (!assigneeId) {
             rateLimitState.isCreatingTask = false;
             showToast('Please select a team member to assign this task to.', 'error');
             return;
         }
         
-        // Get assignee name using unified identity resolver
-        const assigneeIdentity = getIdentity(assigneeId, null);
-        if (assigneeIdentity.displayName === 'Unknown') {
-            rateLimitState.isCreatingTask = false;
-            showToast('Invalid assignee. Please select a valid team member.', 'error');
-            return;
+        // Handle special "team" value - task is assigned to the whole team
+        let assigneeName;
+        if (assigneeId === 'team') {
+            assigneeName = 'Team';
+        } else {
+            // Get assignee name using unified identity resolver
+            const assigneeIdentity = getIdentity(assigneeId, null);
+            if (assigneeIdentity.displayName === 'Unknown') {
+                rateLimitState.isCreatingTask = false;
+                showToast('Invalid assignee. Please select a valid team member.', 'error');
+                return;
+            }
+            assigneeName = assigneeIdentity.displayName;
         }
-        const assigneeName = assigneeIdentity.displayName;
         
         // Get due date if provided
         const dueDateInput = document.getElementById('taskDueDate').value;
