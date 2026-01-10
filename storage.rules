@@ -1,43 +1,33 @@
-// storage.rules
-// SECURITY HARDENED - v2
+rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
+
     // ============================
     // AVATARS
-    // Stored at avatars/{userId}.{ext}
+    // Matches files like: avatars/USER_ID.png
     // ============================
-    match /avatars/{userId}.{allPaths=**} {
-      // Write: Only owner can upload their own avatar
-      // Validate: max 2MB, must be an image
-      allow write: if request.auth != null 
-        && request.auth.uid == userId
-        && request.resource.size < 2 * 1024 * 1024
-        && request.resource.contentType.matches('image/.*');
+    match /avatars/{fileName} {
       
-      // Read: Any authenticated user can read avatars
-      // (needed for teammate displays, profile views)
+      // READ: Anyone logged in can see avatars
       allow read: if request.auth != null;
-      
-      // Delete: Only owner can delete their avatar
-      allow delete: if request.auth != null && request.auth.uid == userId;
+
+      // WRITE: User can only upload if filename starts with their UID
+      // Example: "abc12345.png" matches user "abc12345"
+      allow write: if request.auth != null
+                   && fileName.matches(request.auth.uid + '(\\..+)?')
+                   && request.resource.size < 2 * 1024 * 1024
+                   && request.resource.contentType.matches('image/.*');
+
+      // DELETE: User can only delete if filename starts with their UID
+      allow delete: if request.auth != null
+                    && fileName.matches(request.auth.uid + '(\\..+)?');
     }
 
     // ============================
-    // TEAM FILES (if added later)
-    // Stored at teams/{teamId}/files/{fileId}
+    // TEAM FILES (Placeholder)
     // ============================
     match /teams/{teamId}/files/{allPaths=**} {
-      // Placeholder for future team file storage
-      // Will need to verify team membership via custom claims or callable function
-      allow read, write: if false;
-    }
-
-    // ============================
-    // DEFAULT: Deny all other paths
-    // ============================
-    match /{allPaths=**} {
       allow read, write: if false;
     }
   }
 }
-// To deploy: firebase deploy --only storage
