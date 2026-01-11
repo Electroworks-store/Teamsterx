@@ -5474,19 +5474,19 @@ function handleMonthEventDragEnd(e) {
 }
 
 function handleMonthDayDragOver(e) {
-    // Always prevent default to allow drop
+    // CRITICAL: Must call preventDefault FIRST to allow drop - browsers require this
     e.preventDefault();
     e.stopPropagation();
     
-    // Only show visual feedback if we're dragging a month event
-    if (!monthDraggedEventId) {
-        e.dataTransfer.dropEffect = 'none';
-        return;
-    }
+    // Set drop effect - must be done even if no event being dragged
+    // 'move' tells the browser this is a valid drop target
+    e.dataTransfer.dropEffect = monthDraggedEventId ? 'move' : 'none';
     
-    const day = e.currentTarget;
-    day.classList.add('drag-over');
-    e.dataTransfer.dropEffect = 'move';
+    // Only show visual feedback if we're dragging a month event
+    if (monthDraggedEventId) {
+        const day = e.currentTarget;
+        day.classList.add('drag-over');
+    }
 }
 
 function handleMonthDayDragLeave(e) {
@@ -5772,7 +5772,17 @@ async function rescheduleEvent(eventId, newDate, newHour = null, newMinute = 0) 
     try {
         await updateEventInFirestore(event);
         showToast('Event rescheduled', 'success');
-        renderCalendar(); // Re-render to show changes
+        // Preserve scroll position when re-rendering after week drag-drop
+        const scrollContainer = document.querySelector('.week-view-scroll-container');
+        const scrollTop = scrollContainer ? scrollContainer.scrollTop : 0;
+        renderCalendar();
+        // Restore scroll position after render
+        requestAnimationFrame(() => {
+            const newScrollContainer = document.querySelector('.week-view-scroll-container');
+            if (newScrollContainer) {
+                newScrollContainer.scrollTop = scrollTop;
+            }
+        });
     } catch (error) {
         console.error('Error rescheduling event:', error);
         showToast('Failed to reschedule event', 'error');
@@ -8329,6 +8339,18 @@ function initTasks() {
             </div>
         `;
         
+        // Add Team option with team icon
+        const isTeamActive = task.assigneeId === 'team';
+        optionsHTML += `
+            <div class="inline-dropdown-option ${isTeamActive ? 'active' : ''}" data-value="team" data-name="Team">
+                <div class="assignee-option-avatar team-avatar">
+                    <i class="fas fa-users"></i>
+                </div>
+                <span>Team</span>
+                ${isTeamActive ? '<i class="fas fa-check"></i>' : ''}
+            </div>
+        `;
+        
         appState.teammates.forEach(member => {
             const isActive = task.assigneeId === member.id;
             // Use unified identity resolver for consistent display
@@ -8377,15 +8399,31 @@ function initTasks() {
         task.assigneeId = newAssigneeId || null;
         task.assignee = newAssigneeName || 'Unassigned';
         
-        // Update cell visual using unified identity resolver
-        const identity = newAssigneeId ? getIdentity(newAssigneeId, newAssigneeName) : { displayName: 'Unassigned', avatarColor: '#8E8E93', initials: '?' };
-        const fullName = identity.displayName;
-        const firstName = fullName.split(' ')[0];
-        const initials = identity.initials;
-        const color = identity.avatarColor;
+        // Handle Team assignee specially with team icon
+        let avatarHTML;
+        let fullName;
+        let firstName;
+        
+        if (newAssigneeId === 'team') {
+            fullName = 'Team';
+            firstName = 'Team';
+            avatarHTML = `<div class="assignee-avatar dropdown-assignee-avatar team-avatar"><i class="fas fa-users"></i></div>`;
+        } else if (newAssigneeId) {
+            // Update cell visual using unified identity resolver
+            const identity = getIdentity(newAssigneeId, newAssigneeName);
+            fullName = identity.displayName;
+            firstName = fullName.split(' ')[0];
+            const initials = identity.initials;
+            const color = identity.avatarColor;
+            avatarHTML = `<div class="assignee-avatar" style="background: ${color}">${initials}</div>`;
+        } else {
+            fullName = 'Unassigned';
+            firstName = 'Unassigned';
+            avatarHTML = `<div class="assignee-avatar" style="background: #8E8E93">?</div>`;
+        }
         
         cell.innerHTML = `
-            <div class="assignee-avatar" style="background: ${color}">${initials}</div>
+            ${avatarHTML}
             <span class="assignee-name">${escapeHtml(firstName)}</span>
         `;
         cell.title = fullName;
@@ -9159,7 +9197,11 @@ function initTasks() {
                 const firstName = fullName.split(' ')[0];
                 const initials = assigneeIdentity.initials;
                 const color = assigneeIdentity.avatarColor;
-                return `<td class="cell-editable"><div class="assignee-cell assignee-cell-inline" data-task-id="${task.id}" title="${escapeHtml(fullName)}"><div class="assignee-avatar" style="background: ${color}">${initials}</div><span class="assignee-name">${escapeHtml(firstName)}</span></div></td>`;
+                const isTeamAssignee = task.assigneeId === 'team';
+                const avatarClasses = isTeamAssignee ? 'assignee-avatar dropdown-assignee-avatar team-avatar' : 'assignee-avatar';
+                const avatarContent = isTeamAssignee ? '<i class="fas fa-users"></i>' : initials;
+                const avatarBg = isTeamAssignee ? '#000' : color;
+                return `<td class="cell-editable"><div class="assignee-cell assignee-cell-inline" data-task-id="${task.id}" title="${escapeHtml(fullName)}"><div class="${avatarClasses}" style="background: ${avatarBg}">${avatarContent}</div><span class="assignee-name">${escapeHtml(firstName)}</span></div></td>`;
             
             case 'priority':
                 // Check for custom settings with colors
@@ -13256,7 +13298,7 @@ function populateTaskAssigneeDropdown() {
     // Add "Team" option first - for tasks with no specific owner
     optionsHTML += `
         <div class="dropdown-menu-option" data-value="team" data-name="Team">
-            <div class="dropdown-assignee-avatar" style="background: var(--accent)"><i class="fas fa-users" style="font-size: 10px;"></i></div>
+            <div class="dropdown-assignee-avatar team-avatar"><i class="fas fa-users"></i></div>
             <span>Team</span>
         </div>
     `;
@@ -24237,6 +24279,7 @@ async function saveAccountSettings(e) {
 function updateSidebarProfile(displayName, avatarColor) {
     const sidebarName = document.getElementById('sidebarUserName');
     const sidebarAvatar = document.getElementById('sidebarAvatar');
+    const topBarAvatar = document.getElementById('topBarAvatar');
     
     if (sidebarName) {
         sidebarName.textContent = displayName;
@@ -24260,6 +24303,20 @@ function updateSidebarProfile(displayName, avatarColor) {
         
         // Set the initials
         sidebarAvatar.textContent = initials;
+    }
+
+    if (topBarAvatar) {
+        const initials = generateAvatar(displayName);
+        const darkerColor = shadeColor(avatarColor, -20);
+        topBarAvatar.innerHTML = '';
+        topBarAvatar.style.background = `linear-gradient(135deg, ${avatarColor} 0%, ${darkerColor} 100%)`;
+        topBarAvatar.style.color = 'white';
+        topBarAvatar.style.alignItems = 'center';
+        topBarAvatar.style.justifyContent = 'center';
+        topBarAvatar.style.fontSize = '14px';
+        topBarAvatar.style.fontWeight = '700';
+        topBarAvatar.textContent = initials;
+        topBarAvatar.onclick = () => openSettings();
     }
 }
 
@@ -25313,10 +25370,10 @@ function initFinancesVisibilityForm() {
         enabledToggle.checked = isEnabled;
     }
     
-    // Select the correct radio button
-    const radio = form.querySelector(`input[name="financesVisibility"][value="${currentVisibility}"]`);
-    if (radio) {
-        radio.checked = true;
+    // Set the visibility select value (HTML uses select, not radio buttons)
+    const visibilitySelect = document.getElementById('financesVisibilitySelect');
+    if (visibilitySelect) {
+        visibilitySelect.value = currentVisibility;
     }
     
     // Show/hide visibility options based on enabled state
@@ -25325,47 +25382,50 @@ function initFinancesVisibilityForm() {
         visibilityOptions.style.display = isEnabled ? 'block' : 'none';
     }
     
-    // Add toggle change listener
+    // Add toggle change listener - auto-save on change
     if (enabledToggle) {
-        enabledToggle.removeEventListener('change', handleFinancesEnabledChange);
-        enabledToggle.addEventListener('change', handleFinancesEnabledChange);
+        enabledToggle.removeEventListener('change', handleFinancesSettingsChange);
+        enabledToggle.addEventListener('change', handleFinancesSettingsChange);
     }
     
-    // Remove existing listener and add new one
-    form.removeEventListener('submit', handleFinancesVisibilitySave);
-    form.addEventListener('submit', handleFinancesVisibilitySave);
+    // Add visibility select change listener - auto-save on change
+    if (visibilitySelect) {
+        visibilitySelect.removeEventListener('change', handleFinancesSettingsChange);
+        visibilitySelect.addEventListener('change', handleFinancesSettingsChange);
+    }
 }
 
 /**
- * Handle finances enabled toggle change
+ * Handle finances settings change - auto-save on any change
  */
-function handleFinancesEnabledChange(event) {
+async function handleFinancesSettingsChange(event) {
+    const enabledToggle = document.getElementById('financesEnabledToggle');
+    const visibilitySelect = document.getElementById('financesVisibilitySelect');
+    const isEnabled = enabledToggle?.checked || false;
+    const selectedVisibility = visibilitySelect?.value || 'owner-only';
+    
+    // Show/hide visibility options based on enabled state
     const visibilityOptions = document.getElementById('financesVisibilityOptions');
     if (visibilityOptions) {
-        visibilityOptions.style.display = event.target.checked ? 'block' : 'none';
+        visibilityOptions.style.display = isEnabled ? 'block' : 'none';
     }
+    
+    // Auto-save the settings
+    await saveFinancesSettings(isEnabled, selectedVisibility);
 }
 
 /**
- * Handle finances visibility form submission
+ * Save finances settings to Firestore
  */
-async function handleFinancesVisibilitySave(event) {
-    event.preventDefault();
-    
-    const form = event.target;
-    const enabledToggle = document.getElementById('financesEnabledToggle');
-    const isEnabled = enabledToggle?.checked || false;
-    const selectedVisibility = form.querySelector('input[name="financesVisibility"]:checked')?.value || 'owner-only';
-    
+async function saveFinancesSettings(isEnabled, selectedVisibility) {
     // Check if user is owner
     const currentUserRole = appState.teammates?.find(t => t.id === currentAuthUser?.uid)?.role;
     if (currentUserRole !== 'owner') {
-        showToast('Only the team owner can change finances settings', 'error');
+        // Silently fail for non-owners - they shouldn't see this form anyway
         return;
     }
     
     if (!db || !appState.currentTeamId) {
-        showToast('Unable to save settings. Please try again.', 'error');
         return;
     }
     
