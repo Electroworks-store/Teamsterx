@@ -308,7 +308,7 @@ body.dark-mode .notification-icon {
     opacity: 1;
 }
 
-/* Dark mode input fields */
+/* Dark mode input fields - use dark grey, not pure black */
 body.dark-mode input[type="text"],
 body.dark-mode input[type="email"],
 body.dark-mode input[type="date"],
@@ -316,7 +316,7 @@ body.dark-mode input[type="time"],
 body.dark-mode input[type="number"],
 body.dark-mode textarea,
 body.dark-mode select {
-    background: var(--bg-body);
+    background: #1C1C1E;
     border-color: var(--border-subtle);
     color: var(--text-main);
 }
@@ -324,7 +324,7 @@ body.dark-mode select {
 body.dark-mode input,
 body.dark-mode textarea,
 body.dark-mode select {
-    background: var(--bg-body);
+    background: #1C1C1E;
     border-color: var(--border-subtle);
     color: var(--text-main);
 }
@@ -332,13 +332,25 @@ body.dark-mode select {
 body.dark-mode input:focus,
 body.dark-mode textarea:focus,
 body.dark-mode select:focus {
-    background: var(--bg-surface);
+    background: #2C2C2E;
     border-color: var(--accent);
     color: var(--text-main);
 }
 
+/* Fix dark mode select dropdown arrow - single custom arrow */
+body.dark-mode select {
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2398989D' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    background-size: 12px;
+    padding-right: 36px;
+}
+
 body.dark-mode input[type="file"] {
-    background: var(--bg-body);
+    background: #1C1C1E;
     border-color: var(--border-subtle);
     color: var(--text-main);
 }
@@ -346,14 +358,14 @@ body.dark-mode input[type="file"] {
 body.dark-mode input[type="checkbox"],
 body.dark-mode input[type="radio"] {
     accent-color: var(--accent);
-    background: var(--bg-body);
+    background: #1C1C1E;
     border-color: var(--border-subtle);
 }
 
 body.dark-mode .custom-dropdown-selected,
 body.dark-mode .custom-dropdown-options,
 body.dark-mode .custom-dropdown-option {
-    background: var(--bg-body);
+    background: #1C1C1E;
     color: var(--text-main);
     border-color: var(--border-subtle);
 }
@@ -361,7 +373,7 @@ body.dark-mode .custom-dropdown-option {
 body.dark-mode .form-group input,
 body.dark-mode .form-group textarea,
 body.dark-mode .form-group select {
-    background: var(--bg-body);
+    background: #1C1C1E;
     color: var(--text-main);
     border-color: var(--border-subtle);
 }
@@ -369,13 +381,25 @@ body.dark-mode .form-group select {
 body.dark-mode .modal-content input,
 body.dark-mode .modal-content textarea,
 body.dark-mode .modal-content select {
-    background: var(--bg-body);
+    background: #1C1C1E;
     color: var(--text-main);
     border-color: var(--border-subtle);
 }
 
+/* Ensure modal selects have single dropdown arrow in dark mode */
+body.dark-mode .modal-content select {
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2398989D' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    background-size: 12px;
+    padding-right: 36px;
+}
+
 body.dark-mode input[type="file"] {
-    background: var(--bg-body);
+    background: #1C1C1E;
     border-color: var(--border-subtle);
     color: var(--text-main);
 }
@@ -395,7 +419,7 @@ body.dark-mode input[type="time"]:focus,
 body.dark-mode input[type="number"]:focus,
 body.dark-mode textarea:focus,
 body.dark-mode select:focus {
-    background: var(--bg-surface);
+    background: #2C2C2E;
     border-color: var(--accent);
 }
 
@@ -3862,22 +3886,25 @@ body.dark-mode .week-task-dropdown-item:hover {
 
 /* Highlight row animation */
 @keyframes highlight-pulse {
-    0%, 100% {
-        background: var(--bg-surface);
-    }
-    25%, 75% {
+    0% {
         background: var(--accent-soft);
-        box-shadow: 0 0 0 2px var(--accent);
+        box-shadow: 0 0 0 0 var(--accent);
     }
     50% {
         background: var(--accent-soft);
-        box-shadow: 0 0 0 3px var(--accent);
+        box-shadow: 0 0 0 6px rgba(0, 112, 243, 0.15);
+    }
+    100% {
+        background: var(--bg-surface);
+        box-shadow: 0 0 0 0 rgba(0, 112, 243, 0.0);
     }
 }
 
 .highlight-row {
-    animation: highlight-pulse 1.5s ease-in-out 2;
+    animation: highlight-pulse 1.6s ease;
     scroll-margin-top: 120px; /* Account for sticky headers */
+    outline: 2px solid var(--accent);
+    outline-offset: -2px;
 }
 
 /* Time cells - clean grid */
@@ -4738,6 +4765,17 @@ body.dark-mode .day-event-time {
 .month-event-item.dragging {
     opacity: 0.5;
     transform: scale(1.05);
+}
+
+/* Allow drag events to pass through to calendar-day during drag */
+.calendar-day .month-events,
+.calendar-day .month-event-item:not(.dragging) {
+    pointer-events: auto;
+}
+
+/* When dragging over a calendar day, ALL children must be transparent to pointer events */
+.calendar-day.drag-over * {
+    pointer-events: none !important;
 }
 
 /* Calendar day drag-over state (month view) */
@@ -7160,12 +7198,18 @@ body.dark-mode .calendar-day.drag-over {
     background: #000;
     border-radius: 50%;
     box-shadow: 0 6px 16px rgba(0, 0, 0, 0.18);
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .assignee-option-avatar.team-avatar i,
 .assignee-avatar.team-avatar i {
     font-size: 11px;
     color: white;
+    margin: 0;
+    padding: 0;
+    line-height: 1;
 }
 
 /* Inline Save Feedback */
@@ -8037,6 +8081,9 @@ body.dark-mode .task-progress-slider {
 .assignee-avatar.team-avatar {
     background: #000;
     border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .dropdown-assignee-avatar.team-avatar i,
@@ -8045,7 +8092,8 @@ body.dark-mode .task-progress-slider {
     font-size: 11px;
     color: white;
     line-height: 1;
-    vertical-align: middle;
+    margin: 0;
+    padding: 0;
 }
 
 /* Modal Progress Container - bigger version of table slider (Safari-compatible) */
@@ -17639,6 +17687,9 @@ body.dark-mode .pill-toggle:hover .pill-toggle-slider {
     background: var(--bg-surface);
     border-bottom: 1px solid var(--border-subtle);
     flex-shrink: 0;
+    position: sticky;
+    top: 0;
+    z-index: 30;
 }
 
 .toolbar-group {

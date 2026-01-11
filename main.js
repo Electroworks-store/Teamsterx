@@ -5056,18 +5056,19 @@ async function navigateToSpreadsheet(spreadsheetId, options = {}) {
         setTimeout(() => {
             const taskRow = document.querySelector(`tr[data-task-id="${highlightTaskId}"]`);
             if (taskRow) {
-                // Scroll within the spreadsheet table container, not the whole page
-                const tableContainer = document.querySelector('.spreadsheet-table-area');
-                if (tableContainer) {
-                    const rowTop = taskRow.offsetTop;
-                    const containerHeight = tableContainer.clientHeight;
-                    const scrollTop = rowTop - (containerHeight / 2) + (taskRow.clientHeight / 2);
-                    tableContainer.scrollTo({ top: Math.max(0, scrollTop), behavior: 'smooth' });
+                // Scroll within the nearest table container (not the whole page)
+                const scrollContainer = taskRow.closest('.table-container') || taskRow.closest('.spreadsheet-table-area') || document.querySelector('.table-container') || document.querySelector('.spreadsheet-table-area');
+                if (scrollContainer) {
+                    const rowRect = taskRow.getBoundingClientRect();
+                    const containerRect = scrollContainer.getBoundingClientRect();
+                    const currentScroll = scrollContainer.scrollTop;
+                    const targetScroll = currentScroll + (rowRect.top - containerRect.top) - (containerRect.height / 2) + (rowRect.height / 2);
+                    scrollContainer.scrollTo({ top: Math.max(0, targetScroll), behavior: 'smooth' });
                 } else {
                     taskRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 }
                 taskRow.classList.add('highlight-row');
-                setTimeout(() => taskRow.classList.remove('highlight-row'), 2000);
+                setTimeout(() => taskRow.classList.remove('highlight-row'), 2400);
             }
         }, 400);
     }
