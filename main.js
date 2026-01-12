@@ -1223,7 +1223,11 @@ function updateNavVisibilityForMetrics() {
  * @returns {boolean} - Whether finances tab is enabled
  */
 function getFinancesEnabledSetting(teamData) {
-    return teamData?.settings?.financesEnabled || false;
+    // Default to true if not explicitly set (enabled by default, visible to owner)
+    if (teamData?.settings?.financesEnabled === undefined) {
+        return true;
+    }
+    return teamData.settings.financesEnabled;
 }
 
 /**
@@ -1847,7 +1851,7 @@ const appState = {
     graphTypes: {}, // Stores graph type per chart: { graphId: 'bar' | 'line' | 'pie' }
     metricsChartConfig: {}, // Stores per-chart config: { graphId: { yAxisMin, yAxisMax, primaryColor, ... } }
     // Finances state
-    financesEnabled: false, // Whether finances tab is enabled for this team
+    financesEnabled: true, // Whether finances tab is enabled for this team (default: true)
     financesVisibility: 'owner-only', // Current team's finances visibility setting
     financesAccess: { canAccess: false, mode: 'none' }, // Finances visibility access for current user
     transactions: [], // Cached transactions for current team
@@ -4426,6 +4430,7 @@ function renderMonthView(titleEl, daysEl) {
 }
 
 function renderWeekView(titleEl, daysEl) {
+    const isMobile = window.innerWidth < 900;
     const startOfWeek = getStartOfWeek(appState.currentDate);
     const endOfWeek = new Date(startOfWeek);
     endOfWeek.setDate(endOfWeek.getDate() + 6);
@@ -4435,7 +4440,21 @@ function renderWeekView(titleEl, daysEl) {
         console.log(`📋 Total events in appState: ${appState.events.length}`);
     }
     
-    titleEl.textContent = `${startOfWeek.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })} - ${endOfWeek.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}`;
+    // Mobile: shortened format "Jan. 12-18", Desktop: full format
+    if (isMobile) {
+        const startMonth = startOfWeek.toLocaleDateString('en-US', { month: 'short' });
+        const endMonth = endOfWeek.toLocaleDateString('en-US', { month: 'short' });
+        const startDay = startOfWeek.getDate();
+        const endDay = endOfWeek.getDate();
+        // If same month: "Jan. 12-18", if different: "Jan. 28 - Feb. 3"
+        if (startMonth === endMonth) {
+            titleEl.textContent = `${startMonth} ${startDay}-${endDay}`;
+        } else {
+            titleEl.textContent = `${startMonth} ${startDay} - ${endMonth} ${endDay}`;
+        }
+    } else {
+        titleEl.textContent = `${startOfWeek.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })} - ${endOfWeek.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}`;
+    }
     
     // Generate occurrences for the week range
     const rangeStart = new Date(startOfWeek);
@@ -4445,8 +4464,6 @@ function renderWeekView(titleEl, daysEl) {
     const allOccurrences = getAllEventOccurrences(appState.events, rangeStart, rangeEnd);
     
     // Check if mobile view
-    const isMobile = window.innerWidth < 900;
-    
     if (isMobile) {
         renderMobileDayAgenda(titleEl, daysEl, startOfWeek, allOccurrences);
     } else {
@@ -10641,6 +10658,58 @@ function initTasks() {
                 openLinkModal();
             });
         }
+        
+        // Export Document button
+        const exportDocBtn = document.getElementById('exportDocBtn');
+        if (exportDocBtn) {
+            exportDocBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                exportDocument();
+            });
+        }
+    }
+    
+    /**
+     * Export document as a downloadable text file
+     */
+    function exportDocument() {
+        const editor = document.getElementById('docEditor');
+        const titleInput = document.getElementById('docTitleInput');
+        
+        if (!editor) {
+            showToast('No document to export', 'error');
+            return;
+        }
+        
+        // Get document content as plain text
+        const content = editor.innerText || editor.textContent || '';
+        
+        if (!content.trim()) {
+            showToast('Document is empty', 'warning');
+            return;
+        }
+        
+        // Get document title for filename
+        let filename = (titleInput?.value || 'Untitled').trim();
+        // Sanitize filename: remove invalid characters
+        filename = filename.replace(/[<>:"/\\|?*]/g, '_').substring(0, 100);
+        filename = filename || 'Untitled';
+        
+        // Create blob and download
+        const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `${filename}.txt`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        // Clean up
+        URL.revokeObjectURL(url);
+        
+        showToast('Document exported successfully', 'success');
     }
     
     /**
@@ -22814,8 +22883,57 @@ function initSearch() {
     document.addEventListener('click', (e) => {
         if (!e.target.closest('.search-wrapper')) {
             hideSearchDropdown();
+            // Collapse search bar on mobile when clicking outside
+            collapseSearchBar();
         }
     });
+
+    // Mobile compact search bar - click to expand
+    initMobileSearchBar();
+}
+
+/**
+ * Initialize mobile compact search bar behavior
+ * On small screens, the search bar is just an icon. Clicking expands it.
+ */
+function initMobileSearchBar() {
+    const searchBar = document.querySelector('.search-bar');
+    const searchInput = document.getElementById('globalSearchInput');
+    
+    if (!searchBar || !searchInput) return;
+
+    // Click on the search bar (icon) to expand
+    searchBar.addEventListener('click', (e) => {
+        // Only apply on small screens (matches CSS @media max-width: 480px)
+        if (window.innerWidth <= 480 && !searchBar.classList.contains('expanded')) {
+            e.preventDefault();
+            searchBar.classList.add('expanded');
+            searchInput.focus();
+        }
+    });
+
+    // Collapse on blur if empty
+    searchInput.addEventListener('blur', () => {
+        // Delay to allow click on search results
+        setTimeout(() => {
+            if (!searchInput.value.trim()) {
+                collapseSearchBar();
+            }
+        }, 200);
+    });
+}
+
+/**
+ * Collapse the search bar on mobile
+ */
+function collapseSearchBar() {
+    if (window.innerWidth <= 480) {
+        const searchBar = document.querySelector('.search-bar');
+        const searchInput = document.getElementById('globalSearchInput');
+        if (searchBar && !searchInput?.value.trim()) {
+            searchBar.classList.remove('expanded');
+        }
+    }
 }
 
 /**

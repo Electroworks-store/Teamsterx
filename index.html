@@ -12,7 +12,7 @@
     <link rel="stylesheet" href="styles.css?v=65" id="styles-link">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- DOMPurify for XSS protection in rich text content -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.6/purify.min.js" integrity="sha512-H+rglffZ6f5gF7UJgvH4Naa+fGCgjrHKMgoFOGmcPjXeDNcgnxv5PxTDHVYdlxOQ1KLjTueLj3F6QMC7JVxKNw==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.6/purify.min.js" integrity="sha512-H+rglffZ6f5gF7UJgvH4Naa+fGCgjrHKMgoFOGmcPTRwR6oILo5R+gtzNrpDp7iMV3udbymBVjkeZGNz1Em4rQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
     <!-- Apply dark mode immediately to prevent flash -->
     <script>
         (function() {
@@ -832,6 +832,13 @@
                             </button>
                             <button class="toolbar-btn" id="insertCommandBtn" title="Insert Reference (/)">
                                 <i class="fas fa-plus-circle"></i>
+                            </button>
+                        </div>
+                        <div class="toolbar-divider"></div>
+                        <div class="toolbar-group">
+                            <button class="toolbar-btn" id="exportDocBtn" title="Export Document">
+                                <i class="fas fa-download"></i>
+                                <span class="toolbar-btn-label">Export</span>
                             </button>
                         </div>
                     </div>
