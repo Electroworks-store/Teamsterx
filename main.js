@@ -4426,6 +4426,9 @@ function renderMonthView(titleEl, daysEl) {
         calendarDays._monthDayMouseDownHandler = mouseDownHandler;
         calendarDays._monthDayMouseUpHandler = mouseUpHandler;
         calendarDays._monthDayMouseLeaveHandler = mouseLeaveHandler;
+        
+        // Initialize drag-and-drop for month view events
+        initCalendarDragDrop();
     }, 100);
 }
 
@@ -5502,20 +5505,45 @@ function handleMonthDayDragOver(e) {
     
     // Only show visual feedback if we're dragging a month event
     if (monthDraggedEventId) {
-        const day = e.currentTarget;
-        day.classList.add('drag-over');
+        // Find the calendar-day element - could be currentTarget or need to traverse up
+        let day = e.currentTarget;
+        if (!day.classList.contains('calendar-day')) {
+            day = e.target.closest('.calendar-day');
+        }
+        if (day) {
+            day.classList.add('drag-over');
+        }
     }
 }
 
 function handleMonthDayDragLeave(e) {
-    e.currentTarget.classList.remove('drag-over');
+    // Find the calendar-day element
+    let day = e.currentTarget;
+    if (!day.classList.contains('calendar-day')) {
+        day = e.target.closest('.calendar-day');
+    }
+    
+    // Only remove if we're actually leaving the day (not entering a child)
+    if (day && !day.contains(e.relatedTarget)) {
+        day.classList.remove('drag-over');
+    }
 }
 
 async function handleMonthDayDrop(e) {
     e.preventDefault();
     e.stopPropagation();
     
-    const day = e.currentTarget;
+    // Find the calendar-day element - could be currentTarget or need to traverse up
+    let day = e.currentTarget;
+    if (!day.classList.contains('calendar-day')) {
+        day = e.target.closest('.calendar-day');
+    }
+    
+    if (!day) {
+        console.log('[MonthDrag] No calendar-day found');
+        return;
+    }
+    
     day.classList.remove('drag-over');
     
     // Remove all drag-over states
@@ -5535,8 +5563,16 @@ async function handleMonthDayDrop(e) {
     const newDate = new Date(dateStr);
     console.log('[MonthDrag] Dropping event:', monthDraggedEventId, 'onto date:', newDate.toDateString());
     
+    // Store the event ID before it gets cleared
+    const eventIdToReschedule = monthDraggedEventId;
+    
+    // Clear drag state immediately
+    monthDraggedEventId = null;
+    monthDraggedElement = null;
+    monthDraggedOriginalTime = null;
+    
     // Reschedule the event keeping the same time but changing the date
-    await rescheduleMonthEvent(monthDraggedEventId, newDate);
+    await rescheduleMonthEvent(eventIdToReschedule, newDate);
 }
 
 async function rescheduleMonthEvent(eventId, newDate) {
@@ -31185,6 +31221,250 @@ document.addEventListener('DOMContentLoaded', async () => {
         console.log('User authenticated. All features are ready to use.');
     }, 500);
 });
+
+// ===================================
+// PUSH NOTIFICATIONS
+// ===================================
+
+/**
+ * Register Service Worker for Push Notifications
+ */
+async function registerServiceWorker() {
+    if (!('serviceWorker' in navigator)) {
+        console.log('[Push] Service workers not supported');
+        return null;
+    }
+    
+    try {
+        const registration = await navigator.serviceWorker.register('/sw.js', {
+            scope: '/'
+        });
+        console.log('[Push] Service worker registered:', registration.scope);
+        return registration;
+    } catch (error) {
+        console.error('[Push] Service worker registration failed:', error);
+        return null;
+    }
+}
+
+/**
+ * Request push notification permission and subscribe
+ */
+async function requestPushPermission() {
+    const statusEl = document.getElementById('pushNotifStatus');
+    const btnEl = document.getElementById('enablePushBtn');
+    
+    // Check if push is supported
+    if (!('PushManager' in window)) {
+        if (statusEl) statusEl.textContent = 'Not supported';
+        showToast('Push notifications are not supported in this browser', 'error');
+        return;
+    }
+    
+    try {
+        // Request permission
+        const permission = await Notification.requestPermission();
+        
+        if (permission === 'granted') {
+            // Register service worker if not already
+            const registration = await registerServiceWorker();
+            if (!registration) {
+                showToast('Failed to register service worker', 'error');
+                return;
+            }
+            
+            // Subscribe to push
+            const subscription = await subscribeToPush(registration);
+            if (subscription) {
+                // Save subscription to Firestore
+                await savePushSubscription(subscription);
+                
+                if (statusEl) statusEl.textContent = 'Enabled';
+                if (btnEl) {
+                    btnEl.innerHTML = '<i class="fas fa-check"></i> Enabled';
+                    btnEl.disabled = true;
+                    btnEl.classList.add('success');
+                }
+                showToast('Push notifications enabled!', 'success');
+            }
+        } else if (permission === 'denied') {
+            if (statusEl) statusEl.textContent = 'Blocked';
+            showToast('Notifications blocked. Please enable in browser settings.', 'error');
+        } else {
+            if (statusEl) statusEl.textContent = 'Not enabled';
+        }
+    } catch (error) {
+        console.error('[Push] Error requesting permission:', error);
+        showToast('Failed to enable notifications', 'error');
+    }
+}
+
+/**
+ * Subscribe to push notifications
+ */
+async function subscribeToPush(registration) {
+    try {
+        // Check for existing subscription
+        let subscription = await registration.pushManager.getSubscription();
+        
+        if (subscription) {
+            console.log('[Push] Already subscribed');
+            return subscription;
+        }
+        
+        // For VAPID, you need to generate keys. This is a placeholder.
+        // In production, get the public key from your backend
+        const vapidPublicKey = localStorage.getItem('vapidPublicKey');
+        
+        if (!vapidPublicKey) {
+            // Without VAPID, we can still show local notifications
+            console.log('[Push] No VAPID key configured, using local notifications only');
+            return { endpoint: 'local', keys: {} };
+        }
+        
+        // Convert VAPID key to Uint8Array
+        const convertedVapidKey = urlBase64ToUint8Array(vapidPublicKey);
+        
+        subscription = await registration.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: convertedVapidKey
+        });
+        
+        console.log('[Push] Subscribed:', subscription);
+        return subscription;
+    } catch (error) {
+        console.error('[Push] Subscription failed:', error);
+        return null;
+    }
+}
+
+/**
+ * Convert base64 URL to Uint8Array for VAPID
+ */
+function urlBase64ToUint8Array(base64String) {
+    const padding = '='.repeat((4 - base64String.length % 4) % 4);
+    const base64 = (base64String + padding)
+        .replace(/-/g, '+')
+        .replace(/_/g, '/');
+    
+    const rawData = window.atob(base64);
+    const outputArray = new Uint8Array(rawData.length);
+    
+    for (let i = 0; i < rawData.length; ++i) {
+        outputArray[i] = rawData.charCodeAt(i);
+    }
+    return outputArray;
+}
+
+/**
+ * Save push subscription to Firestore
+ */
+async function savePushSubscription(subscription) {
+    if (!appState.currentUser || !appState.currentTeamId) {
+        console.log('[Push] No user or team, skipping subscription save');
+        return;
+    }
+    
+    try {
+        const subscriptionData = {
+            endpoint: subscription.endpoint || 'local',
+            keys: subscription.keys ? {
+                p256dh: subscription.keys.p256dh || '',
+                auth: subscription.keys.auth || ''
+            } : {},
+            userId: appState.currentUser.uid,
+            teamId: appState.currentTeamId,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+            userAgent: navigator.userAgent
+        };
+        
+        // Store in user's push subscriptions collection
+        await db.collection('users')
+            .doc(appState.currentUser.uid)
+            .collection('pushSubscriptions')
+            .doc('web')
+            .set(subscriptionData, { merge: true });
+        
+        console.log('[Push] Subscription saved to Firestore');
+    } catch (error) {
+        console.error('[Push] Failed to save subscription:', error);
+    }
+}
+
+/**
+ * Check and update push notification UI status
+ */
+async function updatePushNotificationStatus() {
+    const statusEl = document.getElementById('pushNotifStatus');
+    const btnEl = document.getElementById('enablePushBtn');
+    
+    if (!statusEl || !btnEl) return;
+    
+    // Check if supported
+    if (!('PushManager' in window) || !('serviceWorker' in navigator)) {
+        statusEl.textContent = 'Not supported';
+        btnEl.disabled = true;
+        btnEl.innerHTML = '<i class="fas fa-times"></i> Not Supported';
+        return;
+    }
+    
+    // Check permission status
+    if (Notification.permission === 'granted') {
+        statusEl.textContent = 'Enabled';
+        btnEl.innerHTML = '<i class="fas fa-check"></i> Enabled';
+        btnEl.disabled = true;
+        btnEl.classList.add('success');
+    } else if (Notification.permission === 'denied') {
+        statusEl.textContent = 'Blocked';
+        btnEl.innerHTML = '<i class="fas fa-ban"></i> Blocked';
+        btnEl.disabled = true;
+    } else {
+        statusEl.textContent = 'Not enabled';
+        btnEl.innerHTML = '<i class="fas fa-bell"></i> Enable';
+        btnEl.disabled = false;
+    }
+}
+
+/**
+ * Send a test push notification (local)
+ */
+function sendTestNotification(title = 'TeamsterX', body = 'Test notification!') {
+    if (Notification.permission !== 'granted') {
+        console.log('[Push] Permission not granted');
+        return;
+    }
+    
+    const options = {
+        body: body,
+        icon: '/img/favicon-circle.png',
+        badge: '/img/favicon-circle.png',
+        tag: 'teamsterx-test',
+        vibrate: [100, 50, 100]
+    };
+    
+    if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+        navigator.serviceWorker.ready.then(registration => {
+            registration.showNotification(title, options);
+        });
+    } else {
+        new Notification(title, options);
+    }
+}
+
+// Initialize push notifications on load
+document.addEventListener('DOMContentLoaded', () => {
+    // Register service worker early
+    if ('serviceWorker' in navigator) {
+        registerServiceWorker();
+    }
+    
+    // Update UI status when settings tab is opened
+    setTimeout(updatePushNotificationStatus, 1000);
+});
+
+// Make functions globally available
+window.requestPushPermission = requestPushPermission;
+window.sendTestNotification = sendTestNotification;
 
 // ===================================
 // EXPORT FOR TESTING (if needed)

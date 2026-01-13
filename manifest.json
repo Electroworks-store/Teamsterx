@@ -1,0 +1,28 @@
+{
+    "name": "TeamsterX",
+    "short_name": "TeamsterX",
+    "description": "Internal Collaboration Platform for Teams",
+    "start_url": "/",
+    "display": "standalone",
+    "background_color": "#ffffff",
+    "theme_color": "#0A84FF",
+    "orientation": "portrait-primary",
+    "scope": "/",
+    "icons": [
+        {
+            "src": "/img/favicon-circle.png",
+            "sizes": "64x64",
+            "type": "image/png",
+            "purpose": "any maskable"
+        },
+        {
+            "src": "/img/logo.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "any maskable"
+        }
+    ],
+    "categories": ["productivity", "business"],
+    "lang": "en-US",
+    "dir": "ltr"
+}

@@ -9771,7 +9771,7 @@ body.dark-mode .dropdown-menu-option.active {
     /* Calendar section mobile scroll */
     #calendar-section {
         overflow-y: auto;
-        overflow-x: hidden;
+        overflow-x: auto; /* Allow horizontal scroll when calendar is wider than screen */
         -webkit-overflow-scrolling: touch;
         padding-bottom: 240px; /* Extra scroll room to avoid cutoff */
     }
@@ -9781,6 +9781,11 @@ body.dark-mode .dropdown-menu-option.active {
         height: auto;
         max-height: none;
         min-height: auto;
+        min-width: min-content; /* Allow calendar to expand beyond screen width */
+    }
+    
+    #calendar-section .calendar-grid {
+        min-width: 320px; /* Minimum width to prevent too much squishing */
     }
     
     /* Calendar view toggle mobile - keep compact */
@@ -10183,10 +10188,14 @@ body.dark-mode .dropdown-menu-option.active {
     }
 
     .header-toggle-row {
-        display: grid;
-        grid-template-columns: 1fr auto;
+        display: flex;
         align-items: center;
+        justify-content: space-between;
         gap: 12px;
+    }
+    
+    .header-toggle-row .sheets-docs-toggle {
+        flex: 0 0 auto; /* Don't grow, don't shrink, auto width */
     }
 }
 
@@ -12814,6 +12823,50 @@ body.dark-mode .settings-footer .footer-links a {
     border-color: #E02020;
 }
 
+.settings-btn-outline.success {
+    color: white;
+    background: #34C759;
+    border-color: #34C759;
+}
+
+.settings-btn-outline.success:hover {
+    background: #30B854;
+    border-color: #30B854;
+}
+
+/* Push Notification Settings Row */
+.push-notif-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.push-notif-info span:first-child {
+    color: var(--text-main);
+}
+
+.push-notif-status {
+    font-size: 12px;
+    color: var(--text-muted);
+}
+
+#pushNotificationRow {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+}
+
+#pushNotificationRow .settings-btn-outline {
+    flex-shrink: 0;
+    padding: 8px 16px;
+    font-size: 13px;
+}
+
+#pushNotificationRow .settings-btn-outline i {
+    margin-right: 6px;
+}
+
 /* Dark Mode - Minimal Settings */
 body.dark-mode .settings-input-minimal {
     background: var(--bg-body);
@@ -12901,8 +12954,30 @@ body.dark-mode .accent-dot.selected {
     }
 
     .settings-footer {
-        flex-direction: column;
-        align-items: flex-start;
+        flex-direction: row;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: nowrap;
+        gap: 8px;
+    }
+    
+    .settings-footer .footer-brand {
+        flex: 1;
+        min-width: 0;
+    }
+    
+    .settings-footer .footer-brand span {
+        font-size: 12px;
+        white-space: nowrap;
+    }
+    
+    .settings-footer .footer-links {
+        flex-shrink: 0;
+    }
+    
+    .settings-footer .footer-links a {
+        width: 32px;
+        height: 32px;
     }
 }
 
@@ -15830,19 +15905,25 @@ body.dark-mode .search-result-command .command-icon {
    Ensure dropdowns don't overflow viewport
    =================================== */
 @media (max-width: 768px) {
-    .settings-dropdown,
-    .notifications-dropdown {
+    /* Settings dropdown only - positioned from top */
+    .settings-dropdown {
         position: fixed !important;
         top: 60px !important;
         right: 10px !important;
         left: 10px !important;
         width: auto !important;
         max-width: none !important;
+        max-height: calc(100vh - 80px) !important;
+        overflow-y: auto !important;
+        display: none;
     }
     
-    .notifications-dropdown {
-        max-height: calc(100vh - 80px);
+    .settings-dropdown.active {
+        display: block !important;
     }
+    
+    /* Notifications dropdown - positioned as bottom sheet */
+    /* (Main styling handled later in file at NOTIFICATIONS DROPDOWN MOBILE section) */
     
     /* Settings container on mobile */
     .settings-container {
@@ -19232,13 +19313,13 @@ body.dark-mode .task-conversion-item {
     .sheets-docs-toggle {
         width: auto;
         flex-shrink: 0;
-        padding: 2px;
+        padding: 3px;
         border-radius: 999px;
     }
     
     .sheets-docs-toggle .toggle-btn {
-        padding: 4px 8px;
-        font-size: 11px;
+        padding: 6px 12px;
+        font-size: 12px;
         border-radius: 999px;
     }
     
@@ -22278,6 +22359,14 @@ body.dark-mode .add-metric-option-action {
     
     .metrics-edit-btn-header {
         padding: 10px;
+        width: 40px;
+        height: 40px;
+        justify-content: center;
+    }
+    
+    .metrics-edit-btn-header i,
+    .metrics-edit-btn-header svg {
+        margin: 0;
     }
     
     .metric-edit-actions {
@@ -27911,20 +28000,36 @@ button span + i,
 
 /* Small mobile extra compactness */
 @media (max-width: 480px) {
-    /* Prevent horizontal overflow on all content */
-    .content-section,
+    /* Overview and content sections - ALLOW vertical scroll */
+    .content-section {
+        overflow-y: auto !important;
+        overflow-x: hidden;
+        max-width: 100%;
+        height: auto;
+        min-height: 0;
+    }
+
+    /* Overview sections should flow naturally within scrolling container */
     .overview-section,
-    .overview-two-col,
+    .overview-two-col {
+        max-width: 100%;
+        overflow: visible; /* Allow natural content flow */
+        height: auto;
+        max-height: none; /* Remove height constraints */
+    }
+
+    /* Prevent horizontal overflow on calendar elements only */
     .calendar-container,
     .calendar-grid,
     .week-view-container {
         max-width: 100%;
-        overflow-x: hidden;
+        overflow-x: auto; /* Allow horizontal scroll for calendar */
     }
 
     /* Main content area overflow protection */
     .main-content {
         overflow-x: hidden;
+        overflow-y: visible;
     }
 
     .overview-stats {
@@ -28163,9 +28268,26 @@ button span + i,
         padding: 0;
         border-radius: 50%;
         justify-content: center;
+        align-items: center;
         overflow: hidden;
         transition: width 0.3s ease, border-radius 0.3s ease, padding 0.3s ease;
         cursor: pointer;
+        position: relative; /* For centering the icon */
+    }
+
+    /* Center the search icon in collapsed circle */
+    .search-bar i.fa-search {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        transform: translate(-50%, -50%);
+        margin: 0;
+    }
+
+    /* Remove absolute positioning when expanded */
+    .search-bar.expanded i.fa-search {
+        position: static;
+        transform: none;
     }
 
     .search-bar input {
