@@ -3,16 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Teamster - Internal Collaboration Platform</title>
+    <title>Teamsterx - Internal Collaboration Platform</title>
     <link rel="icon" type="image/png" sizes="32x32" href="img/favicon-circle.png">
     <link rel="icon" type="image/png" sizes="16x16" href="img/favicon-circle.png">
     <link rel="shortcut icon" href="img/favicon-circle.png">
     <link rel="apple-touch-icon" href="img/favicon-circle.png">
-    <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#0A84FF">
+    <link rel="manifest" href="manifest.json" id="manifest-link">
+    <meta name="theme-color" content="#ffffff">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
-    <meta name="apple-mobile-web-app-title" content="TeamsterX">
+    <meta name="apple-mobile-web-app-title" content="Teamsterx">
     <script src="version.js"></script>
     <link rel="stylesheet" href="styles.css?v=65" id="styles-link">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -31,10 +31,30 @@
             if (isDark) {
                 document.documentElement.classList.add('dark-mode');
             }
+
+            // Set browser chrome color based on theme
+            const metaTheme = document.querySelector('meta[name="theme-color"]');
+            const appleStatus = document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');
+            const applyMeta = (forceDark) => {
+                if (!metaTheme) return;
+                const dark = typeof forceDark === 'boolean' ? forceDark : document.documentElement.classList.contains('dark-mode');
+                metaTheme.setAttribute('content', dark ? '#000000' : '#ffffff');
+                if (appleStatus) {
+                    appleStatus.setAttribute('content', dark ? 'black' : 'default');
+                }
+            };
+
+            applyMeta(isDark);
+            window.__setThemeMeta = applyMeta;
         })();
         // Auto-update version on links
-        if (window.APP_VERSION) {
-            document.getElementById('styles-link').href = `styles.css?v=${window.APP_VERSION}`;
+        const manifestLink = document.getElementById('manifest-link');
+        const versionTag = window.APP_VERSION || Date.now();
+
+        document.getElementById('styles-link').href = `styles.css?v=${versionTag}`;
+
+        if (manifestLink) {
+            manifestLink.href = `manifest.json?v=${versionTag}`;
         }
     </script>
 </head>

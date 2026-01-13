@@ -744,6 +744,11 @@ function applyThemeEarly() {
     } else {
         document.body.classList.remove('dark-mode');
     }
+
+    // Sync browser chrome color with chosen theme
+    if (window.__setThemeMeta) {
+        window.__setThemeMeta(shouldBeDark);
+    }
 }
 
 // Run immediately
@@ -758,6 +763,10 @@ if (window.matchMedia) {
                 document.body.classList.add('dark-mode');
             } else {
                 document.body.classList.remove('dark-mode');
+            }
+
+            if (window.__setThemeMeta) {
+                window.__setThemeMeta(e.matches);
             }
             // Update settings cards if they exist
             document.querySelectorAll('.settings-card').forEach(card => {
@@ -24005,7 +24014,9 @@ function initMinimalColorPickers() {
 function applyThemePreference(preference) {
     const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
     
-    if (preference === 'dark' || (preference === 'system' && prefersDark)) {
+    const shouldBeDark = preference === 'dark' || (preference === 'system' && prefersDark);
+
+    if (shouldBeDark) {
         document.body.classList.add('dark-mode');
         document.documentElement.classList.add('dark-mode');
         localStorage.setItem('darkMode', 'true');
@@ -24013,6 +24024,10 @@ function applyThemePreference(preference) {
         document.body.classList.remove('dark-mode');
         document.documentElement.classList.remove('dark-mode');
         localStorage.setItem('darkMode', 'false');
+    }
+
+    if (window.__setThemeMeta) {
+        window.__setThemeMeta(shouldBeDark);
     }
 }
 

@@ -12979,6 +12979,11 @@ body.dark-mode .accent-dot.selected {
         width: 32px;
         height: 32px;
     }
+    
+    /* Settings section padding-bottom for mobile */
+    .settings-section {
+        padding-bottom: 40px;
+    }
 }
 
 /* End Minimal Settings UI */
