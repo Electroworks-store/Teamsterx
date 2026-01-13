@@ -2869,21 +2869,23 @@ body.dark-mode .reaction-chip.user-reacted {
     
     .message-reactions-display {
         gap: 4px;
-        margin-top: 6px;
+        margin-top: 4px;
     }
     
     .reaction-chip {
-        padding: 3px 8px;
-        border-radius: 12px;
-        font-size: 12px;
+        padding: 2px 6px;
+        border-radius: 999px;
+        font-size: 11px;
+        height: auto;
+        line-height: 1.2;
     }
     
     .reaction-emoji {
-        font-size: 12px;
+        font-size: 11px;
     }
     
     .reaction-count {
-        font-size: 11px;
+        font-size: 10px;
     }
 }
 
@@ -4837,52 +4839,70 @@ body.dark-mode .calendar-day.drag-over {
         min-height: calc(100vh - 100px);
     }
     
+    /* Mobile calendar header: [< Month >] [Week|Month toggle] [+ btn] - single row */
     .calendar-header {
-        flex-wrap: wrap;
+        display: flex;
+        flex-wrap: nowrap;
+        align-items: center;
         gap: 8px;
-        padding: 10px 12px;
+        padding: 8px 12px;
     }
     
+    /* Title section comes first (left side) with nav arrows */
     .calendar-title-section {
         order: 1;
-        width: 100%;
+        flex: 0 0 auto;
+        display: flex;
+        width: auto;
+    }
+    
+    .calendar-title-section > div {
+        gap: 4px !important;
     }
     
     .calendar-title {
-        font-size: 1.2rem;
+        font-size: 0.9rem;
+        white-space: nowrap;
     }
     
-    .calendar-nav-section {
-        order: 2;
+    /* Hide year on mobile - show only month */
+    .calendar-title span {
+        display: none;
     }
     
     .calendar-nav-btn {
-        width: 28px;
-        height: 28px;
-        font-size: 11px;
+        width: 24px;
+        height: 24px;
+        font-size: 10px;
     }
     
-    .calendar-today-btn {
-        padding: 4px 10px;
-        font-size: 11px;
-    }
-    
-    .calendar-add-btn {
-        width: 28px;
-        height: 28px;
-    }
-    
+    /* View toggle - compact */
     .calendar-view-toggle {
-        order: 3;
-        flex: 1;
-        justify-content: center;
+        order: 2;
+        flex-shrink: 0;
+        margin-left: auto;
+        border-radius: 999px !important;
+        padding: 2px !important;
+        width: auto;
     }
     
     .view-toggle-btn {
-        flex: 1;
-        justify-content: center;
-        padding: 6px 8px;
-        font-size: 11px;
+        padding: 3px 6px;
+        font-size: 10px;
+        border-radius: 999px !important;
+    }
+    
+    /* Add button comes last (right side) */
+    .calendar-add-btn {
+        order: 3;
+        width: 28px;
+        height: 28px;
+        flex-shrink: 0;
+    }
+    
+    .calendar-today-btn {
+        padding: 4px 8px;
+        font-size: 10px;
     }
     
     .calendar-day {
@@ -9223,6 +9243,7 @@ body.dark-mode .dropdown-menu-option.active {
    MOBILE LAYOUT (768px and below)
    =================================== */
 @media (max-width: 768px) {
+    /* FINANCE: Stack columns vertically on mobile */
     .finances-columns {
         grid-template-columns: 1fr;
         gap: 16px;
@@ -9233,6 +9254,117 @@ body.dark-mode .dropdown-menu-option.active {
     }
 
     .finance-column .column-icon {
+        display: none;
+    }
+
+    /* FINANCE METRICS: 2x2 grid on mobile, smaller cards */
+    .finances-metrics-row {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+        margin-bottom: 16px;
+    }
+
+    .finance-metric-card {
+        padding: 12px;
+        gap: 10px;
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .finance-metric-icon {
+        width: 32px;
+        height: 32px;
+        font-size: 14px;
+    }
+
+    .finance-metric-value {
+        font-size: 18px;
+    }
+
+    .finance-metric-label {
+        font-size: 10px;
+    }
+
+    .finance-metric-sub {
+        display: none;
+    }
+
+    /* SUBSCRIPTIONS: Simplified row on mobile */
+    .subscriptions-section {
+        padding: 12px;
+        margin-top: 16px;
+    }
+
+    .subscriptions-header {
+        margin-bottom: 12px;
+    }
+
+    .subscriptions-icon {
+        width: 32px;
+        height: 32px;
+        font-size: 14px;
+    }
+
+    .subscriptions-title h2 {
+        font-size: 15px;
+    }
+
+    .subscription-row {
+        padding: 12px;
+        gap: 10px;
+        border-radius: 12px;
+    }
+
+    .subscription-info {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .subscription-logo {
+        width: 32px;
+        height: 32px;
+        font-size: 14px;
+    }
+
+    .subscription-details {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .subscription-name {
+        font-size: 13px;
+    }
+
+    /* Hide extra meta info on mobile subscriptions */
+    .subscription-meta {
+        display: none;
+    }
+
+    .subscription-amount-col {
+        gap: 4px;
+    }
+
+    .subscription-amount {
+        font-size: 14px;
+    }
+
+    .subscription-frequency {
+        font-size: 10px;
+    }
+
+    .subscription-actions {
+        margin-left: 8px;
+        gap: 2px;
+    }
+
+    .subscription-action-btn {
+        width: 28px;
+        height: 28px;
+        font-size: 12px;
+    }
+
+    /* Hide link button, keep only edit/delete */
+    .subscription-action-btn.link {
         display: none;
     }
 
@@ -9251,6 +9383,7 @@ body.dark-mode .dropdown-menu-option.active {
         margin: 0;
         max-width: 100%;
         width: 100%;
+        overflow-x: hidden;
         height: 100dvh; /* Use dynamic viewport height for mobile browsers */
         height: 100vh; /* Fallback for older browsers */
         overflow: hidden; /* Prevent body scroll, sections scroll internally */
@@ -9258,11 +9391,14 @@ body.dark-mode .dropdown-menu-option.active {
         box-shadow: none;
     }
     
-    /* Body adjustments for mobile */
+    /* Body adjustments for mobile - no scroll on body */
     body {
         padding: 0;
         margin: 0;
-        padding-bottom: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom));
+        overflow: hidden; /* Prevent body from scrolling */
+        position: fixed;
+        width: 100%;
+        height: 100%;
     }
     
     /* Mobile bottom navigation - always visible with safe area support */
@@ -9279,13 +9415,14 @@ body.dark-mode .dropdown-menu-option.active {
         border-radius: 0;
         padding: 0;
         padding-bottom: env(safe-area-inset-bottom); /* iOS home indicator safe area */
-        z-index: 1200;
+        z-index: 9000; /* High z-index to stay above content but below modals */
         background: var(--bg-surface-soft);
         backdrop-filter: blur(20px);
         -webkit-backdrop-filter: blur(20px);
         box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.08);
         /* Always visible on mobile - no scroll-triggered visibility */
         display: flex !important;
+        transform: translateZ(0); /* Force GPU layer for smooth sticky behavior */
     }
     
     /* Hide sidebar header on mobile */
@@ -9376,27 +9513,40 @@ body.dark-mode .dropdown-menu-option.active {
         margin-bottom: 0;
     }
     
-    /* Top bar - full width */
+    /* Top bar - fixed at top on mobile */
     .top-bar {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
         display: flex;
         align-items: center;
         gap: 10px;
         padding: 8px 12px;
+        padding-top: calc(8px + env(safe-area-inset-top));
         border-radius: 0;
+        z-index: 8000;
+        background: var(--bg-surface);
+        border-bottom: 1px solid var(--border-subtle);
     }
     
-    /* Content sections - full width with proper scrolling and bottom nav clearance */
+    /* Content sections - account for fixed top bar and bottom nav */
     .content-section {
         padding: 0;
+        padding-top: calc(56px + env(safe-area-inset-top)); /* Space for fixed top bar */
         width: 100%;
         flex: 1;
-        min-height: 0; /* Critical: allows scrolling */
+        min-height: 0;
         overflow-y: auto;
-        overflow-x: hidden; /* Prevent horizontal scroll except in specific containers */
+        overflow-x: hidden;
         -webkit-overflow-scrolling: touch;
         /* Bottom padding ensures content is never hidden behind fixed nav */
-        /* Formula: 70px (nav height) + iOS safe area + extra breathing room */
-        padding-bottom: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom) + 40px);
+        padding-bottom: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom) + 20px);
+    }
+
+    /* Calendar section needs horizontal scroll for cut-off dates */
+    #calendar-section {
+        overflow-x: auto;
     }
     
     /* Section headers - full width edge to edge */
@@ -9633,16 +9783,17 @@ body.dark-mode .dropdown-menu-option.active {
         min-height: auto;
     }
     
-    /* Calendar view toggle mobile */
+    /* Calendar view toggle mobile - keep compact */
     .calendar-view-toggle {
-        margin-bottom: 16px;
-        gap: 8px;
+        margin-bottom: 0;
+        gap: 2px;
+        padding: 2px;
     }
     
     .view-toggle-btn {
-        padding: 10px 16px;
-        font-size: 13px;
-        border-radius: 10px;
+        padding: 4px 8px;
+        font-size: 11px;
+        border-radius: 999px;
     }
     
     /* Modal adjustments */
@@ -13298,14 +13449,21 @@ body.dark-mode .notification-prefs-toggles .toggle-label:hover {
 
 /* Mobile: disable internal scrolling in Overview cards for natural page scroll */
 @media (max-width: 768px) {
+    .overview-two-col {
+        max-width: 100%;
+        box-sizing: border-box;
+    }
+
     .overview-two-col .overview-card {
         min-height: auto; /* Remove fixed height */
+        max-width: 100%;
     }
     
     .overview-two-col .overview-tasks,
     .overview-two-col .overview-events {
         overflow-y: visible; /* Let page scroll naturally */
         max-height: none; /* Remove scroll trap */
+        max-width: 100%;
     }
     
     .overview-notifications-list {
@@ -17730,6 +17888,18 @@ body.dark-mode .pill-toggle:hover .pill-toggle-slider {
     color: var(--accent);
 }
 
+/* Toolbar button with label (like Export) */
+.toolbar-btn:has(.toolbar-btn-label) {
+    width: auto;
+    padding: 0 12px;
+    gap: 6px;
+}
+
+.toolbar-btn-label {
+    font-size: 13px;
+    font-weight: 500;
+}
+
 /* ===================================
    DOC EDITOR
    =================================== */
@@ -19060,13 +19230,16 @@ body.dark-mode .task-conversion-item {
    =================================== */
 @media (max-width: 768px) {
     .sheets-docs-toggle {
-        width: 100%;
+        width: auto;
+        flex-shrink: 0;
+        padding: 2px;
+        border-radius: 999px;
     }
     
     .sheets-docs-toggle .toggle-btn {
-        flex: 1;
-        justify-content: center;
-        padding: 12px 16px;
+        padding: 4px 8px;
+        font-size: 11px;
+        border-radius: 999px;
     }
     
     .doc-cards {
@@ -22393,28 +22566,32 @@ body.dark-mode .add-metric-option-action {
     .calendar-header {
         padding: 0;
         margin-bottom: 12px;
-        flex-wrap: wrap;
+        flex-wrap: nowrap;
         gap: 8px;
     }
     
     .calendar-title {
-        font-size: 1.1rem;
+        font-size: 0.95rem;
+    }
+
+    /* Hide year on mobile */
+    .calendar-title span {
+        display: none;
     }
     
     .calendar-view-toggle {
-        order: 3;
-        width: 100%;
-        justify-content: center;
+        order: 2;
+        width: auto;
+        padding: 2px;
     }
     
     .view-toggle-btn {
-        flex: 1;
-        justify-content: center;
-        padding: 10px 12px;
-        font-size: 13px;
+        padding: 4px 8px;
+        font-size: 11px;
+        border-radius: 999px;
     }
     
-    /* Month view scroll wrapper */
+    /* Month view scroll wrapper - allow horizontal scroll */
     .calendar-grid {
         overflow-x: auto;
         overflow-y: visible;
@@ -22422,9 +22599,13 @@ body.dark-mode .add-metric-option-action {
         scrollbar-width: thin;
         scrollbar-color: var(--border-subtle) transparent;
         padding-bottom: 8px;
-        margin: 0 -12px;
-        padding-left: 12px;
-        padding-right: 12px;
+        margin: 0;
+        width: 100%;
+    }
+    
+    .calendar-container {
+        overflow-x: auto;
+        overflow-y: visible;
     }
     
     .calendar-grid::-webkit-scrollbar {
@@ -26109,10 +26290,21 @@ body.dark-mode .toggle-slider {
     .finances-columns {
         grid-template-columns: 1fr;
         gap: 16px;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .revenue-column {
+        order: 1;
+    }
+
+    .expenses-column {
+        order: 2;
     }
     
     .finance-column {
         min-height: auto;
+        width: 100%;
     }
     
     .finance-column-header {
@@ -26618,30 +26810,7 @@ body.dark-mode .toggle-slider {
     margin-top: 6px;
 }
 
-/* Subscription Responsive */
-@media (max-width: 768px) {
-    .subscriptions-section {
-        padding: 16px;
-        margin-top: 20px;
-    }
-    
-    .subscription-row {
-        flex-wrap: wrap;
-        gap: 12px;
-    }
-    
-    .subscription-info {
-        width: 100%;
-    }
-    
-    .subscription-amount-col {
-        margin-left: auto;
-    }
-    
-    .subscription-actions {
-        margin-left: auto;
-    }
-}
+/* Subscription Responsive - handled in main mobile section */
 
 /* Dark Mode Subscriptions */
 body.dark-mode .subscriptions-section {
@@ -27529,5 +27698,500 @@ button span + i,
     .team-code-section button,
     .join-team-section button {
         width: 100%;
+    }
+}
+/* ===================================
+   MOBILE MODAL IMPROVEMENTS
+   Ensure CTAs visible above bottom navbar
+   =================================== */
+@media (max-width: 768px) {
+    /* Modal stays above bottom navbar */
+    .modal {
+        z-index: 99999;
+        padding-bottom: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom) + 16px);
+    }
+
+    /* Modal content adjustment for mobile */
+    .modal-content,
+    .task-modal-content,
+    .unified-modal-container {
+        max-height: calc(100vh - var(--bottom-nav-height) - env(safe-area-inset-bottom) - 32px);
+        margin-bottom: auto;
+    }
+
+    /* Ensure modal footers/actions are always visible */
+    .modal-actions,
+    .task-modal-actions,
+    .unified-modal-footer,
+    .modal-footer {
+        position: sticky;
+        bottom: 0;
+        background: var(--bg-surface);
+        padding: 12px 16px;
+        margin: 0 -16px -16px -16px;
+        border-top: 1px solid var(--border-subtle);
+        z-index: 10;
+    }
+
+    /* Hide bottom navbar when modal is open */
+    body.modal-open .sidebar {
+        display: none !important;
+    }
+
+    /* Overview section compact spacing */
+    .overview-stats {
+        gap: 10px;
+        margin-bottom: 16px;
+    }
+
+    .stat-card {
+        padding: 12px;
+        gap: 10px;
+        border-radius: 12px;
+    }
+
+    .stat-icon {
+        width: 36px;
+        height: 36px;
+        font-size: 16px;
+    }
+
+    .stat-number {
+        font-size: 20px;
+    }
+
+    .stat-label {
+        font-size: 11px;
+    }
+
+    /* Overview two-column layout stacks on mobile */
+    .overview-two-col {
+        grid-template-columns: 1fr;
+        gap: 16px;
+    }
+
+    .overview-section {
+        padding: 14px;
+    }
+
+    .overview-section-header h3 {
+        font-size: 15px;
+    }
+
+    /* Activity feed compact */
+    .activity-item {
+        padding: 12px;
+        gap: 10px;
+    }
+
+    .activity-icon {
+        width: 36px;
+        height: 36px;
+        font-size: 14px;
+    }
+
+    .activity-content {
+        font-size: 13px;
+    }
+
+    .activity-time {
+        font-size: 11px;
+    }
+
+    /* Team section compact */
+    .teammate-card {
+        padding: 12px;
+        gap: 10px;
+    }
+
+    .teammate-avatar {
+        width: 36px;
+        height: 36px;
+        font-size: 14px;
+    }
+
+    .teammate-name {
+        font-size: 14px;
+    }
+
+    .teammate-role {
+        font-size: 11px;
+    }
+
+    /* Chat compact */
+    .chat-message {
+        padding: 10px 12px;
+        max-width: 85%;
+    }
+
+    .chat-message-content {
+        font-size: 14px;
+    }
+
+    .chat-input-container {
+        padding: 10px 12px;
+    }
+
+    /* Calendar compact */
+    .calendar-container {
+        padding: 12px;
+    }
+
+    .calendar-day {
+        min-height: 40px;
+        font-size: 13px;
+    }
+
+    .event-item {
+        padding: 10px;
+        gap: 8px;
+    }
+
+    /* Spreadsheet mobile improvements */
+    .spreadsheet-panel-header {
+        padding: 12px;
+    }
+
+    .sheet-title-input {
+        font-size: 16px;
+    }
+
+    /* Settings sections compact */
+    .settings-card {
+        padding: 16px;
+    }
+
+    .settings-card-header h3 {
+        font-size: 15px;
+    }
+
+    .form-group label {
+        font-size: 13px;
+    }
+
+    .form-group input,
+    .form-group select,
+    .form-group textarea {
+        font-size: 14px;
+        padding: 10px 12px;
+    }
+
+    /* Transaction rows compact */
+    .transaction-row {
+        padding: 10px 12px;
+    }
+
+    .transaction-info {
+        gap: 8px;
+    }
+
+    .transaction-icon {
+        width: 32px;
+        height: 32px;
+        font-size: 12px;
+    }
+
+    .transaction-name {
+        font-size: 13px;
+    }
+
+    .transaction-date {
+        font-size: 11px;
+    }
+
+    .transaction-amount {
+        font-size: 14px;
+    }
+
+    /* Prevent body scroll when modal open */
+    body.modal-open {
+        overflow: hidden;
+    }
+}
+
+/* Small mobile extra compactness */
+@media (max-width: 480px) {
+    /* Prevent horizontal overflow on all content */
+    .content-section,
+    .overview-section,
+    .overview-two-col,
+    .calendar-container,
+    .calendar-grid,
+    .week-view-container {
+        max-width: 100%;
+        overflow-x: hidden;
+    }
+
+    /* Main content area overflow protection */
+    .main-content {
+        overflow-x: hidden;
+    }
+
+    .overview-stats {
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+    }
+
+    .stat-card {
+        padding: 10px;
+    }
+
+    .stat-icon {
+        width: 32px;
+        height: 32px;
+        font-size: 14px;
+    }
+
+    .stat-number {
+        font-size: 18px;
+    }
+
+    /* Overview sections compact */
+    .overview-section {
+        padding: 12px;
+    }
+
+    .overview-section-header {
+        margin-bottom: 10px;
+    }
+
+    .overview-section-header h2,
+    .overview-section-header h3 {
+        font-size: 14px;
+    }
+
+    /* My Tasks list compact */
+    .task-list {
+        padding: 8px;
+        gap: 6px;
+    }
+
+    .task-item {
+        padding: 10px;
+    }
+
+    .task-title {
+        font-size: 13px;
+    }
+
+    /* Upcoming events compact */
+    .upcoming-events {
+        padding: 8px;
+    }
+
+    .event-item {
+        padding: 8px;
+        gap: 6px;
+    }
+
+    .event-date {
+        min-width: 36px;
+    }
+
+    .event-day {
+        font-size: 16px;
+    }
+
+    .event-month {
+        font-size: 10px;
+    }
+
+    .event-title {
+        font-size: 13px;
+    }
+
+    /* Calendar more compact and scrollable */
+    .calendar-container {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .calendar-grid {
+        min-width: 320px;
+        overflow-x: auto;
+    }
+
+    .calendar-day {
+        min-height: 50px;
+        min-width: 44px;
+        padding: 2px;
+    }
+
+    .calendar-day-header {
+        min-width: 44px;
+    }
+
+    .day-number {
+        font-size: 10px;
+        width: 18px;
+        height: 18px;
+    }
+
+    .month-event-item {
+        padding: 1px 3px;
+        font-size: 8px;
+    }
+
+    .calendar-day-header {
+        padding: 6px 2px;
+        font-size: 9px;
+    }
+
+    /* Week view overflow fix */
+    .week-view-container {
+        margin: 0;
+        width: 100%;
+        max-width: 100%;
+        overflow-x: auto;
+    }
+
+    .week-time-col {
+        width: 35px;
+        min-width: 35px;
+    }
+
+    .week-time-label {
+        font-size: 9px;
+    }
+
+    /* Finance metrics 2x2 on small screens */
+    .finances-metrics-row {
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+    }
+
+    .finance-metric-card {
+        padding: 10px;
+    }
+
+    .finance-metric-value {
+        font-size: 16px;
+    }
+
+    /* Subscriptions even more compact */
+    .subscription-row {
+        padding: 10px;
+    }
+
+    .subscription-logo {
+        width: 28px;
+        height: 28px;
+        font-size: 12px;
+    }
+
+    .subscription-name {
+        font-size: 12px;
+    }
+
+    .subscription-amount {
+        font-size: 13px;
+    }
+
+    /* Activity feed more compact */
+    .activity-item {
+        padding: 10px;
+        gap: 8px;
+    }
+
+    .activity-icon {
+        width: 32px;
+        height: 32px;
+        font-size: 12px;
+    }
+
+    .activity-content {
+        font-size: 12px;
+    }
+
+    /* Team cards compact */
+    .teammate-card {
+        padding: 10px;
+    }
+
+    .teammate-avatar {
+        width: 32px;
+        height: 32px;
+    }
+
+    .teammate-name {
+        font-size: 13px;
+    }
+
+    /* Chat compact */
+    .chat-message {
+        padding: 8px 10px;
+        max-width: 90%;
+    }
+
+    .chat-message-content {
+        font-size: 13px;
+    }
+
+    /* Docs list compact */
+    .doc-item {
+        padding: 10px;
+    }
+
+    .doc-icon {
+        width: 32px;
+        height: 32px;
+    }
+
+    /* Spreadsheet compact */
+    .spreadsheet-card {
+        padding: 12px;
+    }
+
+    /* Section headers compact */
+    .section-header h1 {
+        font-size: 20px;
+    }
+
+    .section-subtitle {
+        font-size: 12px;
+    }
+
+    /* Compact search bar - icon only until clicked */
+    .search-wrapper {
+        width: auto;
+        max-width: none;
+    }
+
+    .search-bar {
+        width: 40px;
+        height: 40px;
+        padding: 0;
+        border-radius: 50%;
+        justify-content: center;
+        overflow: hidden;
+        transition: width 0.3s ease, border-radius 0.3s ease, padding 0.3s ease;
+        cursor: pointer;
+    }
+
+    .search-bar input {
+        width: 0;
+        opacity: 0;
+        transition: width 0.3s ease, opacity 0.3s ease;
+    }
+
+    .search-bar .search-clear {
+        display: none;
+    }
+
+    /* Expanded state */
+    .search-bar.expanded {
+        width: 200px;
+        border-radius: 999px;
+        padding: 0 14px;
+        cursor: text;
+    }
+
+    .search-bar.expanded input {
+        width: 100%;
+        opacity: 1;
+    }
+
+    .search-bar.expanded .search-clear {
+        display: flex;
     }
 }
