@@ -3,7 +3,23 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Teamster - Account</title>
+    <title>Teamsterx - Account</title>
+    <script>
+        // Early theme detection to prevent loader flicker
+        (function() {
+            const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+            let themePref = localStorage.getItem('themePreference');
+            if (!themePref) {
+                const legacy = localStorage.getItem('darkMode');
+                themePref = legacy === 'true' ? 'dark' : legacy === 'false' ? 'light' : 'system';
+            }
+            const isDark = themePref === 'dark' || (themePref === 'system' && prefersDark);
+            window.__isDarkPreferred = isDark;
+            if (isDark) {
+                document.documentElement.classList.add('dark-mode');
+            }
+        })();
+    </script>
     <script>
         // Localhost safety: static servers (e.g., VS Code Live Server) don't rewrite /account to /account.html
         if ((location.hostname === 'localhost' || location.hostname === '127.0.0.1') && location.pathname === '/account') {
@@ -11,10 +27,36 @@
         }
     </script>
     <link rel="stylesheet" href="auth.css">
+    <link rel="stylesheet" href="loader.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="loader.js"></script>
 </head>
 <body>
+    <script>
+        // Apply dark mode to body immediately using early preference
+        if (window.__isDarkPreferred) {
+            document.body.classList.add('dark-mode');
+        }
+    </script>
+    <!-- Teamsterx Loader Overlay -->
+    <div id="teamsterxLoader" class="teamsterx-loader hidden">
+        <div class="loader-container">
+            <div class="loader-bubbles">
+                <div class="loader-bubble"></div>
+                <div class="loader-bubble"></div>
+                <div class="loader-bubble"></div>
+                <div class="loader-bubble"></div>
+                <div class="loader-bubble"></div>
+                <div class="loader-bubble"></div>
+                <div class="loader-bubble"></div>
+                <div class="loader-bubble"></div>
+            </div>
+            <img src="img/logo-no-bg.png" alt="Teamsterx" class="loader-logo">
+            <span class="loader-text">Loading</span>
+        </div>
+    </div>
+
     <div class="auth-container">
         <!-- Left Side - Authentication Forms (65%) -->
         <div class="auth-forms">

@@ -159,6 +159,15 @@ function initializeRouting() {
                        window.location.hostname === '127.0.0.1' ||
                        window.location.hostname === '';
     
+    // IMPORTANT: Extract join parameter BEFORE any early returns
+    // This ensures join links work on all hosts including static hosts
+    const urlParams = new URLSearchParams(window.location.search);
+    const joinCode = urlParams.get('join');
+    if (joinCode) {
+        console.log('📨 Join code detected:', joinCode);
+        sessionStorage.setItem('pendingJoinCode', joinCode);
+    }
+    
     // For static hosts, if no hash, default to app and update hash
     if (isStaticHost && !hash) {
         window.history.replaceState({}, '', window.location.pathname + '#/app');
@@ -166,10 +175,9 @@ function initializeRouting() {
         showAppContainer();
         return 'app';
     }
-    
+
     // LOCAL DEVELOPMENT: Handle query params and paths
     if (isLocalhost) {
-        const urlParams = new URLSearchParams(window.location.search);
         const route = urlParams.get('route');
         
         if (route === 'app' || path === '/app' || path === '/app/') {
@@ -225,7 +233,7 @@ async function showHomePage() {
     await loadHomeBundle();
     
     // Update page title
-    document.title = 'Teamster - Work better, together';
+    document.title = 'Teamsterx - Work better, together';
 }
 
 /**
@@ -241,7 +249,7 @@ function showAppContainer() {
     if (appContainer) appContainer.style.display = '';
     
     // Update page title
-    document.title = 'Teamster - Internal Collaboration Platform';
+    document.title = 'Teamsterx - Internal Collaboration Platform';
 }
 
 /**
@@ -749,6 +757,16 @@ function applyThemeEarly() {
     if (window.__setThemeMeta) {
         window.__setThemeMeta(shouldBeDark);
     }
+}
+
+// Helper: hide loader overlay if present
+function hideLoaderIfPresent() {
+    if (typeof window !== 'undefined' && window.hideLoader) {
+        window.hideLoader();
+        return;
+    }
+    const loaderEl = typeof document !== 'undefined' ? document.getElementById('teamsterxLoader') : null;
+    if (loaderEl) loaderEl.classList.add('hidden');
 }
 
 // Run immediately
@@ -1322,13 +1340,20 @@ async function initializeFirebaseAuth() {
     try {
         // Import Firebase modules
         const { initializeApp } = await import('https://www.gstatic.com/firebasejs/10.5.0/firebase-app.js');
-        const { getAuth, onAuthStateChanged } = await import('https://www.gstatic.com/firebasejs/10.5.0/firebase-auth.js');
+        const { getAuth, onAuthStateChanged, GoogleAuthProvider } = await import('https://www.gstatic.com/firebasejs/10.5.0/firebase-auth.js');
         const { getFirestore } = await import('https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js');
 
         // Initialize Firebase
         const app = initializeApp(firebaseConfig);
         auth = getAuth(app);
         db = getFirestore(app);
+
+        // Initialize Google Auth Provider
+        const provider = new GoogleAuthProvider();
+        provider.addScope('profile');
+        provider.addScope('email');
+        window.firebaseAuth = auth;
+        window.googleProvider = provider;
 
         // Apply theme immediately if set in localStorage (already handled by applyThemeEarly)
         // This is a fallback for any race conditions
@@ -1463,6 +1488,8 @@ async function initializeFirebaseAuth() {
                         processJoinCode(pendingJoinCode);
                     }, 1000);
                 }
+                // Ready - hide loader after successful auth/bootstrap
+                hideLoaderIfPresent();
             } else {
                 // No user signed in - clear sensitive data and redirect to login
                 console.log('❌ No user authenticated - redirecting to login');
@@ -1494,6 +1521,7 @@ async function initializeFirebaseAuth() {
                     // Don't redirect, homepage is public
                 }
                 // If on homepage, do nothing - they can browse the public homepage
+                hideLoaderIfPresent();
             }
         });
 
@@ -1501,6 +1529,7 @@ async function initializeFirebaseAuth() {
         console.error('Firebase initialization error:', error.code || error.message);
         debugError('Full Firebase error:', error);
         console.log('❌ Firebase failed to initialize - redirecting to login');
+        hideLoaderIfPresent();
         
         // LocalStorage Safety Cleanup on error
         localStorage.removeItem('currentTeamId');

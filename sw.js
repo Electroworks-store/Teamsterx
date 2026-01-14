@@ -1,5 +1,5 @@
 // TeamsterX Service Worker for Push Notifications
-const CACHE_NAME = 'teamsterx-v1';
+const CACHE_NAME = 'teamsterx-v2';
 
 // Install event - cache essential resources
 self.addEventListener('install', (event) => {

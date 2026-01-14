@@ -1,0 +1,300 @@
+/* ===================================
+   TEAMSTERX CUSTOM LOADER
+   Logo centered with animated blue bubbles
+   =================================== */
+
+.teamsterx-loader {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 99999;
+    transition: opacity 0.4s ease, visibility 0.4s ease;
+}
+
+.dark-mode .teamsterx-loader {
+    background: #1c1c1e;
+}
+
+/* Lock theme to prevent mid-load flips */
+.teamsterx-loader.lock-light {
+    background: #ffffff;
+}
+
+.teamsterx-loader.lock-light .loader-text {
+    color: #8E8E93;
+}
+
+.teamsterx-loader.lock-dark {
+    background: #1c1c1e;
+}
+
+.teamsterx-loader.lock-dark .loader-text {
+    color: #98989D;
+}
+
+.teamsterx-loader.hidden {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+}
+
+.loader-container {
+    position: relative;
+    width: 200px;
+    height: 200px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Logo in center */
+.loader-logo {
+    width: 80px;
+    height: 80px;
+    object-fit: contain;
+    z-index: 2;
+    animation: logoPulse 2s ease-in-out infinite;
+}
+
+@keyframes logoPulse {
+    0%, 100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+    50% {
+        transform: scale(1.05);
+        opacity: 0.9;
+    }
+}
+
+/* Bubble container */
+.loader-bubbles {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    top: 0;
+    left: 0;
+}
+
+/* Individual bubbles */
+.loader-bubble {
+    position: absolute;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #0A84FF 0%, #007AFF 100%);
+    opacity: 0.6;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(0.4);
+    animation: bubbleBurst 3.4s ease-in-out infinite;
+}
+
+/* Bubble positions and sizes */
+.loader-bubble:nth-child(1) {
+    width: 16px;
+    height: 16px;
+    --tx: -55px;
+    --ty: -40px;
+    animation-delay: 0s;
+    animation-duration: 3.2s;
+}
+
+.loader-bubble:nth-child(2) {
+    width: 12px;
+    height: 12px;
+    --tx: 45px;
+    --ty: -50px;
+    animation-delay: 0.3s;
+    animation-duration: 3.5s;
+}
+
+.loader-bubble:nth-child(3) {
+    width: 20px;
+    height: 20px;
+    --tx: -65px;
+    --ty: 30px;
+    animation-delay: 0.6s;
+    animation-duration: 3.6s;
+}
+
+.loader-bubble:nth-child(4) {
+    width: 14px;
+    height: 14px;
+    --tx: 55px;
+    --ty: 40px;
+    animation-delay: 0.9s;
+    animation-duration: 3.3s;
+}
+
+.loader-bubble:nth-child(5) {
+    width: 10px;
+    height: 10px;
+    --tx: -30px;
+    --ty: -10px;
+    animation-delay: 1.2s;
+    animation-duration: 3s;
+}
+
+.loader-bubble:nth-child(6) {
+    width: 18px;
+    height: 18px;
+    --tx: 35px;
+    --ty: -5px;
+    animation-delay: 0.4s;
+    animation-duration: 3.7s;
+}
+
+.loader-bubble:nth-child(7) {
+    width: 8px;
+    height: 8px;
+    --tx: -15px;
+    --ty: 55px;
+    animation-delay: 0.7s;
+    animation-duration: 3.1s;
+}
+
+.loader-bubble:nth-child(8) {
+    width: 15px;
+    height: 15px;
+    --tx: 25px;
+    --ty: 60px;
+    animation-delay: 1s;
+    animation-duration: 3.4s;
+}
+
+/* Outward then inward absorption animation */
+@keyframes bubbleBurst {
+    0% {
+        transform: translate(-50%, -50%) scale(0.35);
+        opacity: 0;
+    }
+    18% {
+        opacity: 0.85;
+    }
+    35% {
+        transform: translate(calc(-50% + var(--tx)), calc(-50% + var(--ty))) scale(1.2);
+        opacity: 1;
+    }
+    65% {
+        transform: translate(calc(-50% + var(--tx)), calc(-50% + var(--ty))) scale(1.0);
+        opacity: 0.85;
+    }
+    100% {
+        transform: translate(-50%, -50%) scale(0.25);
+        opacity: 0;
+    }
+}
+
+/* Orbiting ring of bubbles (optional fancy effect) */
+.loader-orbit {
+    position: absolute;
+    width: 160px;
+    height: 160px;
+    border-radius: 50%;
+    animation: orbitSpin 8s linear infinite;
+}
+
+@keyframes orbitSpin {
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.loader-orbit .orbit-bubble {
+    position: absolute;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #0A84FF 0%, #5AC8FA 100%);
+    opacity: 0.7;
+}
+
+.loader-orbit .orbit-bubble:nth-child(1) {
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+}
+
+.loader-orbit .orbit-bubble:nth-child(2) {
+    top: 50%;
+    right: 0;
+    transform: translateY(-50%);
+}
+
+.loader-orbit .orbit-bubble:nth-child(3) {
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+}
+
+.loader-orbit .orbit-bubble:nth-child(4) {
+    top: 50%;
+    left: 0;
+    transform: translateY(-50%);
+}
+
+/* Loading text (optional) */
+.loader-text {
+    position: absolute;
+    bottom: -40px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    color: #8E8E93;
+    letter-spacing: 0.5px;
+}
+
+.dark-mode .loader-text {
+    color: #98989D;
+}
+
+/* Dot animation for loading text */
+.loader-text::after {
+    content: '';
+    animation: loadingDots 1.5s steps(4, end) infinite;
+}
+
+@keyframes loadingDots {
+    0% { content: ''; }
+    25% { content: '.'; }
+    50% { content: '..'; }
+    75% { content: '...'; }
+    100% { content: ''; }
+}
+
+/* Mobile adjustments */
+@media (max-width: 480px) {
+    .loader-container {
+        width: 160px;
+        height: 160px;
+    }
+    
+    .loader-logo {
+        width: 60px;
+        height: 60px;
+    }
+    
+    .loader-orbit {
+        width: 130px;
+        height: 130px;
+    }
+    
+    .loader-bubble:nth-child(1) { width: 12px; height: 12px; }
+    .loader-bubble:nth-child(2) { width: 10px; height: 10px; }
+    .loader-bubble:nth-child(3) { width: 16px; height: 16px; }
+    .loader-bubble:nth-child(4) { width: 11px; height: 11px; }
+    .loader-bubble:nth-child(5) { width: 8px; height: 8px; }
+    .loader-bubble:nth-child(6) { width: 14px; height: 14px; }
+    .loader-bubble:nth-child(7) { width: 6px; height: 6px; }
+    .loader-bubble:nth-child(8) { width: 12px; height: 12px; }
+}

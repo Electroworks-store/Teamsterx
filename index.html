@@ -14,6 +14,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="Teamsterx">
     <script src="version.js"></script>
+    <link rel="stylesheet" href="loader.css">
     <link rel="stylesheet" href="styles.css?v=65" id="styles-link">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- DOMPurify for XSS protection in rich text content -->
@@ -74,6 +75,24 @@
             }
         })();
     </script>
+
+    <!-- Teamsterx Loader Overlay -->
+    <div id="teamsterxLoader" class="teamsterx-loader">
+        <div class="loader-container">
+            <div class="loader-bubbles">
+                <div class="loader-bubble"></div>
+                <div class="loader-bubble"></div>
+                <div class="loader-bubble"></div>
+                <div class="loader-bubble"></div>
+                <div class="loader-bubble"></div>
+                <div class="loader-bubble"></div>
+                <div class="loader-bubble"></div>
+                <div class="loader-bubble"></div>
+            </div>
+            <img src="img/logo-no-bg.png" alt="Teamsterx" class="loader-logo">
+            <span class="loader-text">Loading</span>
+        </div>
+    </div>
 
     <!-- ============================================
          MARKETING HOMEPAGE MOUNT POINT
@@ -3322,6 +3341,7 @@
     <div id="toastContainer"></div>
 
     <!-- Main JavaScript -->
+    <script src="loader.js"></script>
     <script src="main.js?v=65" id="main-script"></script>
     <script>
         // Auto-update version on links

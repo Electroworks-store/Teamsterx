@@ -125,6 +125,7 @@ async function handleEmailSignIn(e) {
     }
 
     showLoading(true);
+    let keepLoader = false;
 
     try {
         // Import Firebase Auth functions
@@ -143,16 +144,21 @@ async function handleEmailSignIn(e) {
         // Save user info to localStorage
         saveUserToStorage(user);
 
+        // Keep loader visible through redirect to app
+        keepLoader = true;
+
         // Redirect to main app after short delay
         setTimeout(() => {
             window.location.href = getAppUrl();
-        }, 1500);
+        }, 500);
 
     } catch (error) {
         console.error('Sign in error:', error);
         showAlert(getErrorMessage(error.code), 'error');
     } finally {
-        showLoading(false);
+        if (!keepLoader) {
+            showLoading(false);
+        }
     }
 }
 
@@ -196,6 +202,7 @@ async function handleEmailSignUp(e) {
     }
 
     showLoading(true);
+    let keepLoader = false;
 
     try {
         // Import Firebase Auth functions
@@ -218,22 +225,28 @@ async function handleEmailSignUp(e) {
         // Save user info to localStorage
         saveUserToStorage(user);
 
+        // Keep loader visible through redirect to app
+        keepLoader = true;
+
         // Redirect to main app after short delay
         setTimeout(() => {
             window.location.href = getAppUrl();
-        }, 1500);
+        }, 500);
 
     } catch (error) {
         console.error('Sign up error:', error);
         showAlert(getErrorMessage(error.code), 'error');
     } finally {
-        showLoading(false);
+        if (!keepLoader) {
+            showLoading(false);
+        }
     }
 }
 
 // Google Sign In
 async function handleGoogleSignIn() {
     showLoading(true);
+    let keepLoader = false;
 
     try {
         // Import Firebase Auth functions
@@ -248,10 +261,13 @@ async function handleGoogleSignIn() {
         // Save user info to localStorage
         saveUserToStorage(user);
 
+        // Keep loader visible through redirect to app
+        keepLoader = true;
+
         // Redirect to main app after short delay
         setTimeout(() => {
             window.location.href = getAppUrl();
-        }, 1500);
+        }, 500);
 
     } catch (error) {
         console.error('Google sign in error:', error);
@@ -265,7 +281,9 @@ async function handleGoogleSignIn() {
             showAlert(getErrorMessage(error.code), 'error');
         }
     } finally {
-        showLoading(false);
+        if (!keepLoader) {
+            showLoading(false);
+        }
     }
 }
 
@@ -346,10 +364,22 @@ function saveUserToStorage(user) {
 // Show/Hide Loading Overlay
 function showLoading(show) {
     const overlay = document.getElementById('loadingOverlay');
+    const loaderEl = document.getElementById('teamsterxLoader');
+    const hasLoaderAPI = typeof window !== 'undefined' && (window.showLoader || window.hideLoader);
     if (show) {
-        overlay.classList.add('active');
+        if (hasLoaderAPI && window.showLoader) {
+            window.showLoader();
+        } else if (loaderEl) {
+            loaderEl.classList.remove('hidden');
+        }
+        if (overlay) overlay.classList.add('active');
     } else {
-        overlay.classList.remove('active');
+        if (hasLoaderAPI && window.hideLoader) {
+            window.hideLoader();
+        } else if (loaderEl) {
+            loaderEl.classList.add('hidden');
+        }
+        if (overlay) overlay.classList.remove('active');
     }
 }
 
