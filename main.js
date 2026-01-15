@@ -1341,12 +1341,18 @@ async function initializeFirebaseAuth() {
         // Import Firebase modules
         const { initializeApp } = await import('https://www.gstatic.com/firebasejs/10.5.0/firebase-app.js');
         const { getAuth, onAuthStateChanged, GoogleAuthProvider } = await import('https://www.gstatic.com/firebasejs/10.5.0/firebase-auth.js');
-        const { getFirestore } = await import('https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js');
+        const { getFirestore, enableIndexedDbPersistence } = await import('https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js');
 
         // Initialize Firebase
         const app = initializeApp(firebaseConfig);
         auth = getAuth(app);
         db = getFirestore(app);
+
+        try {
+            await enableIndexedDbPersistence(db);
+        } catch (persistenceError) {
+            debugLog('⚙️ Firestore persistence unavailable (likely multiple tabs):', persistenceError?.code || persistenceError);
+        }
 
         // Initialize Google Auth Provider
         const provider = new GoogleAuthProvider();
@@ -5895,6 +5901,14 @@ const spreadsheetState = {
     showCompleted: localStorage.getItem('showCompletedTasks') === 'true' // Default: hide completed
 };
 
+const TASK_FETCH_LIMIT = 500;
+const TASK_COMPLETED_FETCH_LIMIT = 300;
+let tasksActiveUnsubscribe = null;
+let tasksCompletedUnsubscribe = null;
+appState.completedTasksCount = 0;
+appState.completedCountsBySpreadsheet = {};
+appState.completedTasksLoadedForMetrics = false;
+
 function initTasks() {
     const addTaskBtn = document.getElementById('addTaskBtn');
 
@@ -5998,10 +6012,11 @@ function initTasks() {
     // ===================================
     function displayTasks() {
         // Update overview section counters
-        const todoCount = appState.tasks.filter(t => t.status === 'todo').length;
-        const inProgressCount = appState.tasks.filter(t => t.status === 'inprogress').length;
-        const doneCount = appState.tasks.filter(t => t.status === 'done').length;
-        const totalCount = appState.tasks.length;
+        const activeTasks = getActiveTasksList();
+        const todoCount = activeTasks.filter(t => t.status === 'todo').length;
+        const inProgressCount = activeTasks.filter(t => t.status === 'inprogress').length;
+        const completedCount = appState.completedTasks?.length ? appState.completedTasks.length : (appState.completedTasksCount || 0);
+        const totalCount = activeTasks.length + completedCount;
 
         // Update metrics in overview
         const totalTasksCountEl = document.getElementById('totalTasksCount');
@@ -6010,7 +6025,7 @@ function initTasks() {
         
         if (totalTasksCountEl) totalTasksCountEl.textContent = totalCount;
         if (inProgressTasksCountEl) inProgressTasksCountEl.textContent = inProgressCount;
-        if (completedTasksCountEl) completedTasksCountEl.textContent = doneCount;
+        if (completedTasksCountEl) completedTasksCountEl.textContent = completedCount;
 
         // Render spreadsheet cards
         renderSpreadsheetCards();
@@ -6095,8 +6110,16 @@ function initTasks() {
 
         // Count tasks/leads in this spreadsheet
         const spreadsheetTasks = getTasksForSpreadsheet(spreadsheet);
-        const taskCount = spreadsheetTasks.length;
-        const completedCount = spreadsheetTasks.filter(t => t.status === 'done').length;
+        const completedCountFromMap = appState.completedCountsBySpreadsheet?.[spreadsheet.id];
+        const completedCount =
+            spreadsheet.id === 'default'
+                ? (appState.completedTasksCount || (spreadsheetTasks.filter(t => t.status === 'done' || t.status === 'won').length))
+                : (completedCountFromMap !== undefined
+                    ? completedCountFromMap
+                    : spreadsheetTasks.filter(t => t.status === 'done' || t.status === 'won').length);
+
+        const activeCount = spreadsheetTasks.filter(t => t.status !== 'done' && t.status !== 'won').length;
+        const taskCount = activeCount + completedCount;
         const progressPercent = taskCount > 0 ? Math.round((completedCount / taskCount) * 100) : 0;
 
         // Check if this is a private spreadsheet
@@ -10292,13 +10315,26 @@ function initTasks() {
             // Initialize button text based on current state
             updateToggleCompletedButton();
             
-            toggleCompletedBtn.addEventListener('click', () => {
+            toggleCompletedBtn.addEventListener('click', async () => {
                 // Toggle state
                 spreadsheetState.showCompleted = !spreadsheetState.showCompleted;
                 
                 // Persist to localStorage
                 localStorage.setItem('showCompletedTasks', spreadsheetState.showCompleted.toString());
                 
+                if (spreadsheetState.showCompleted) {
+                    await loadCompletedTasksFromFirestore();
+                } else {
+                    if (tasksCompletedUnsubscribe) {
+                        tasksCompletedUnsubscribe();
+                        tasksCompletedUnsubscribe = null;
+                    }
+                    appState.completedTasks = [];
+                    appState.completedTasksLoadedForMetrics = false;
+                }
+
+                recomputeTasksView();
+
                 // Update button appearance
                 updateToggleCompletedButton();
                 
@@ -17856,7 +17892,7 @@ window.handleMetricsTimeFilterChange = handleMetricsTimeFilterChange;
  * Main render function for metrics
  * Supports loading states, empty states, time filtering, and tooltips
  */
-function renderMetrics() {
+async function renderMetrics() {
     const container = document.getElementById('metricsContent');
     if (!container) return;
     
@@ -17877,9 +17913,23 @@ function renderMetrics() {
         return;
     }
     
+    // Ensure completed tasks are available for accurate metrics
+    if (!appState.completedTasksLoadedForMetrics) {
+        await loadCompletedTasksFromFirestore();
+    }
+
     // Check if data is still loading (no tasks array means data hasn't loaded yet)
     if (!appState.tasks) {
         renderMetricsLoading();
+        return;
+    }
+
+    // Ensure completed-task data is available for metrics charts
+    if (!appState.completedTasksLoadedForMetrics) {
+        renderMetricsLoading();
+        loadCompletedTasksFromFirestore().then(() => {
+            renderMetrics();
+        });
         return;
     }
     
@@ -18406,9 +18456,9 @@ window.renderMetrics = renderMetrics;
  * Update metrics if the metrics tab is currently active.
  * Call this from data listeners to keep metrics fresh.
  */
-function updateMetricsIfActive() {
+async function updateMetricsIfActive() {
     if (appState.currentSection === 'metrics' && appState.metricsAccess?.canAccess) {
-        renderMetrics();
+        await renderMetrics();
     }
 }
 
@@ -20873,6 +20923,11 @@ async function loadTeamData() {
     // Clear previous team's data to prevent cross-contamination between users/teams
     appState.messages = [];
     appState.tasks = [];
+    appState.activeTasks = [];
+    appState.completedTasks = [];
+    appState.completedTasksCount = 0;
+    appState.completedCountsBySpreadsheet = {};
+    appState.completedTasksLoadedForMetrics = false;
     appState.events = [];
     appState.activities = [];
     appState.teammates = [];
@@ -20880,6 +20935,7 @@ async function loadTeamData() {
     
     // Stop previous team's listeners
     stopTeamMembersListener();
+    stopTasksListeners();
     
     // Clear chat display immediately
     const chatMessages = document.getElementById('chatMessages');
@@ -20898,40 +20954,25 @@ async function loadTeamData() {
         // Clean up old tasks from localStorage
         await cleanupOldTasks();
         
-        // Load tasks
-        await loadTasksFromFirestore();
-        
-        // Load spreadsheets
-        if (window.loadSpreadsheetsFromFirestore) {
-            await window.loadSpreadsheetsFromFirestore();
-        }
-        
-        // Clean up docs state from previous team and load docs for new team
+        // Run heavy loaders in parallel to speed up initial render
         if (window.cleanupDocsState) {
             window.cleanupDocsState();
         }
-        // Only load docs if we're in docs view (lazy loading)
-        if (appState.tasksViewMode === 'docs' && window.loadDocsFromFirestore) {
-            await window.loadDocsFromFirestore();
-        }
-        
-        // Load messages
-        await loadMessagesFromFirestore();
-        
-        // Load events
-        await loadEventsFromFirestore();
-        
-        // Load activities
-        await loadActivities();
-        
-        // Subscribe to Link Lobby groups
-        await subscribeLinkLobbyGroups();
-        
-        // Ensure teamJoinInfo exists for join-by-code (for admins/owners)
-        await ensureTeamJoinInfoExists();
-        
-        // Initialize team section display
-        await initTeamSection();
+        const parallelLoads = [
+            loadTasksFromFirestore(),
+            window.loadSpreadsheetsFromFirestore ? window.loadSpreadsheetsFromFirestore() : null,
+            appState.tasksViewMode === 'docs' && window.loadDocsFromFirestore ? window.loadDocsFromFirestore() : null,
+            loadMessagesFromFirestore(),
+            loadEventsFromFirestore(),
+            loadActivities(),
+            subscribeLinkLobbyGroups(),
+            ensureTeamJoinInfoExists(),
+            initTeamSection()
+        ].filter(Boolean);
+
+        await Promise.all(parallelLoads);
+
+        await loadCompletedTaskCounts();
 
         debugLog('Team data loaded successfully');
     } catch (error) {
@@ -27414,6 +27455,112 @@ window.loadPendingLeaveRequests = async function() {
 // ===================================
 // These functions will be used when Firebase is properly configured
 
+function stopTasksListeners() {
+    if (tasksActiveUnsubscribe) {
+        tasksActiveUnsubscribe();
+        tasksActiveUnsubscribe = null;
+    }
+    if (tasksCompletedUnsubscribe) {
+        tasksCompletedUnsubscribe();
+        tasksCompletedUnsubscribe = null;
+    }
+}
+
+async function hydrateTasksOnce() {
+    try {
+        const { collection, query, orderBy, limit, getDocs } =
+            await import('https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js');
+        const tasksRef = collection(db, 'teams', appState.currentTeamId, 'tasks');
+        const q = query(tasksRef, orderBy('createdAt', 'desc'), limit(TASK_FETCH_LIMIT));
+        const snapshot = await getDocs(q);
+
+        const activeTasks = [];
+        const completedTasks = [];
+        snapshot.forEach(docSnap => {
+            const taskData = { id: docSnap.id, ...docSnap.data() };
+            if (taskData.status === 'complete') {
+                taskData.status = 'done';
+            } else if (taskData.status === 'in-progress' || taskData.status === 'in progress') {
+                taskData.status = 'inprogress';
+            }
+            if (taskData.status === 'done' || taskData.status === 'won') {
+                completedTasks.push(taskData);
+            } else {
+                activeTasks.push(taskData);
+            }
+        });
+
+        appState.activeTasks = activeTasks;
+        appState.completedTasks = completedTasks;
+        appState.completedTasksLoadedForMetrics = true;
+        recomputeTasksView();
+        loadCompletedTaskCounts();
+        debugLog(`✅ Fallback loaded ${activeTasks.length} active tasks and ${completedTasks.length} completed tasks`);
+    } catch (fallbackError) {
+        console.error('Fallback task load failed:', fallbackError);
+    }
+}
+
+async function loadCompletedTaskCounts() {
+    if (!db || !currentAuthUser || !appState.currentTeamId) return;
+
+    try {
+        const { collection, query, where, getCountFromServer } = 
+            await import('https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js');
+
+        const tasksRef = collection(db, 'teams', appState.currentTeamId, 'tasks');
+
+        // Overall completed count
+        const completedQuery = query(tasksRef, where('status', 'in', ['done', 'won']));
+        const completedCountSnap = await getCountFromServer(completedQuery);
+        appState.completedTasksCount = completedCountSnap.data().count || 0;
+
+        // Per-spreadsheet completed counts
+        const countsBySpreadsheet = {};
+        const spreadsheets = appState.spreadsheets || [];
+        const countPromises = spreadsheets.map(async (sheet) => {
+            const sheetQuery = query(
+                tasksRef,
+                where('status', 'in', ['done', 'won']),
+                where('spreadsheetId', '==', sheet.id)
+            );
+            const snap = await getCountFromServer(sheetQuery);
+            countsBySpreadsheet[sheet.id] = snap.data().count || 0;
+        });
+
+        await Promise.all(countPromises);
+        appState.completedCountsBySpreadsheet = countsBySpreadsheet;
+
+        // Refresh counters and cards with new counts
+        if (typeof displayTasks === 'function') {
+            displayTasks();
+        }
+    } catch (error) {
+        console.error('Error loading completed task counts:', error);
+    }
+}
+
+function recomputeTasksView() {
+    const active = appState.activeTasks || [];
+    const completed = appState.completedTasks || [];
+    // Keep full task set for metrics/overview; UI filters handle showCompleted flag
+    appState.tasks = active.concat(completed);
+    const visibleTasks = spreadsheetState.showCompleted ? appState.tasks : active;
+    saveToLocalStorage('tasks', appState.tasks);
+    if (window.displayTasks) {
+        window.displayTasks();
+    }
+    updateOverview();
+    updateMetricsIfActive();
+}
+
+function getActiveTasksList() {
+    if (Array.isArray(appState.activeTasks) && appState.activeTasks.length) return appState.activeTasks;
+    if (Array.isArray(appState.activeTasks) && appState.activeTasks.length === 0) return appState.activeTasks; // explicitly empty
+    // Derive from combined tasks if activeTasks not set
+    return (appState.tasks || []).filter(t => t.status !== 'done' && t.status !== 'won');
+}
+
 // Team-scoped Firestore functions - with real-time listener
 async function loadTasksFromFirestore() {
     if (!db || !currentAuthUser || !appState.currentTeamId) {
@@ -27422,15 +27569,26 @@ async function loadTasksFromFirestore() {
     }
     
     try {
-        const { collection, query, onSnapshot, orderBy } = 
+        const { collection, query, onSnapshot, orderBy, limit } = 
             await import('https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js');
         
+        // Stop previous listener before attaching a new one
+        if (tasksActiveUnsubscribe) {
+            tasksActiveUnsubscribe();
+            tasksActiveUnsubscribe = null;
+        }
+
         const tasksRef = collection(db, 'teams', appState.currentTeamId, 'tasks');
-        const q = query(tasksRef, orderBy('createdAt', 'desc'));
+        const q = query(
+            tasksRef,
+            orderBy('createdAt', 'desc'),
+            limit(TASK_FETCH_LIMIT)
+        );
         
         // Real-time listener for tasks
-        onSnapshot(q, (querySnapshot) => {
-            const tasks = [];
+        tasksActiveUnsubscribe = onSnapshot(q, (querySnapshot) => {
+            const activeTasks = [];
+            const completedTasks = [];
             querySnapshot.forEach((doc) => {
                 const taskData = { id: doc.id, ...doc.data() };
                 
@@ -27441,27 +27599,36 @@ async function loadTasksFromFirestore() {
                     taskData.status = 'inprogress';
                 }
                 
-                tasks.push(taskData);
+                if (taskData.status === 'done' || taskData.status === 'won') {
+                    completedTasks.push(taskData);
+                } else {
+                    activeTasks.push(taskData);
+                }
             });
             
-            appState.tasks = tasks;
-            saveToLocalStorage('tasks', appState.tasks);
-            
-            if (window.displayTasks) {
-                window.displayTasks();
+            appState.activeTasks = activeTasks;
+            if (completedTasks.length) {
+                appState.completedTasks = completedTasks;
+                appState.completedTasksLoadedForMetrics = true;
             }
-            
-            // Update overview when tasks change
-            updateOverview();
-            
-            // Update metrics if active
-            updateMetricsIfActive();
-            
-            debugLog(`✅ Loaded ${tasks.length} tasks`);
+            appState.completedTasksCount = appState.completedTasksCount || 0; // keep count if already fetched
+            recomputeTasksView();
+
+            if (spreadsheetState.showCompleted && !tasksCompletedUnsubscribe) {
+                loadCompletedTasksFromFirestore();
+            }
+
+            // Update lightweight counts for completed tasks (documents not loaded)
+            loadCompletedTaskCounts();
+
+            debugLog(`✅ Loaded ${activeTasks.length} active tasks (plus ${completedTasks.length} completed in snapshot)`);
         }, (error) => {
             // Handle Firestore listener errors (network issues, timeouts, etc.)
             if (error.code === 'unavailable' || error.code === 'deadline-exceeded') {
                 debugLog('⚠️ Tasks listener temporarily unavailable, will auto-retry');
+            } else if (error.code === 'failed-precondition') {
+                console.error('❌ Tasks listener failed-precondition; falling back to one-time load');
+                hydrateTasksOnce();
             } else {
                 console.error('❌ Error in tasks snapshot listener:', error.code || error.message);
                 debugError('Full error:', error);
@@ -27471,6 +27638,96 @@ async function loadTasksFromFirestore() {
     } catch (error) {
         console.error('Error setting up tasks listener:', error.code || error.message);
         debugError('Full error:', error);
+    }
+}
+
+async function loadCompletedTasksFromFirestore() {
+    if (!db || !currentAuthUser || !appState.currentTeamId) return;
+    if (tasksCompletedUnsubscribe) return;
+
+    try {
+        const { collection, query, where, onSnapshot, orderBy, limit, getDocs } = 
+            await import('https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js');
+
+        const tasksRef = collection(db, 'teams', appState.currentTeamId, 'tasks');
+        const q = query(
+            tasksRef,
+            where('status', 'in', ['done', 'won']),
+            orderBy('createdAt', 'desc'),
+            limit(TASK_COMPLETED_FETCH_LIMIT)
+        );
+
+        tasksCompletedUnsubscribe = onSnapshot(q, (querySnapshot) => {
+            const tasks = [];
+            querySnapshot.forEach((doc) => {
+                const taskData = { id: doc.id, ...doc.data() };
+
+                // Normalize legacy status values to valid enums (todo, inprogress, done)
+                if (taskData.status === 'complete') {
+                    taskData.status = 'done';
+                } else if (taskData.status === 'in-progress' || taskData.status === 'in progress') {
+                    taskData.status = 'inprogress';
+                }
+
+                tasks.push(taskData);
+            });
+
+            appState.completedTasks = tasks;
+            appState.completedTasksLoadedForMetrics = true;
+            if (spreadsheetState.showCompleted) {
+                recomputeTasksView();
+            }
+
+            debugLog(`✅ Loaded ${tasks.length} completed tasks`);
+        }, (error) => {
+            if (error.code === 'unavailable' || error.code === 'deadline-exceeded') {
+                debugLog('⚠️ Completed-tasks listener temporarily unavailable, will auto-retry');
+            } else if (error.code === 'failed-precondition') {
+                console.error('❌ Completed tasks listener failed-precondition; falling back to one-time load');
+                hydrateCompletedTasksOnce();
+            } else {
+                console.error('❌ Error in completed tasks snapshot listener:', error.code || error.message);
+                debugError('Full error:', error);
+            }
+        });
+    } catch (error) {
+        console.error('Error setting up completed tasks listener:', error.code || error.message);
+        debugError('Full error:', error);
+    }
+}
+
+async function hydrateCompletedTasksOnce() {
+    try {
+        const { collection, query, where, orderBy, limit, getDocs } =
+            await import('https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js');
+        const tasksRef = collection(db, 'teams', appState.currentTeamId, 'tasks');
+        const q = query(
+            tasksRef,
+            where('status', 'in', ['done', 'won']),
+            orderBy('createdAt', 'desc'),
+            limit(TASK_COMPLETED_FETCH_LIMIT)
+        );
+        const snapshot = await getDocs(q);
+
+        const tasks = [];
+        snapshot.forEach(docSnap => {
+            const taskData = { id: docSnap.id, ...docSnap.data() };
+            if (taskData.status === 'complete') {
+                taskData.status = 'done';
+            } else if (taskData.status === 'in-progress' || taskData.status === 'in progress') {
+                taskData.status = 'inprogress';
+            }
+            tasks.push(taskData);
+        });
+
+        appState.completedTasks = tasks;
+        appState.completedTasksLoadedForMetrics = true;
+        if (spreadsheetState.showCompleted) {
+            recomputeTasksView();
+        }
+        debugLog(`✅ Fallback loaded ${tasks.length} completed tasks`);
+    } catch (error) {
+        console.error('Fallback completed task load failed:', error);
     }
 }
 
@@ -27634,6 +27891,8 @@ async function updateTaskInFirestore(task) {
     }
 }
 
+const MESSAGE_FETCH_LIMIT = 400;
+
 async function loadMessagesFromFirestore() {
     if (!db || !currentAuthUser || !appState.currentTeamId) {
         // Clear messages if no team
@@ -27644,11 +27903,11 @@ async function loadMessagesFromFirestore() {
     }
     
     try {
-        const { collection, query, onSnapshot, orderBy } = 
+        const { collection, query, onSnapshot, orderBy, limitToLast } = 
             await import('https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js');
         
         const messagesRef = collection(db, 'teams', appState.currentTeamId, 'messages');
-        const q = query(messagesRef, orderBy('timestamp', 'asc'));
+        const q = query(messagesRef, orderBy('timestamp', 'asc'), limitToLast(MESSAGE_FETCH_LIMIT));
         
         // Track if this is the initial load
         let isInitialLoad = true;
@@ -27931,6 +28190,8 @@ async function saveMessageToFirestore(message) {
     }
 }
 
+const EVENT_FETCH_LIMIT = 400;
+
 async function loadEventsFromFirestore() {
     if (!db || !currentAuthUser || !appState.currentTeamId) {
         console.log('Cannot load events: missing db, auth, or teamId');
@@ -27938,11 +28199,11 @@ async function loadEventsFromFirestore() {
     }
     
     try {
-        const { collection, query, onSnapshot, orderBy, doc, getDoc, Timestamp } = 
+        const { collection, query, onSnapshot, orderBy, doc, getDoc, Timestamp, limitToLast } = 
             await import('https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js');
         
         const eventsRef = collection(db, 'teams', appState.currentTeamId, 'events');
-        const q = query(eventsRef, orderBy('startTime', 'asc'));
+        const q = query(eventsRef, orderBy('startTime', 'asc'), limitToLast(EVENT_FETCH_LIMIT));
         
         // Get user role for visibility filtering
         const teamRef = doc(db, 'teams', appState.currentTeamId);
@@ -30436,6 +30697,51 @@ window.openDeleteTransactionModal = openDeleteTransactionModal;
 // Current subscription tab filter
 let currentSubscriptionTab = 'company';
 
+function getNextSubscriptionDate(currentDate, frequency, interval = 1) {
+    const next = new Date(currentDate);
+    const step = Math.max(1, Number(interval) || 1);
+    switch (frequency) {
+        case 'weekly':
+            next.setDate(next.getDate() + (7 * step));
+            break;
+        case 'quarterly':
+            next.setMonth(next.getMonth() + (3 * step));
+            break;
+        case 'yearly':
+            next.setFullYear(next.getFullYear() + step);
+            break;
+        default:
+            next.setMonth(next.getMonth() + step);
+            break;
+    }
+    return next;
+}
+
+// Roll past-due subscription dates forward so dashboards stay current
+function normalizeSubscriptionNextPayDate(sub) {
+    const rawDate = sub.nextPayDate?.toDate?.() || new Date(sub.nextPayDate);
+    if (!rawDate || isNaN(rawDate)) {
+        return { normalizedSub: sub, needsUpdate: false };
+    }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const interval = Math.max(1, Number(sub.interval) || 1);
+    let adjusted = new Date(rawDate);
+    let changed = false;
+    let guard = 0;
+    const maxIterations = 520; // ~10 years of weekly advances
+    while (adjusted < today && guard < maxIterations) {
+        adjusted = getNextSubscriptionDate(adjusted, sub.frequency, interval);
+        changed = true;
+        guard++;
+    }
+
+    const normalizedSub = { ...sub, nextPayDate: adjusted };
+    return { normalizedSub, needsUpdate: changed };
+}
+
 /**
  * Load subscriptions from Firestore
  */
@@ -30446,7 +30752,7 @@ async function loadSubscriptions() {
     }
     
     try {
-        const { collection, query, orderBy, getDocs } = await import('https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js');
+        const { collection, query, orderBy, getDocs, doc, updateDoc, serverTimestamp } = await import('https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js');
         const subscriptionsRef = collection(db, 'teams', appState.currentTeamId, 'subscriptions');
         const q = query(subscriptionsRef, orderBy('nextPayDate', 'asc'));
         const snapshot = await getDocs(q);
@@ -30456,14 +30762,44 @@ async function loadSubscriptions() {
             ...doc.data()
         }));
         // Privacy: only show private subscriptions created by the current user
-        appState.subscriptions = rawSubs.filter(sub => {
+        const filteredSubs = rawSubs.filter(sub => {
             if (sub.type !== 'private') return true;
             if (!sub.createdBy) return false; // safest default for legacy records
             return sub.createdBy === currentAuthUser?.uid;
         });
+
+        const updates = [];
+        appState.subscriptions = filteredSubs.map(sub => {
+            const { normalizedSub, needsUpdate } = normalizeSubscriptionNextPayDate(sub);
+            if (needsUpdate) {
+                updates.push({ id: normalizedSub.id, nextPayDate: normalizedSub.nextPayDate });
+            }
+            return normalizedSub;
+        });
+
+        appState.subscriptions.sort((a, b) => {
+            const dateA = a.nextPayDate?.toDate?.() || new Date(a.nextPayDate);
+            const dateB = b.nextPayDate?.toDate?.() || new Date(b.nextPayDate);
+            const timeA = dateA instanceof Date ? dateA.getTime() : NaN;
+            const timeB = dateB instanceof Date ? dateB.getTime() : NaN;
+            const safeA = Number.isFinite(timeA) ? timeA : 0;
+            const safeB = Number.isFinite(timeB) ? timeB : 0;
+            return safeA - safeB;
+        });
         
         debugLog('📅 Loaded subscriptions:', appState.subscriptions.length);
         renderSubscriptions();
+
+        if (updates.length) {
+            try {
+                await Promise.all(updates.map(update => updateDoc(
+                    doc(db, 'teams', appState.currentTeamId, 'subscriptions', update.id),
+                    { nextPayDate: update.nextPayDate, updatedAt: serverTimestamp() }
+                )));
+            } catch (updateError) {
+                console.error('Error updating past-due subscriptions:', updateError);
+            }
+        }
         
     } catch (error) {
         console.error('Error loading subscriptions:', error);
@@ -30537,7 +30873,7 @@ function renderSubscriptionRow(sub) {
                     </div>
                     <div class="subscription-meta">
                         <span><i class="fas fa-calendar"></i> ${dateStr}</span>
-                        ${sub.category ? `<span><i class="fas fa-tag"></i> ${escapeHtml(sub.category)}</span>` : ''}
+                        ${sub.category ? `<span class="subscription-category"><i class="fas fa-tag"></i> ${escapeHtml(sub.category)}</span>` : ''}
                     </div>
                 </div>
             </div>
