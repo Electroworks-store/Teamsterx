@@ -3065,12 +3065,12 @@ body.dark-mode .reaction-chip.user-reacted {
     box-shadow: none;
     border: none;
     height: auto;
-    min-height: 0;
+    min-height: auto;
     max-height: none;
     display: flex;
     flex-direction: column;
-    flex: 1 1 auto;
-    overflow: hidden; /* Prevent container from scrolling */
+    flex: 0 0 auto;
+    overflow: visible; /* Allow full grid height so last row shows */
     padding-bottom: 120px; /* Ensure bottom rows are visible */
 }
 
