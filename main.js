@@ -11964,18 +11964,18 @@ function initTasks() {
             <div class="doc-link-modal" id="docLinkModal">
                 <div class="doc-link-modal-header">
                     <h4>Insert Link</h4>
-                    <button class="doc-link-modal-close" onclick="closeLinkModal()">
+                    <button class="doc-link-modal-close" onclick="closeDocLinkModal()">
                         <i class="fas fa-times"></i>
                     </button>
                 </div>
                 <input type="text" id="linkTextInput" placeholder="Link text" value="${escapeHtml(selectedText)}" autofocus>
                 <input type="text" id="linkUrlInput" placeholder="https://example.com">
                 <div class="doc-link-modal-actions">
-                    <button class="btn-secondary" onclick="closeLinkModal()">Cancel</button>
-                    <button class="btn-primary" onclick="insertLink()">Insert</button>
+                    <button class="btn-secondary" onclick="closeDocLinkModal()">Cancel</button>
+                    <button class="btn-primary" onclick="insertDocLink()">Insert</button>
                 </div>
             </div>
-            <div class="modal-overlay" id="linkModalOverlay" onclick="closeLinkModal()"></div>
+            <div class="modal-overlay" id="linkModalOverlay" onclick="closeDocLinkModal()"></div>
         `;
         
         document.body.insertAdjacentHTML('beforeend', modalHTML);
@@ -11997,7 +11997,7 @@ function initTasks() {
         document.getElementById('linkTextInput')?.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') {
                 e.preventDefault();
-                insertLink();
+                insertDocLink();
             } else if (e.key === 'Tab' && !e.shiftKey) {
                 e.preventDefault();
                 document.getElementById('linkUrlInput')?.focus();
@@ -12007,18 +12007,18 @@ function initTasks() {
         document.getElementById('linkUrlInput')?.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') {
                 e.preventDefault();
-                insertLink();
+                insertDocLink();
             }
         });
     }
     
-    window.closeLinkModal = function() {
+    window.closeDocLinkModal = function() {
         document.getElementById('docLinkModal')?.remove();
         document.getElementById('linkModalOverlay')?.remove();
         window._savedDocLinkRange = null;
     };
     
-    window.insertLink = function() {
+    window.insertDocLink = function() {
         const textInput = document.getElementById('linkTextInput');
         const urlInput = document.getElementById('linkUrlInput');
         const linkText = textInput?.value.trim() || '';
@@ -28831,11 +28831,42 @@ async function subscribeLinkLobbyGroups() {
 }
 
 // Render Link Lobby
-function renderLinkLobby() {
+function renderLinkLobby(targetGroupId = null) {
     const container = document.getElementById('linkLobbyContainer');
     const emptyState = document.getElementById('linkLobbyEmpty');
     
     if (!container) return;
+
+    // Partial re-render: only replace the specific group
+    if (targetGroupId) {
+        const group = linkLobbyGroups.find(g => g.id === targetGroupId);
+        if (!group) return;
+
+        const existing = container.querySelector(`.link-group[data-group-id="${targetGroupId}"]`);
+        const groupIndex = linkLobbyGroups.findIndex(g => g.id === targetGroupId);
+        const newEl = createGroupElement(group, groupIndex);
+
+        if (existing) {
+            container.replaceChild(newEl, existing);
+        } else {
+            // Insert at the correct position based on current ordering
+            const nextGroup = linkLobbyGroups[groupIndex + 1];
+            if (nextGroup) {
+                const nextEl = container.querySelector(`.link-group[data-group-id="${nextGroup.id}"]`);
+                if (nextEl) {
+                    container.insertBefore(newEl, nextEl);
+                } else {
+                    container.appendChild(newEl);
+                }
+            } else {
+                container.appendChild(newEl);
+            }
+        }
+
+        initGroupDragAndDrop();
+        initLinkDragAndDrop();
+        return;
+    }
     
     // NOTE: Visibility filtering is now done at query level in subscribeLinkLobbyGroups()
     // The linkLobbyGroups array only contains groups the user has permission to see
@@ -28977,7 +29008,8 @@ function renderGroupContent(group) {
 
 // Render individual link item - Collapsible tile: small state shows name + star, click opens link; arrow expands details
 function renderLinkItem(link, groupId) {
-    const faviconUrl = link.iconUrl || `https://www.google.com/s2/favicons?domain=${link.domain}&sz=32`;
+    const domain = link.domain || '';
+    const faviconUrl = link.iconUrl || `https://icons.duckduckgo.com/ip3/${domain}.ico`;
     
     return `
         <div class="link-item ${link.favorite ? 'favorite' : ''}" data-link-id="${link.id}" data-group-id="${groupId}" data-url="${escapeHtml(link.url)}" draggable="true">
@@ -28985,7 +29017,7 @@ function renderLinkItem(link, groupId) {
                 <i class="fas fa-grip-vertical"></i>
             </div>
             <div class="link-item-collapsed" onclick="openLink('${escapeHtml(link.url)}')">
-                <img class="link-favicon" src="${faviconUrl}" alt="" onerror="this.outerHTML='<div class=\\'link-favicon-fallback\\'><i class=\\'fas fa-link\\'></i></div>'">
+                <img class="link-favicon" src="${faviconUrl}" alt="" onerror="this.onerror=null; this.src='https://www.google.com/s2/favicons?domain=${domain}&sz=32'; this.onerror=function(){ this.outerHTML='<div class=\\'link-favicon-fallback\\'><i class=\\'fas fa-link\\'></i></div>'; }">
                 <span class="link-name">${escapeHtml(link.label)}</span>
             </div>
             <button class="link-collapsed-star ${link.favorite ? 'active' : ''}" onclick="event.stopPropagation(); toggleLinkFavorite('${groupId}', '${link.id}', ${!link.favorite})" title="${link.favorite ? 'Remove from favorites' : 'Add to favorites'}">
@@ -29006,6 +29038,9 @@ function renderLinkItem(link, groupId) {
                         </button>
                         <button class="link-open-btn" onclick="openLink('${escapeHtml(link.url)}')" title="Open link">
                             Open <i class="fas fa-external-link-alt"></i>
+                        </button>
+                        <button class="link-edit-btn" onclick="openEditLinkModal('${groupId}', '${link.id}')" title="Edit link">
+                            <i class="fas fa-pen"></i>
                         </button>
                         <button class="link-delete-btn" onclick="deleteLink('${groupId}', '${link.id}')" title="Delete link">
                             <i class="fas fa-trash"></i>
@@ -29429,6 +29464,34 @@ function openAddLinkModal(groupId) {
     setTimeout(() => document.getElementById('linkUrl').focus(), 100);
 }
 
+// Open edit link modal
+function openEditLinkModal(groupId, linkId) {
+    const group = linkLobbyGroups.find(g => g.id === groupId);
+    if (!group) return;
+    let link = group.links.find(l => l.id === linkId);
+    if (!link) {
+        Object.keys(group.domainGroups || {}).some(dom => {
+            const found = group.domainGroups[dom].find(l => l.id === linkId);
+            if (found) {
+                link = found;
+                return true;
+            }
+            return false;
+        });
+    }
+    if (!link) return;
+
+    document.getElementById('linkModalTitle').innerHTML = '<i class="fas fa-link"></i> Edit Link';
+    document.getElementById('linkId').value = linkId;
+    document.getElementById('linkGroupIdForLink').value = groupId;
+    document.getElementById('linkUrl').value = link.url || '';
+    document.getElementById('linkLabel').value = link.label || link.title || '';
+    document.getElementById('linkSubmitBtn').innerHTML = '<i class="fas fa-save"></i> Save Link';
+    document.getElementById('linkModal').classList.add('active');
+    updateLinkPreview();
+    setTimeout(() => document.getElementById('linkUrl').focus(), 100);
+}
+
 // Close link modal
 function closeLinkModal() {
     document.getElementById('linkModal').classList.remove('active');
@@ -29441,11 +29504,23 @@ function updateLinkPreview() {
     const faviconEl = document.getElementById('linkFaviconPreview');
     const domainEl = document.getElementById('linkDomainPreview');
     
+    const normalizeUrl = (raw) => {
+        if (!raw) return '';
+        const trimmed = raw.trim();
+        if (/^https?:\/\//i.test(trimmed)) return trimmed;
+        return `https://${trimmed}`;
+    };
+    
     try {
-        const url = new URL(urlInput.value);
+        const url = new URL(normalizeUrl(urlInput.value));
         const domain = url.hostname;
         
-        faviconEl.src = `https://www.google.com/s2/favicons?domain=${domain}&sz=32`;
+        // Prefer DuckDuckGo favicon (better coverage), fallback to Google on error
+        faviconEl.src = `https://icons.duckduckgo.com/ip3/${domain}.ico`;
+        faviconEl.onerror = () => {
+            faviconEl.onerror = null;
+            faviconEl.src = `https://www.google.com/s2/favicons?domain=${domain}&sz=32`;
+        };
         domainEl.textContent = domain;
         previewEl.style.display = 'flex';
     } catch (e) {
@@ -29458,18 +29533,25 @@ async function saveLink(event) {
     event.preventDefault();
     
     const groupId = document.getElementById('linkGroupIdForLink').value;
-    const urlValue = document.getElementById('linkUrl').value.trim();
+    const rawUrlValue = document.getElementById('linkUrl').value.trim();
     const label = document.getElementById('linkLabel').value.trim();
+    const linkId = document.getElementById('linkId').value.trim();
     
-    if (!urlValue || !label) {
+    if (!rawUrlValue || !label) {
         showToast('Please fill in all fields', 'error');
         return;
     }
     
-    // Validate URL
+    // Normalize & validate URL (allow missing protocol)
+    const normalizeUrl = (raw) => {
+        if (!raw) return '';
+        const trimmed = raw.trim();
+        if (/^https?:\/\//i.test(trimmed)) return trimmed;
+        return `https://${trimmed}`;
+    };
     let url, domain;
     try {
-        url = new URL(urlValue);
+        url = new URL(normalizeUrl(rawUrlValue));
         domain = url.hostname;
     } catch (e) {
         showToast('Please enter a valid URL', 'error');
@@ -29482,49 +29564,90 @@ async function saveLink(event) {
     }
     
     try {
-        const { collection, addDoc, serverTimestamp } = 
+        const { collection, addDoc, updateDoc, doc, serverTimestamp } = 
             await import('https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js');
         
         const linksRef = collection(db, 'teams', appState.currentTeamId, 'linkLobbyGroups', groupId, 'links');
-        
-        // SECURITY: Only include fields allowed by Firestore rules
-        // Allowed: createdBy, url, title, description, domain, favicon, favorite, createdAt, updatedAt
-        const newLinkData = {
+        const faviconUrl = `https://icons.duckduckgo.com/ip3/${domain}.ico`;
+        const linkPayload = {
             url: url.href,
-            title: label,  // Rules use 'title', not 'label'
+            title: label,
             domain,
-            favicon: `https://www.google.com/s2/favicons?domain=${domain}&sz=32`,  // Rules use 'favicon', not 'iconUrl'
-            favorite: false,
-            createdAt: serverTimestamp(),
-            createdBy: currentAuthUser.uid
+            favicon: faviconUrl,
+            updatedAt: serverTimestamp(),
         };
-        
-        const docRef = await addDoc(linksRef, newLinkData);
-        
-        // Immediately add the new link to local state and re-render
-        const newLink = {
-            id: docRef.id,
-            ...newLinkData,
-            label: label,  // Keep label for backward compat in UI rendering
-            iconUrl: newLinkData.favicon,  // Keep iconUrl for backward compat in UI rendering
-            createdAt: { toMillis: () => Date.now() } // Fake timestamp for sorting
-        };
-        
-        // Find the group and add the link
-        const group = linkLobbyGroups.find(g => g.id === groupId);
-        if (group) {
-            if (group.autoGroupDomain && domain) {
-                if (!group.domainGroups[domain]) {
-                    group.domainGroups[domain] = [];
+
+        if (linkId) {
+            // Update existing link
+            const linkDocRef = doc(linksRef, linkId);
+            await updateDoc(linkDocRef, linkPayload);
+
+            // Update local state
+            const group = linkLobbyGroups.find(g => g.id === groupId);
+            if (group) {
+                const updateLocal = (arr) => {
+                    const idx = arr.findIndex(l => l.id === linkId);
+                    if (idx !== -1) {
+                        arr[idx] = { ...arr[idx], ...linkPayload, label, iconUrl: faviconUrl };
+                        return true;
+                    }
+                    return false;
+                };
+                let updated = updateLocal(group.links);
+                if (!updated) {
+                    Object.keys(group.domainGroups || {}).forEach(dom => {
+                        if (updateLocal(group.domainGroups[dom])) {
+                            updated = true;
+                        }
+                    });
                 }
-                group.domainGroups[domain].unshift(newLink);
-            } else {
-                group.links.unshift(newLink);
+                // If domain changed, move between domain groups/links
+                if (group.autoGroupDomain) {
+                    // Remove from all buckets and reinsert based on new domain
+                    Object.keys(group.domainGroups || {}).forEach(dom => {
+                        group.domainGroups[dom] = group.domainGroups[dom].filter(l => l.id !== linkId);
+                    });
+                    group.links = group.links.filter(l => l.id !== linkId);
+                    if (domain) {
+                        if (!group.domainGroups[domain]) group.domainGroups[domain] = [];
+                        group.domainGroups[domain].unshift({ id: linkId, ...linkPayload, label, iconUrl: faviconUrl });
+                    } else {
+                        group.links.unshift({ id: linkId, ...linkPayload, label, iconUrl: faviconUrl });
+                    }
+                }
+                renderLinkLobby();
             }
-            renderLinkLobby();
+            showToast('Link updated!', 'success');
+        } else {
+            // Create new link
+            const newLinkData = {
+                ...linkPayload,
+                favorite: false,
+                createdAt: serverTimestamp(),
+                createdBy: currentAuthUser.uid
+            };
+            const docRef = await addDoc(linksRef, newLinkData);
+            const newLink = {
+                id: docRef.id,
+                ...newLinkData,
+                label,
+                iconUrl: faviconUrl,
+                createdAt: { toMillis: () => Date.now() }
+            };
+            const group = linkLobbyGroups.find(g => g.id === groupId);
+            if (group) {
+                if (group.autoGroupDomain && domain) {
+                    if (!group.domainGroups[domain]) {
+                        group.domainGroups[domain] = [];
+                    }
+                    group.domainGroups[domain].unshift(newLink);
+                } else {
+                    group.links.unshift(newLink);
+                }
+                renderLinkLobby();
+            }
+            showToast('Link added!', 'success');
         }
-        
-        showToast('Link added!', 'success');
         closeLinkModal();
         
     } catch (error) {
@@ -29617,6 +29740,16 @@ async function deleteLink(groupId, linkId) {
         
         const linkRef = doc(db, 'teams', appState.currentTeamId, 'linkLobbyGroups', groupId, 'links', linkId);
         await deleteDoc(linkRef);
+        
+        // Optimistically remove from local state and re-render
+        const group = linkLobbyGroups.find(g => g.id === groupId);
+        if (group) {
+            group.links = group.links.filter(l => l.id !== linkId);
+            Object.keys(group.domainGroups || {}).forEach(domain => {
+                group.domainGroups[domain] = group.domainGroups[domain].filter(l => l.id !== linkId);
+            });
+        }
+        renderLinkLobby();
         
         showToast('Link deleted!', 'success');
         
@@ -29721,6 +29854,8 @@ async function updateGroupSortOrders() {
 // ===================================
 
 let draggedLink = null;
+let dropIndicator = null;
+let dragImageEl = null;
 
 function initLinkDragAndDrop() {
     const container = document.getElementById('linkLobbyContainer');
@@ -29731,80 +29866,115 @@ function initLinkDragAndDrop() {
     linkItems.forEach(linkItem => {
         const handle = linkItem.querySelector('.link-item-drag-handle');
         if (!handle) return;
+        // Ensure the handle itself is draggable so dragstart fires reliably on the handle
+        handle.setAttribute('draggable', 'true');
         
         // Drag start on handle
         handle.addEventListener('dragstart', (e) => {
-            e.stopPropagation(); // Prevent group drag
+            e.stopPropagation();
             draggedLink = linkItem;
             linkItem.classList.add('dragging');
             e.dataTransfer.effectAllowed = 'move';
             e.dataTransfer.setData('text/plain', linkItem.dataset.linkId);
-            e.dataTransfer.setData('application/x-link-drag', 'true'); // Mark as link drag
+
+            // Create a lightweight drag image aligned near the cursor
+            dragImageEl = linkItem.cloneNode(true);
+            dragImageEl.classList.add('drag-ghost');
+            dragImageEl.style.position = 'absolute';
+            dragImageEl.style.top = '-999px';
+            dragImageEl.style.left = '-999px';
+            document.body.appendChild(dragImageEl);
+            e.dataTransfer.setDragImage(dragImageEl, 12, 12);
         });
         
         handle.addEventListener('dragend', () => {
             draggedLink = null;
             linkItem.classList.remove('dragging');
-            // Remove all drag-over classes
+            if (dropIndicator) {
+                dropIndicator.remove();
+                dropIndicator = null;
+            }
             container.querySelectorAll('.link-item.drag-over').forEach(el => el.classList.remove('drag-over'));
+
+            if (dragImageEl) {
+                dragImageEl.remove();
+                dragImageEl = null;
+            }
         });
         
         // Drag over link items
         linkItem.addEventListener('dragover', (e) => {
-            // Only handle link drags, not group drags
             if (!draggedLink || draggedLink === linkItem) return;
-            
-            // Only allow drop within same group
             if (draggedLink.dataset.groupId !== linkItem.dataset.groupId) return;
             
             e.preventDefault();
             e.stopPropagation();
-            linkItem.classList.add('drag-over');
+            
+            // Show drop indicator
+            showDropIndicator(linkItem, draggedLink);
         });
         
         linkItem.addEventListener('dragleave', (e) => {
             e.stopPropagation();
-            linkItem.classList.remove('drag-over');
         });
         
         linkItem.addEventListener('drop', async (e) => {
             e.preventDefault();
             e.stopPropagation();
-            linkItem.classList.remove('drag-over');
             
             if (!draggedLink || draggedLink === linkItem) return;
             
-            // Only allow drop within same group
             const groupId = linkItem.dataset.groupId;
             if (draggedLink.dataset.groupId !== groupId) return;
             
-            // Find the links-list container
             const linksList = linkItem.closest('.links-list');
             if (!linksList) return;
             
-            // Reorder in DOM
-            const allLinks = [...linksList.querySelectorAll('.link-item')];
-            const draggedIndex = allLinks.indexOf(draggedLink);
-            const dropIndex = allLinks.indexOf(linkItem);
+            // SAVE domain info BEFORE re-rendering
+            const domainSubgroup = linksList.closest('.domain-subgroup');
+            const domain = domainSubgroup ? domainSubgroup.dataset.domain : null;
             
-            if (draggedIndex < dropIndex) {
-                linkItem.after(draggedLink);
-            } else {
-                linkItem.before(draggedLink);
+            // Update local state first
+            const group = linkLobbyGroups.find(g => g.id === groupId);
+            if (group) {
+                const linksArray = domain ? group.domainGroups[domain] : group.links;
+                
+                if (linksArray) {
+                    // Find links by ID in the local array
+                    const draggedId = draggedLink.dataset.linkId;
+                    const dropId = linkItem.dataset.linkId;
+                    
+                    const draggedIdx = linksArray.findIndex(l => l.id === draggedId);
+                    const dropIdx = linksArray.findIndex(l => l.id === dropId);
+                    
+                    if (draggedIdx !== -1 && dropIdx !== -1 && draggedIdx !== dropIdx) {
+                        // Remove dragged item from its current position
+                        const [movedLink] = linksArray.splice(draggedIdx, 1);
+                        
+                        // Insert at new position
+                        // If we moved down, the target index shifts, so subtract 1
+                        const newIdx = draggedIdx < dropIdx ? dropIdx - 1 : dropIdx;
+                        linksArray.splice(newIdx, 0, movedLink);
+                        
+                        console.log(`Link reordered: ${draggedId} from position ${draggedIdx} to ${newIdx}`);
+                    }
+                }
             }
             
-            // Update sort orders in Firestore
-            await updateLinkSortOrders(groupId, linksList);
+            // Re-render only this group to avoid refreshing all groups
+            renderLinkLobby(groupId);
+            
+            // Update Firestore in background - pass groupId and domain instead of stale DOM reference
+            await updateLinkSortOrders(groupId, domain);
         });
     });
     
-    // Also allow dropping on .links-list containers (for empty areas)
+    // Drop on empty area at end of list
     container.querySelectorAll('.links-list').forEach(linksList => {
         linksList.addEventListener('dragover', (e) => {
             if (!draggedLink) return;
             const groupId = linksList.closest('.link-group')?.dataset.groupId;
             if (draggedLink.dataset.groupId !== groupId) return;
-            
             e.preventDefault();
         });
         
@@ -29815,38 +29985,69 @@ function initLinkDragAndDrop() {
             
             e.preventDefault();
             
-            // If dropped on empty area, move to end
-            const lastLink = linksList.querySelector('.link-item:last-child');
-            if (lastLink && lastLink !== draggedLink) {
-                lastLink.after(draggedLink);
+            // SAVE domain info BEFORE re-rendering
+            const domainSubgroup = linksList.closest('.domain-subgroup');
+            const domain = domainSubgroup ? domainSubgroup.dataset.domain : null;
+            
+            // Update local state - move to end
+            const group = linkLobbyGroups.find(g => g.id === groupId);
+            if (group) {
+                const linksArray = domain ? group.domainGroups[domain] : group.links;
+                
+                if (linksArray) {
+                    const draggedId = draggedLink.dataset.linkId;
+                    const draggedIdx = linksArray.findIndex(l => l.id === draggedId);
+                    if (draggedIdx !== -1) {
+                        const [movedLink] = linksArray.splice(draggedIdx, 1);
+                        linksArray.push(movedLink);
+                    }
+                }
             }
             
-            await updateLinkSortOrders(groupId, linksList);
+            renderLinkLobby(groupId);
+            await updateLinkSortOrders(groupId, domain);
         });
     });
 }
 
+// Show drop indicator to visualize where link will be inserted
+function showDropIndicator(targetLink, draggedLink) {
+    if (dropIndicator) {
+        dropIndicator.remove();
+    }
+    
+    dropIndicator = document.createElement('div');
+    dropIndicator.className = 'link-item drag-indicator';
+    dropIndicator.style.cssText = 'height: 3px; background: var(--accent); border-radius: 2px; margin: 4px 0; opacity: 0.8;';
+    
+    // Insert indicator before target
+    targetLink.before(dropIndicator);
+}
+
 // Update link sort orders in Firestore
-async function updateLinkSortOrders(groupId, linksList) {
+async function updateLinkSortOrders(groupId, domain) {
     if (!db || !appState.currentTeamId || !groupId) return;
     
     try {
         const { doc, updateDoc } = 
             await import('https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js');
         
-        const links = linksList.querySelectorAll('.link-item');
-        const updates = [];
+        const group = linkLobbyGroups.find(g => g.id === groupId);
+        if (!group) return;
         
-        links.forEach((link, index) => {
-            const linkId = link.dataset.linkId;
-            if (linkId && link.dataset.groupId === groupId) {
-                const linkRef = doc(db, 'teams', appState.currentTeamId, 'linkLobbyGroups', groupId, 'links', linkId);
-                updates.push(updateDoc(linkRef, { sortOrder: index }));
-            }
+        // Get the correct links array (domain-specific or main)
+        const linksArray = domain ? group.domainGroups[domain] : group.links;
+        
+        if (!linksArray) return;
+        
+        // Update Firestore with new sort orders
+        const updates = linksArray.map((link, index) => {
+            const linkRef = doc(db, 'teams', appState.currentTeamId, 'linkLobbyGroups', groupId, 'links', link.id);
+            return updateDoc(linkRef, { sortOrder: index });
         });
         
         await Promise.all(updates);
-        console.log('Link sort orders updated for group:', groupId);
+        console.log('Link sort orders updated for group:', groupId, 'domain:', domain);
         
     } catch (error) {
         console.error('Error updating link sort orders:', error);
