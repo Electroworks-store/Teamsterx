@@ -3065,12 +3065,12 @@ body.dark-mode .reaction-chip.user-reacted {
     box-shadow: none;
     border: none;
     height: auto;
-    min-height: 0;
+    min-height: auto;
     max-height: none;
     display: flex;
     flex-direction: column;
-    flex: 1 1 auto;
-    overflow: hidden; /* Prevent container from scrolling */
+    flex: 0 0 auto;
+    overflow: visible; /* Allow full grid height so last row shows */
     padding-bottom: 120px; /* Ensure bottom rows are visible */
 }
 
@@ -5833,6 +5833,46 @@ body.dark-mode .calendar-day.drag-over {
 .spreadsheet-card-menu-btn:hover {
     background: var(--bg-body);
     color: var(--text-main);
+}
+
+.card-badge-row {
+    position: absolute;
+    right: 12px;
+    bottom: 16px;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    pointer-events: auto;
+    z-index: 4;
+}
+
+.card-badge-row .spreadsheet-private-tag,
+.card-badge-row .doc-private-badge {
+    position: static;
+    margin: 0;
+}
+
+.card-pin-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: rgba(142, 142, 147, 0.12);
+    color: var(--text-muted);
+    font-size: 12px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.card-pin-badge i {
+    transform: rotate(-12deg);
+}
+
+.card-pin-badge.pinned {
+    color: var(--text-muted);
+    border-color: var(--border-medium);
+    background: var(--bg-body);
 }
 
 .spreadsheet-card-icon {
@@ -14963,6 +15003,14 @@ body.dark-mode .overview-event-item:hover {
     background: var(--bg-component);
 }
 
+/* Ghost preview shown during drag to keep cursor alignment tight */
+.drag-ghost {
+    pointer-events: none;
+    opacity: 0.9;
+    box-shadow: 0 6px 16px rgba(0,0,0,0.18);
+    transform: scale(0.98);
+}
+
 /* Link item drag-over state */
 .link-item.drag-over {
     border-top: 2px solid var(--accent-color);
@@ -15809,23 +15857,21 @@ body.dark-mode .activity-item:hover {
 .spreadsheet-private-tag {
     display: inline-flex;
     align-items: center;
-    gap: 5px;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
     background: rgba(142, 142, 147, 0.12);
     color: var(--text-muted);
-    font-size: 11px;
-    font-weight: 600;
-    padding: 4px 10px;
-    border-radius: 100px;
-    letter-spacing: 0.02em;
-    white-space: nowrap;
-    position: absolute;
-    bottom: 32px;
-    right: 20px;
+    font-size: 12px;
+    padding: 0;
+    border-radius: 50%;
+    position: static;
     z-index: 2;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 }
 
 .spreadsheet-private-tag i {
-    font-size: 9px;
+    font-size: 12px;
 }
 
 body.dark-mode .spreadsheet-private-tag {
@@ -18419,12 +18465,15 @@ body.dark-mode .pill-toggle:hover .pill-toggle-slider {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    margin-left: 6px;
-    padding: 2px 6px;
-    background: var(--bg-surface-soft);
-    border-radius: 4px;
-    font-size: 11px;
+    width: 24px;
+    height: 24px;
+    margin: 0;
+    padding: 0;
+    background: rgba(142, 142, 147, 0.12);
+    border-radius: 50%;
+    font-size: 12px;
     color: var(--text-muted);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 }
 
 .doc-private-badge i {
@@ -23210,10 +23259,89 @@ body.dark-mode .add-metric-option-action {
 }
 
 /* ===================================
+   MOBILE DROPDOWN FIXES (FINAL OVERRIDES)
+   Force full-width, on-screen bottom sheets for notifications
+   and a full-width top-anchored sheet for settings.
+   =================================== */
+@media (max-width: 900px) {
+    .notifications-dropdown {
+        position: fixed !important;
+        top: 64px !important;
+        left: 8vw !important;
+        right: 8vw !important;
+        bottom: auto !important;
+        width: auto !important;
+        max-width: 84vw !important;
+        max-height: calc(100vh - 88px) !important;
+        overflow-y: auto !important;
+        border-radius: 14px !important;
+        box-shadow: 0 10px 28px rgba(0, 0, 0, 0.2) !important;
+        transform: none !important;
+        display: none !important;
+        z-index: 10001 !important;
+    }
+
+    .notifications-dropdown.active,
+    .notifications-dropdown[style*="display:block"],
+    .notifications-dropdown[style*="display: block"] {
+        display: flex !important;
+    }
+
+    .notifications-header {
+        position: sticky;
+        top: 0;
+        background: var(--bg-surface);
+        z-index: 2;
+        border-bottom: 1px solid var(--border-subtle);
+        padding: 12px 16px !important;
+    }
+
+    .notifications-header h3 {
+        font-size: 15px !important;
+        margin: 0 !important;
+    }
+
+    .mark-read-btn {
+        padding: 4px 8px !important;
+        font-size: 11px !important;
+        border-radius: 16px !important;
+    }
+
+    .notifications-list {
+        max-height: calc(min(70vh, 520px) - 80px);
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .settings-dropdown {
+        position: fixed !important;
+        top: 64px !important;
+        left: 8vw !important;
+        right: 8vw !important;
+        bottom: auto !important;
+        width: auto !important;
+        max-width: 84vw !important;
+        max-height: calc(100vh - 88px) !important;
+        overflow-y: auto !important;
+        border-radius: 14px !important;
+        box-shadow: 0 10px 28px rgba(0, 0, 0, 0.2) !important;
+        transform: none !important;
+        display: none !important;
+    }
+
+    .settings-dropdown.active,
+    .settings-dropdown[style*="display:block"],
+    .settings-dropdown[style*="display: block"] {
+        display: block !important;
+    }
+}
+
+/* ===================================
    SPREADSHEET CONTEXT MENU
    Right-click menu for sheet actions
    =================================== */
-.spreadsheet-context-menu {
+.spreadsheet-context-menu,
+.doc-context-menu {
     position: fixed;
     background: var(--bg-surface);
     border: 1px solid var(--border-subtle);
@@ -23229,7 +23357,8 @@ body.dark-mode .add-metric-option-action {
     pointer-events: none;
 }
 
-.spreadsheet-context-menu.visible {
+.spreadsheet-context-menu.visible,
+.doc-context-menu.visible {
     opacity: 1;
     transform: scale(1) translateY(0);
     pointer-events: auto;
@@ -23281,7 +23410,8 @@ body.dark-mode .add-metric-option-action {
 }
 
 /* Dark mode */
-body.dark-mode .spreadsheet-context-menu {
+body.dark-mode .spreadsheet-context-menu,
+body.dark-mode .doc-context-menu {
     background: #2c2c2e;
     border-color: rgba(255, 255, 255, 0.1);
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
@@ -25034,10 +25164,12 @@ body.dark-mode .visibility-segment .segment-indicator {
     justify-content: space-between;
     gap: 16px;
     cursor: pointer;
+    flex-wrap: nowrap;
 }
 
 .doc-readonly-info {
     flex: 1;
+    min-width: 0;
 }
 
 .doc-readonly-text {
@@ -25045,6 +25177,7 @@ body.dark-mode .visibility-segment .segment-indicator {
     font-weight: 600;
     color: var(--text-primary);
     margin-bottom: 4px;
+    text-transform: none;
 }
 
 .doc-readonly-text i {
@@ -25055,6 +25188,7 @@ body.dark-mode .visibility-segment .segment-indicator {
 .doc-readonly-desc {
     font-size: 12px;
     color: var(--text-muted);
+    text-transform: none;
 }
 
 .visibility-modal-actions {

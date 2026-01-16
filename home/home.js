@@ -1,5 +1,5 @@
 /* ===================================
-   TEAMSTER HOMEPAGE INTERACTIONS
+   TEAMSTERX HOMEPAGE INTERACTIONS
    Lazy-loaded module for homepage
    =================================== */
 

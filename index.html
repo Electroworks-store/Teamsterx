@@ -109,8 +109,8 @@
         <aside class="sidebar">
             <div class="sidebar-header">
                 <div class="logo">
-                    <img src="img/logo-no-bg.png" alt="Teamster" class="logo-img">
-                    <span>Teamster</span>
+                    <img src="img/logo-no-bg.png" alt="Teamsterx" class="logo-img">
+                    <span>Teamsterx</span>
                 </div>
             </div>
             
@@ -2828,7 +2828,7 @@
                             <label class="unified-form-label">
                                 <i class="fas fa-globe"></i> URL <span class="required">*</span>
                             </label>
-                            <input type="url" class="unified-input" id="linkUrl" placeholder="https://example.com" required>
+                            <input type="text" class="unified-input" id="linkUrl" placeholder="https://example.com" required>
                         </div>
                         <div class="unified-form-field">
                             <label class="unified-form-label">
@@ -2885,7 +2885,7 @@
     </div>
 
     <!-- Doc Context Menu -->
-    <div class="spreadsheet-context-menu" id="docContextMenu">
+    <div class="spreadsheet-context-menu doc-context-menu" id="docContextMenu">
         <div class="context-menu-item" id="docContextMenuOpen">
             <i class="fas fa-external-link-alt"></i>
             <span>Open</span>
@@ -2893,6 +2893,10 @@
         <div class="context-menu-item" id="docContextMenuRename">
             <i class="fas fa-pen"></i>
             <span>Rename</span>
+        </div>
+        <div class="context-menu-item" id="docContextMenuPin">
+            <i class="fas fa-thumbtack"></i>
+            <span>Pin</span>
         </div>
         <div class="context-menu-item" id="docContextMenuPrivacy">
             <i class="fas fa-eye"></i>
@@ -2918,6 +2922,10 @@
         <div class="context-menu-item" id="contextMenuEdit">
             <i class="fas fa-palette"></i>
             <span>Edit Style & Privacy</span>
+        </div>
+        <div class="context-menu-item" id="contextMenuPin">
+            <i class="fas fa-thumbtack"></i>
+            <span>Pin</span>
         </div>
         <div class="context-menu-divider"></div>
         <div class="context-menu-item danger" id="contextMenuDelete">
