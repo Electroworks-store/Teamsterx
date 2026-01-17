@@ -1166,7 +1166,9 @@ function hasPermission(action) {
  * @returns {string} - 'owner-only' | 'admin-owner' | 'members-own' | 'everyone'
  */
 function getMetricsVisibilitySetting(teamData) {
-    return teamData?.settings?.metricsVisibility || 'owner-only';
+    const value = teamData?.settings?.metricsVisibility || 'owner-only';
+    console.log('🔧 getMetricsVisibilitySetting:', { value, hasSettings: !!teamData?.settings, metricsVisibility: teamData?.settings?.metricsVisibility });
+    return value;
 }
 
 /**
@@ -4262,12 +4264,147 @@ function initCalendar() {
         });
     }
 
+    // Initialize month/year dropdown
+    initCalendarMonthDropdown();
+
     // Initial render
     renderCalendar();
 
     // Expose for external use
     window.displayCalendarEvents = () => renderCalendar();
     window.renderCalendar = renderCalendar;
+}
+
+/**
+ * Initialize calendar month/year dropdown selector
+ */
+function initCalendarMonthDropdown() {
+    const titleBtn = document.getElementById('calendarTitle');
+    const monthSelector = document.querySelector('.calendar-month-selector');
+    const dropdown = document.getElementById('calendarMonthDropdown');
+    
+    if (!titleBtn || !monthSelector || !dropdown) return;
+    
+    // Always attach click handler to title button (CSS will handle mobile visibility)
+    titleBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const willOpen = !monthSelector.classList.contains('open');
+        monthSelector.classList.toggle('open');
+        if (willOpen && window.updateCalendarMonthDropdown) {
+            window.updateCalendarMonthDropdown(true);
+        }
+    });
+    
+    const isMobileDropdown = window.matchMedia('(max-width: 768px)').matches;
+    if (isMobileDropdown) {
+        // Mobile uses the old simplified header (no dropdown interaction)
+        dropdown.innerHTML = '';
+        monthSelector.classList.add('mobile-simple');
+        titleBtn.setAttribute('aria-disabled', 'true');
+        titleBtn.style.cursor = 'default';
+        window.updateCalendarMonthDropdown = () => {};
+        return;
+    }
+    
+    const monthNamesLong = [
+        'January', 'February', 'March', 'April', 'May', 'June',
+        'July', 'August', 'September', 'October', 'November', 'December'
+    ];
+    const monthNamesShort = [
+        'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+        'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+    ];
+    const anchorYear = new Date().getFullYear();
+    const years = [];
+    for (let y = anchorYear - 50; y <= anchorYear + 50; y++) {
+        years.push(y);
+    }
+
+    dropdown.innerHTML = `
+        <div class="calendar-dropdown-columns">
+            <div>
+                <div class="calendar-dropdown-group-title">Month</div>
+                <div class="calendar-month-grid">
+                    ${monthNamesShort.map((m, idx) => `
+                        <button class="calendar-month-option" data-month="${idx}" aria-label="${monthNamesLong[idx]}">
+                            <span>${m}</span>
+                            <i class="fas fa-check"></i>
+                        </button>
+                    `).join('')}
+                </div>
+            </div>
+            <div>
+                <div class="calendar-dropdown-group-title">Year</div>
+                <div class="calendar-year-list" id="calendarYearList">
+                    ${years.map(year => `
+                        <button class="calendar-year-option" data-year="${year}" aria-label="${year}">
+                            <span>${year}</span>
+                            <i class="fas fa-check"></i>
+                        </button>
+                    `).join('')}
+                </div>
+            </div>
+        </div>
+    `;
+
+    const monthButtons = dropdown.querySelectorAll('.calendar-month-option');
+    const yearButtons = dropdown.querySelectorAll('.calendar-year-option');
+    const yearList = dropdown.querySelector('.calendar-year-list');
+
+    function setCalendarDate({ month = appState.currentDate.getMonth(), year = appState.currentDate.getFullYear() }) {
+        appState.currentDate = new Date(year, month, 1);
+        monthSelector.classList.remove('open');
+        renderCalendar();
+    }
+
+    monthButtons.forEach(option => {
+        option.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const month = parseInt(option.dataset.month, 10);
+            setCalendarDate({ month });
+        });
+    });
+
+    yearButtons.forEach(option => {
+        option.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const year = parseInt(option.dataset.year, 10);
+            setCalendarDate({ year });
+        });
+    });
+    
+    // Update selected state
+    function updateSelectedOption(scrollYearIntoView = false) {
+        const month = appState.currentDate.getMonth();
+        const year = appState.currentDate.getFullYear();
+        
+        monthButtons.forEach(option => {
+            const optMonth = parseInt(option.dataset.month, 10);
+            option.classList.toggle('selected', optMonth === month);
+        });
+        
+        yearButtons.forEach(option => {
+            const optYear = parseInt(option.dataset.year, 10);
+            const isSelected = optYear === year;
+            option.classList.toggle('selected', isSelected);
+            if (isSelected && scrollYearIntoView && yearList) {
+                option.scrollIntoView({ behavior: 'auto', block: 'center' });
+            }
+        });
+    }
+    
+    // Update on first render
+    updateSelectedOption();
+    
+    // Close dropdown when clicking outside
+    document.addEventListener('click', (e) => {
+        if (!monthSelector.contains(e.target)) {
+            monthSelector.classList.remove('open');
+        }
+    });
+    
+    // Expose for calendar updates
+    window.updateCalendarMonthDropdown = updateSelectedOption;
 }
 
 function renderCalendar() {
@@ -4300,6 +4437,11 @@ function renderCalendar() {
         dayHeaders.forEach(header => header.style.display = 'none');
         renderWeekView(calendarTitle, calendarDays);
     }
+    
+    // Update month dropdown selected state
+    if (window.updateCalendarMonthDropdown) {
+        window.updateCalendarMonthDropdown();
+    }
 }
 
 // Helper function to render event items in month view
@@ -4328,10 +4470,26 @@ function renderMonthEventItems(dayEvents) {
 function renderMonthView(titleEl, daysEl) {
     const year = appState.currentDate.getFullYear();
     const month = appState.currentDate.getMonth();
+    const isMobileView = window.matchMedia('(max-width: 768px)').matches;
+    const isTabletView = window.matchMedia('(max-width: 1024px)').matches;
+    const isTabletOnly = isTabletView && !isMobileView;
     
-    // Format title like "August 2026" - month light, year bold
-    const monthName = new Date(year, month).toLocaleDateString('en-US', { month: 'long' });
-    titleEl.innerHTML = `${monthName} <span>${year}</span>`;
+    // Format title per breakpoint
+    const monthNameLong = new Date(year, month).toLocaleDateString('en-US', { month: 'long' });
+    const monthNameShort = new Date(year, month).toLocaleDateString('en-US', { month: 'short' });
+    const titleText = isMobileView
+        ? monthNameShort
+        : isTabletOnly
+            ? monthNameLong
+            : `${monthNameLong} ${year}`;
+    
+    // Update both the text element (for new HTML structure) and fallback to titleEl
+    const titleTextEl = document.getElementById('calendarTitleText');
+    if (titleTextEl) {
+        titleTextEl.textContent = titleText;
+    } else if (titleEl) {
+        titleEl.innerHTML = `${monthName} <span>${year}</span>`;
+    }
 
     let firstDayOfMonth = new Date(year, month, 1).getDay();
     // Adjust for Monday start: 0 (Sunday) becomes 6, 1 (Monday) becomes 0, etc.
@@ -11353,7 +11511,7 @@ function initTasks() {
                 <h4>No documents yet</h4>
                 <p>Create your first doc to get started</p>
             `;
-            container.insertBefore(emptyState, createCard);
+            container.appendChild(emptyState);
             return;
         }
         
@@ -13561,7 +13719,11 @@ async function updateTaskStatus(taskId, newStatus) {
                     if (!isPrivateSpreadsheet) {
                         addActivity({
                             type: 'task',
-                            description: `completed recurring task "${task.title}" (rescheduled)`
+                            description: `completed recurring task "${task.title}" (rescheduled)`,
+                            entityType: 'task',
+                            entityId: String(task.id || taskId),
+                            entityName: task.title,
+                            sheetId: task.spreadsheetId || task.sheetId
                         });
                     }
                     
@@ -13604,7 +13766,11 @@ async function updateTaskStatus(taskId, newStatus) {
                 const statusText = newStatus === 'todo' ? 'To Do' : newStatus === 'in-progress' ? 'In Progress' : 'Done';
                 addActivity({
                     type: 'task',
-                    description: `marked task "${task.title}" as ${statusText}`
+                    description: `marked task "${task.title}" as ${statusText}`,
+                    entityType: 'task',
+                    entityId: String(task.id || taskId),
+                    entityName: task.title,
+                    sheetId: task.spreadsheetId || task.sheetId
                 });
             }
             
@@ -14151,7 +14317,11 @@ window.deleteTask = async function(taskId, event) {
                 if (!isPrivateSpreadsheet) {
                     addActivity({
                         type: 'task',
-                        description: `deleted task "${taskTitle}"`
+                        description: `deleted task "${taskTitle}"`,
+                        entityType: 'task',
+                        entityId: taskIdStr,
+                        entityName: taskTitle,
+                        sheetId: task?.spreadsheetId || task?.sheetId
                     });
                 }
             } catch (error) {
@@ -14265,7 +14435,11 @@ window.confirmDeleteTask = async function(taskId) {
             // Add to activity feed
             addActivity({
                 type: 'task',
-                description: `deleted task "${taskTitle}"`
+                description: `deleted task "${taskTitle}"`,
+                entityType: 'task',
+                entityId: taskIdStr,
+                entityName: taskTitle,
+                sheetId: task?.spreadsheetId || task?.sheetId
             });
         } catch (error) {
             console.error('❌ Error deleting task from Firestore:', error.code || error.message);
@@ -14334,6 +14508,13 @@ async function addActivity(activity) {
             description: activity.description,
             createdAt: serverTimestamp()
         };
+
+        // Optional navigation metadata so feed items can deep-link
+        if (activity.entityType) activityData.entityType = activity.entityType;
+        if (activity.entityId) activityData.entityId = activity.entityId;
+        if (activity.entityName) activityData.entityName = activity.entityName;
+        if (activity.sheetId) activityData.sheetId = activity.sheetId;
+        if (activity.route) activityData.route = activity.route;
         
         await addDoc(activitiesRef, activityData);
         debugLog('✅ Activity added to Firestore');
@@ -14374,6 +14555,89 @@ function displayActivities() {
             seeAllBtn.style.display = 'none';
         }
     }
+
+    const getActivityNavigationHandler = (activity) => {
+        const targetType = activity.entityType || activity.type;
+        const targetId = activity.entityId;
+        const targetSheetId = activity.sheetId;
+        const route = activity.route;
+
+        // Tasks and leads live in the tasks table
+        if ((targetType === 'task' || targetType === 'lead') && targetId) {
+            return async () => {
+                if (targetSheetId && typeof navigateToSpreadsheet === 'function') {
+                    await navigateToSpreadsheet(targetSheetId, { highlightTaskId: targetId });
+                    return;
+                }
+
+                if (typeof window.navigateToTaskSheet === 'function') {
+                    await window.navigateToTaskSheet(targetId);
+                    return;
+                }
+
+                if (typeof window.viewTaskDetails === 'function') {
+                    window.viewTaskDetails(targetId);
+                }
+            };
+        }
+
+        // Calendar events
+        if ((targetType === 'calendar' || targetType === 'event') && targetId) {
+            return async () => {
+                if (typeof window.switchTab === 'function') {
+                    window.switchTab('calendar');
+                }
+                if (typeof viewEventDetails === 'function') {
+                    await viewEventDetails(targetId);
+                }
+            };
+        }
+
+        // Fallback route navigation (e.g., team tab)
+        if (route) {
+            return async () => {
+                if (typeof window.switchTab === 'function') {
+                    window.switchTab(route);
+                }
+            };
+        }
+
+        return null;
+    };
+
+    const attachActivityNavigation = (activityEl, navigateFn) => {
+        if (!navigateFn) return;
+
+        activityEl.classList.add('activity-clickable');
+        activityEl.setAttribute('role', 'button');
+        activityEl.tabIndex = 0;
+
+        const safeNavigate = () => {
+            try {
+                const result = navigateFn();
+                if (result && typeof result.catch === 'function') {
+                    result.catch(err => console.error('Activity navigation failed:', err));
+                }
+            } catch (error) {
+                console.error('Activity navigation failed:', error);
+                if (typeof showToast === 'function') {
+                    showToast('Unable to open that item right now', 'error');
+                }
+            }
+        };
+
+        activityEl.addEventListener('click', (e) => {
+            e.preventDefault();
+            safeNavigate();
+        });
+
+        activityEl.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                safeNavigate();
+            }
+        });
+    };
 
     activitiesToShow.forEach(activity => {
         
@@ -14424,6 +14688,8 @@ function displayActivities() {
         
         activityEl.appendChild(iconDiv);
         activityEl.appendChild(contentDiv);
+
+        attachActivityNavigation(activityEl, getActivityNavigationHandler(activity));
         
         activityFeed.appendChild(activityEl);
     });
@@ -14461,6 +14727,11 @@ async function loadActivities() {
                     userId: uid, // Keep for backward compat
                     createdBy: uid, // Canonical uid field
                     description: data.description,
+                    entityType: data.entityType,
+                    entityId: data.entityId,
+                    entityName: data.entityName,
+                    sheetId: data.sheetId,
+                    route: data.route,
                     timestamp: timestamp,
                     timeAgo: getTimeAgo(timestamp)
                 });
@@ -16109,12 +16380,18 @@ function isTaskAssignedToUser(task, userId) {
  * @returns {Object} Personal metrics
  */
 function computePersonalMetrics(state, userId) {
+    // Defensive defaults so a missing array never crashes metrics rendering
+    const tasks = Array.isArray(state?.tasks) ? state.tasks : [];
+    const events = Array.isArray(state?.events) ? state.events : [];
+    const messages = Array.isArray(state?.messages) ? state.messages : [];
+    const activities = Array.isArray(state?.activities) ? state.activities : [];
+
     const now = new Date();
     const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
     const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
     
     // Task metrics
-    const myTasks = state.tasks.filter(t => isTaskAssignedToUser(t, userId) || t.createdBy === userId);
+    const myTasks = tasks.filter(t => isTaskAssignedToUser(t, userId) || t.createdBy === userId);
     const myCompletedTasks = myTasks.filter(t => t.status === 'done');
     
     const completedLast7Days = myCompletedTasks.filter(t => {
@@ -16133,7 +16410,7 @@ function computePersonalMetrics(state, userId) {
         : 0;
     
     // Event metrics
-    const myEvents = state.events.filter(e => e.createdBy === userId);
+    const myEvents = events.filter(e => e.createdBy === userId);
     const upcomingEvents = myEvents.filter(e => {
         const eventDate = parseMetricsDate(e.date);
         return eventDate && eventDate >= now;
@@ -16144,14 +16421,14 @@ function computePersonalMetrics(state, userId) {
     });
     
     // Chat metrics
-    const myMessages = state.messages.filter(m => m.userId === userId);
+    const myMessages = messages.filter(m => m.userId === userId);
     const messagesLast7Days = myMessages.filter(m => {
         const createdAt = parseMetricsDate(m.createdAt);
         return createdAt && createdAt >= sevenDaysAgo;
     });
     
     // Activity metrics
-    const myActivities = state.activities.filter(a => a.userId === userId);
+    const myActivities = activities.filter(a => a.userId === userId);
     const activitiesLast7Days = myActivities.filter(a => {
         const timestamp = a.timestamp instanceof Date ? a.timestamp : parseMetricsDate(a.createdAt);
         return timestamp && timestamp >= sevenDaysAgo;
@@ -16228,13 +16505,19 @@ function computePersonalMetrics(state, userId) {
  * @returns {Object} Team metrics
  */
 function computeTeamMetrics(state) {
+    // Defensive defaults so metrics never crash if a collection isn't loaded yet
+    const tasks = Array.isArray(state?.tasks) ? state.tasks : [];
+    const teammates = Array.isArray(state?.teammates) ? state.teammates : [];
+    const events = Array.isArray(state?.events) ? state.events : [];
+    const messages = Array.isArray(state?.messages) ? state.messages : [];
+
     const now = new Date();
     const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
     const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
     const weekFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
     
     // Task metrics
-    const allTasks = state.tasks;
+    const allTasks = tasks;
     const completedTasks = allTasks.filter(t => t.status === 'done');
     const openTasks = allTasks.filter(t => t.status !== 'done');
     
@@ -16254,7 +16537,7 @@ function computeTeamMetrics(state) {
     
     // Per-member task breakdown
     const memberTaskBreakdown = {};
-    state.teammates.forEach(member => {
+    teammates.forEach(member => {
         const memberTasks = allTasks.filter(t => isTaskAssignedToUser(t, member.id) || t.createdBy === member.id);
         const memberCompleted = memberTasks.filter(t => t.status === 'done');
         memberTaskBreakdown[member.id] = {
@@ -16268,13 +16551,13 @@ function computeTeamMetrics(state) {
     });
     
     // Event metrics
-    const upcomingEventsThisWeek = state.events.filter(e => {
+    const upcomingEventsThisWeek = events.filter(e => {
         const eventDate = parseMetricsDate(e.date);
         return eventDate && eventDate >= now && eventDate <= weekFromNow;
     });
     
     // Chat metrics
-    const messagesLast7Days = state.messages.filter(m => {
+    const messagesLast7Days = messages.filter(m => {
         const createdAt = parseMetricsDate(m.createdAt);
         return createdAt && createdAt >= sevenDaysAgo;
     });
@@ -16321,20 +16604,20 @@ function computeTeamMetrics(state) {
         },
         memberBreakdown: memberTaskBreakdown,
         events: {
-            total: state.events.length,
+            total: events.length,
             upcomingThisWeek: upcomingEventsThisWeek.length,
             inPeriod: upcomingEventsThisWeek.length // Events in the upcoming week
         },
         messages: {
-            total: state.messages.length,
+            total: messages.length,
             last7Days: messagesLast7Days.length,
             inPeriod: metricsTimeFilter === '7days' ? messagesLast7Days.length : 
-                     (metricsTimeFilter === '30days' ? state.messages.filter(m => {
+                     (metricsTimeFilter === '30days' ? messages.filter(m => {
                          const createdAt = parseMetricsDate(m.createdAt);
                          return createdAt && createdAt >= thirtyDaysAgo;
-                     }).length : state.messages.length)
+                     }).length : messages.length)
         },
-        memberCount: state.teammates.length,
+        memberCount: teammates.length,
         trends: {
             dailyCompletions
         }
@@ -16562,15 +16845,27 @@ function createBarChart(data, maxValue = null, options = {}) {
     
     // Show chart even if all values are 0 - this lets users see categories
     const {
-        primaryColor = 'var(--accent)',
+        primaryColor = '#2563EB',
         secondaryColor = '#34C759'
     } = options;
-    
-    const max = maxValue || Math.max(...data.map(d => d.value), 1);
+
+    // Sanitize values to avoid NaN widths and keep zero categories visible
+    const normalizedData = data.map(item => {
+        const numericValue = Number(item.value);
+        return {
+            ...item,
+            value: Number.isFinite(numericValue) ? numericValue : 0
+        };
+    });
+    const providedMax = Number(maxValue);
+    const computedMax = Math.max(...normalizedData.map(d => d.value), 0);
+    const max = Number.isFinite(providedMax) && providedMax > 0
+        ? providedMax
+        : (computedMax > 0 ? computedMax : 1);
     
     let html = '<div class="bar-chart-clean">';
     
-    data.forEach((item, index) => {
+    normalizedData.forEach((item) => {
         const value = item.value || 0;
         // For value 0: width is exactly 0 (no bar shown)
         // For value > 0: calculate percentage, minimum 2% for very small values
@@ -16641,7 +16936,7 @@ function formatAxisValue(value) {
  * Robust for any dataset size (1 to many)
  * Supports custom Y-axis config via options
  */
-function createTrendChart(data, options = {}) {
+function createTrendChart(data, options = {}, timePeriod = '7days') {
     // Handle empty data
     if (!data || data.length === 0) {
         return createChartEmptyState('No trend data');
@@ -16653,7 +16948,7 @@ function createTrendChart(data, options = {}) {
     const {
         showSecondaryAxis = false,
         secondaryData = null,
-        primaryColor = 'var(--accent)',
+        primaryColor = '#2563EB',
         secondaryColor = '#34C759',
         yAxisMin = 0,
         yAxisMax = null,
@@ -16691,15 +16986,40 @@ function createTrendChart(data, options = {}) {
     
     // Calculate bar width based on data length
     const barCount = data.length;
+    const isCompact = barCount > 9 || (typeof window !== 'undefined' && window.innerWidth <= 640);
     const minBarWidth = 8;
     const maxBarWidth = 40;
     const calculatedWidth = Math.floor(100 / barCount) - 2;
     const barWidth = Math.min(maxBarWidth, Math.max(minBarWidth, calculatedWidth));
     
-    // Determine which X-labels to show (avoid overlap)
-    const xLabelIndices = getXLabelIndices(data.length);
+    // Determine label frequency based on time period
+    // For month view, show roughly every week; for year view, show monthly
+    let labelStep = 1;
+    let heightClass = 'normal-height';
+    if (timePeriod === '30days') {
+        labelStep = 7; // Show every ~7 days (weekly)
+        heightClass = 'tall-height';
+    } else if (timePeriod === '90days' || timePeriod === 'year') {
+        labelStep = Math.ceil(barCount / 10); // Show ~10 labels for 90 days (roughly biweekly)
+        heightClass = 'tall-height';
+    }
     
-    let html = `<div class="metrics-trend-chart-v2" data-bar-count="${barCount}">`;
+    // Determine which X-labels to show (avoid overlap)
+    let xLabelIndices;
+    if (labelStep > 1) {
+        // For sparse labels, show every Nth label
+        xLabelIndices = new Set();
+        xLabelIndices.add(0); // Always show first
+        xLabelIndices.add(barCount - 1); // Always show last
+        for (let i = labelStep; i < barCount; i += labelStep) {
+            xLabelIndices.add(i);
+        }
+    } else {
+        // Use existing logic for 7-day view
+        xLabelIndices = getXLabelIndices(data.length, isCompact);
+    }
+    
+    let html = `<div class="metrics-trend-chart-v2 ${isCompact ? 'compact' : 'full'} ${heightClass}" data-bar-count="${barCount}">`;
     
     // Y-axis with clean scale markers
     html += `
@@ -16732,9 +17052,11 @@ function createTrendChart(data, options = {}) {
     data.forEach((item, index) => {
         // Calculate height using the effective range (supports custom Y-axis)
         const clampedValue = Math.max(displayMin, Math.min(displayMax, item.count));
-        const height = displayRange > 0 ? Math.max(((clampedValue - displayMin) / displayRange) * 100, 3) : 3;
+        const heightRaw = displayRange > 0 ? ((clampedValue - displayMin) / displayRange) * 100 : 0;
+        const height = clampedValue === 0 ? 0 : Math.max(heightRaw, 5);
         const delay = index * 0.04;
         const showLabel = xLabelIndices.has(index);
+        const labelText = showLabel ? (isCompact ? formatCompactLabel(item.label) : item.label) : '';
         
         let secondaryBarHtml = '';
         if (showSecondaryAxis && secondaryData && secondaryData[index]) {
@@ -16746,10 +17068,10 @@ function createTrendChart(data, options = {}) {
         html += `
             <div class="trend-bar-group" style="--bar-width: ${barWidth}px">
                 <div class="trend-bar-wrapper" data-tooltip="${escapeHtml(item.label)}: ${item.count}">
-                    <div class="trend-bar-primary" style="height: ${height}%; background: linear-gradient(180deg, ${primaryColor} 0%, ${primaryColor}88 100%); transition-delay: ${delay}s"></div>
+                    <div class="trend-bar-primary" style="height: ${height}%; background: ${primaryColor}; transition-delay: ${delay}s"></div>
                     ${secondaryBarHtml}
                 </div>
-                <span class="trend-bar-label ${showLabel ? '' : 'hidden'}">${escapeHtml(item.label)}</span>
+                <span class="trend-bar-label ${showLabel ? '' : 'hidden'}">${escapeHtml(labelText)}</span>
             </div>
         `;
     });
@@ -16953,7 +17275,7 @@ function renderGraphByType(data, type, dataType = 'trend') {
         default:
             return dataType === 'breakdown'
                 ? createBarChart(data)
-                : createTrendChart(data);
+                : createTrendChart(data, {}, metricsTimeFilter);
     }
 }
 
@@ -16976,7 +17298,7 @@ function renderGraphByTypeWithConfig(data, type, dataType = 'trend', config = {}
     
     // Build options from config
     const options = {
-        primaryColor: config.primaryColor || '#833AB4',
+        primaryColor: config.primaryColor || '#2563EB',
         secondaryColor: config.secondaryColor || '#E1306C',
         showSecondaryAxis: config.showSecondaryAxis || false,
         yAxisMin: config.yAxisMode === 'auto' ? 0 : (config.yAxisMin ?? 0),
@@ -16999,7 +17321,7 @@ function renderGraphByTypeWithConfig(data, type, dataType = 'trend', config = {}
         default:
             return dataType === 'breakdown'
                 ? createBarChart(data, null, options)
-                : createTrendChart(data, options);
+                : createTrendChart(data, options, metricsTimeFilter);
     }
 }
 
@@ -17062,7 +17384,7 @@ function generateAxisScale(max, steps = 4) {
  * Determine which X-axis labels to show based on data count
  * Returns a Set of indices to display
  */
-function getXLabelIndices(dataLength) {
+function getXLabelIndices(dataLength, isCompact = false) {
     const indices = new Set();
     
     if (dataLength <= 0) return indices;
@@ -17070,6 +17392,12 @@ function getXLabelIndices(dataLength) {
     // Always show first and last
     indices.add(0);
     indices.add(dataLength - 1);
+    
+    // If we have room (non-compact), show all labels
+    if (!isCompact) {
+        for (let i = 0; i < dataLength; i++) indices.add(i);
+        return indices;
+    }
     
     if (dataLength <= 5) {
         // Show all for small datasets
@@ -17084,6 +17412,21 @@ function getXLabelIndices(dataLength) {
     }
     
     return indices;
+}
+
+// Compact label formatter for dense bar charts; keeps weekday disambiguation
+function formatCompactLabel(label) {
+    if (!label) return '';
+    const normalized = label.toString().trim();
+    const lower = normalized.toLowerCase();
+    if (lower === 'sunday') return 'Sun';
+    if (lower === 'saturday') return 'Sat';
+    if (lower === 'thursday') return 'Thu';
+    if (lower === 'tuesday') return 'Tue';
+    if (lower === 'wednesday') return 'Wed';
+    if (lower === 'monday') return 'Mon';
+    if (lower === 'friday') return 'Fri';
+    return normalized.length > 4 ? normalized.slice(0, 4) : normalized;
 }
 
 /**
@@ -18089,9 +18432,8 @@ async function renderMetrics() {
     // Ensure completed-task data is available for metrics charts
     if (!appState.completedTasksLoadedForMetrics) {
         renderMetricsLoading();
-        loadCompletedTasksFromFirestore().then(() => {
-            renderMetrics();
-        });
+        // Kick off load only if not already listening; avoid tight re-render loop when listener exists
+        loadCompletedTasksFromFirestore();
         return;
     }
     
@@ -18502,11 +18844,64 @@ async function renderMetrics() {
     // Initialize custom dropdown after rendering
     initMetricsTimeDropdown();
     
+    // Initialize trend bar tooltips
+    initTrendBarTooltips(container);
+    
     // Initialize line chart dot tooltips
     initLineChartTooltips(container);
     
     // Initialize pie chart hover effects
     initPieChartHoverEffects(container);
+}
+
+/**
+ * Initialize trend bar tooltips (reuse line chart tooltip pattern)
+ */
+function initTrendBarTooltips(container) {
+    const charts = container.querySelectorAll('.metrics-trend-chart-v2');
+    
+    charts.forEach(chart => {
+        const chartArea = chart.querySelector('.trend-chart-area');
+        if (!chartArea) return;
+        
+        // Remove ALL existing tooltips from the entire chart to avoid duplicates
+        const existingTooltips = chart.querySelectorAll('.trend-bar-tooltip');
+        existingTooltips.forEach(t => t.remove());
+        
+        const barWrappers = chart.querySelectorAll('.trend-bar-wrapper[data-tooltip]');
+        
+        barWrappers.forEach(wrapper => {
+            // Create a tooltip for each bar
+            const tooltip = document.createElement('div');
+            tooltip.className = 'trend-bar-tooltip';
+            chartArea.appendChild(tooltip);
+            
+            wrapper.addEventListener('mouseenter', () => {
+                const tooltipText = wrapper.getAttribute('data-tooltip');
+                if (!tooltipText) return;
+                
+                tooltip.textContent = tooltipText;
+                
+                // Position tooltip above the actual bar element (not wrapper)
+                // This makes shorter bars have lower tooltips, tall bars have higher tooltips
+                const bar = wrapper.querySelector('.trend-bar-primary');
+                if (!bar) return;
+                
+                const barRect = bar.getBoundingClientRect();
+                const chartAreaRect = chartArea.getBoundingClientRect();
+                const x = barRect.left - chartAreaRect.left + barRect.width / 2;
+                const y = barRect.top - chartAreaRect.top;
+                
+                tooltip.style.left = x + 'px';
+                tooltip.style.top = y + 'px';
+                tooltip.classList.add('visible');
+            });
+            
+            wrapper.addEventListener('mouseleave', () => {
+                tooltip.classList.remove('visible');
+            });
+        });
+    });
 }
 
 /**
@@ -19379,7 +19774,10 @@ function initModals() {
                 // Add to activity feed
                 addActivity({
                     type: 'calendar',
-                    description: `updated event "${event.title}"`
+                    description: `updated event "${event.title}"`,
+                    entityType: 'event',
+                    entityId: event.id,
+                    entityName: event.title
                 });
                 
                 debugLog('✅ Event updated successfully');
@@ -19390,7 +19788,10 @@ function initModals() {
                 // Add to activity feed
                 addActivity({
                     type: 'calendar',
-                    description: `created event "${event.title}"`
+                    description: `created event "${event.title}"`,
+                    entityType: 'event',
+                    entityId: event.id,
+                    entityName: event.title
                 });
                 
                 debugLog('✅ Event created successfully');
@@ -19623,7 +20024,11 @@ function initModals() {
                 if (!isPrivateSpreadsheet) {
                     addActivity({
                         type: 'task',
-                        description: `updated task "${task.title}"`
+                        description: `updated task "${task.title}"`,
+                        entityType: 'task',
+                        entityId: String(task.id),
+                        entityName: task.title,
+                        sheetId: task.spreadsheetId || task.sheetId
                     });
                 }
             }
@@ -19649,7 +20054,11 @@ function initModals() {
             if (!isPrivateSpreadsheet) {
                 addActivity({
                     type: 'task',
-                    description: `created task "${task.title}" assigned to ${assigneeName}`
+                    description: `created task "${task.title}" assigned to ${assigneeName}`,
+                    entityType: 'task',
+                    entityId: String(task.id),
+                    entityName: task.title,
+                    sheetId: task.spreadsheetId || task.sheetId
                 });
             }
         }
@@ -19785,7 +20194,11 @@ function initModals() {
             if (!isPrivateSpreadsheet) {
                 addActivity({
                     type: 'lead',
-                    description: `added new lead "${leadName}"`
+                    description: `added new lead "${leadName}"`,
+                    entityType: 'lead',
+                    entityId: String(lead.id),
+                    entityName: leadName,
+                    sheetId: spreadsheetId
                 });
             }
             
@@ -19975,9 +20388,13 @@ function openEventModalWithDate(selectedDate, startHour = 9) {
     const eventMinuteInput = document.getElementById('eventMinute');
     if (eventHourInput) {
         eventHourInput.value = String(startHour).padStart(2, '0');
+        delete eventHourInput.dataset.touched;
+        delete eventHourInput.dataset.shouldClearOnFocus;
     }
     if (eventMinuteInput) {
         eventMinuteInput.value = '00';
+        delete eventMinuteInput.dataset.touched;
+        delete eventMinuteInput.dataset.shouldClearOnFocus;
     }
     
     // Set end time (1 hour after start)
@@ -19986,9 +20403,13 @@ function openEventModalWithDate(selectedDate, startHour = 9) {
     const eventEndMinuteInput = document.getElementById('eventEndMinute');
     if (eventEndHourInput) {
         eventEndHourInput.value = String(endHour).padStart(2, '0');
+        delete eventEndHourInput.dataset.touched;
+        delete eventEndHourInput.dataset.shouldClearOnFocus;
     }
     if (eventEndMinuteInput) {
         eventEndMinuteInput.value = '00';
+        delete eventEndMinuteInput.dataset.touched;
+        delete eventEndMinuteInput.dataset.shouldClearOnFocus;
     }
     
     // Update duration display
@@ -20036,6 +20457,10 @@ function initializeTimePicker(wrapperId, hourInputId, minuteInputId, hourOptions
     const minuteOptions = document.getElementById(minuteOptionsId);
     
     if (!wrapper || !hourInput || !minuteInput || !hourOptions || !minuteOptions) return;
+
+    // Allow typing up to 4 digits in hour so we can spill over into minutes (e.g., "1234" → 12:34)
+    hourInput.removeAttribute('maxlength');
+    minuteInput.setAttribute('maxlength', '2');
     
     // Generate hour options (0-23)
     hourOptions.innerHTML = '';
@@ -20098,17 +20523,67 @@ function initializeTimePicker(wrapperId, hourInputId, minuteInputId, hourOptions
         }
     });
     
-    // Handle input changes
+    // Helpers for touch/clear behavior
+    const markTouched = (input) => {
+        input.dataset.touched = 'true';
+    };
+
+    const handleFocusClear = (input) => {
+        if (input.dataset.shouldClearOnFocus === 'true' && input.value !== '') {
+            input.value = '';
+            delete input.dataset.shouldClearOnFocus;
+        }
+    };
+
+    const clampHour = (digits) => {
+        const num = parseInt(digits, 10);
+        if (isNaN(num)) return '';
+        return Math.min(num, 23).toString();
+    };
+
+    const clampMinute = (digits) => {
+        const num = parseInt(digits, 10);
+        if (isNaN(num)) return '';
+        return Math.min(num, 59).toString();
+    };
+
+    hourInput.addEventListener('focus', () => handleFocusClear(hourInput));
+    minuteInput.addEventListener('focus', () => handleFocusClear(minuteInput));
+
+    // Handle input changes (with spillover to minutes after two digits)
     hourInput.addEventListener('input', (e) => {
-        let val = e.target.value.replace(/\D/g, '');
-        if (val.length > 2) val = val.slice(0, 2);
-        const num = parseInt(val);
-        if (!isNaN(num) && num > 23) val = '23';
-        e.target.value = val;
+        markTouched(hourInput);
+
+        let digits = e.target.value.replace(/\D/g, '');
+        if (digits.length > 4) digits = digits.slice(0, 4);
+
+        if (digits.length > 2) {
+            const hourDigits = digits.slice(0, 2);
+            const minuteDigits = digits.slice(2);
+
+            const clampedHour = clampHour(hourDigits);
+            hourInput.value = clampedHour;
+
+            if (minuteDigits.length) {
+                const clampedMinute = clampMinute(minuteDigits);
+                minuteInput.value = clampedMinute;
+                markTouched(minuteInput);
+                updateSelectedOptions();
+                minuteInput.focus();
+                const caret = minuteInput.value.length;
+                minuteInput.setSelectionRange(caret, caret);
+                return;
+            }
+        } else {
+            const clampedHour = clampHour(digits);
+            hourInput.value = clampedHour;
+        }
+
         updateSelectedOptions();
     });
     
     minuteInput.addEventListener('input', (e) => {
+        markTouched(minuteInput);
         let val = e.target.value.replace(/\D/g, '');
         if (val.length > 2) val = val.slice(0, 2);
         const num = parseInt(val);
@@ -20117,11 +20592,16 @@ function initializeTimePicker(wrapperId, hourInputId, minuteInputId, hourOptions
         updateSelectedOptions();
     });
     
-    // Format on blur (add leading zero)
+    // Format on blur (add leading zero) and mark for next-focus clearing only if user typed
     hourInput.addEventListener('blur', () => {
         const val = parseInt(hourInput.value);
         if (!isNaN(val) && val >= 0 && val <= 23) {
             hourInput.value = val.toString().padStart(2, '0');
+        }
+        if (hourInput.dataset.touched === 'true' && hourInput.value) {
+            hourInput.dataset.shouldClearOnFocus = 'true';
+        } else {
+            delete hourInput.dataset.shouldClearOnFocus;
         }
     });
     
@@ -20129,6 +20609,11 @@ function initializeTimePicker(wrapperId, hourInputId, minuteInputId, hourOptions
         const val = parseInt(minuteInput.value);
         if (!isNaN(val) && val >= 0 && val <= 59) {
             minuteInput.value = val.toString().padStart(2, '0');
+        }
+        if (minuteInput.dataset.touched === 'true' && minuteInput.value) {
+            minuteInput.dataset.shouldClearOnFocus = 'true';
+        } else {
+            delete minuteInput.dataset.shouldClearOnFocus;
         }
     });
     
@@ -20570,7 +21055,10 @@ async function deleteEvent(eventId) {
         addActivity({
             type: 'calendar',
             user: identity.displayName,
-            description: 'deleted an event'
+            description: 'deleted an event',
+            entityType: 'event',
+            entityId: eventId,
+            entityName: event?.title
         });
         
     } catch (error) {
@@ -21965,7 +22453,10 @@ async function executeApproveJoinRequest(userId) {
         // Add activity log for approval
         await addActivity({
             type: 'team',
-            description: `approved ${finalName} to join the team`
+            description: `approved ${finalName} to join the team`,
+            entityType: 'team',
+            entityName: finalName,
+            route: 'team'
         });
         
         // Reload team data
@@ -22056,7 +22547,10 @@ async function executeRejectJoinRequest(userId) {
         // Add activity log for rejection
         await addActivity({
             type: 'team',
-            description: `rejected join request from ${request?.name || 'a user'}`
+            description: `rejected join request from ${request?.name || 'a user'}`,
+            entityType: 'team',
+            entityName: request?.name,
+            route: 'team'
         });
         
         // Close modals
@@ -25677,31 +26171,44 @@ function updateSettingsVisibility() {
  * Initialize the metrics visibility form with current setting
  */
 function initMetricsVisibilityForm() {
-    const form = document.getElementById('metricsVisibilityForm');
-    if (!form) return;
-    
-    // Get current setting from appState
-    const currentSetting = appState.metricsVisibility || 'owner-only';
-    
-    // Select the correct radio button
-    const radio = form.querySelector(`input[name="metricsVisibility"][value="${currentSetting}"]`);
-    if (radio) {
-        radio.checked = true;
+    const select = document.getElementById('metricsVisibilitySelect');
+    if (!select) {
+        console.warn('🔧 metricsVisibilitySelect not found in DOM');
+        return;
     }
+
+    // Set current value
+    const currentSetting = appState.metricsVisibility || 'owner-only';
+    console.log('🔧 initMetricsVisibilityForm:', { currentSetting, fromAppState: appState.metricsVisibility, fromTeamData: appState.currentTeamData?.settings?.metricsVisibility });
     
-    // Remove existing listener and add new one
-    form.removeEventListener('submit', handleMetricsVisibilitySave);
-    form.addEventListener('submit', handleMetricsVisibilitySave);
+    // Debug the select element and options
+    console.log('🔧 Select element before:', { id: select.id, value: select.value, innerHTML: select.innerHTML.substring(0, 200) });
+    
+    select.value = currentSetting;
+    
+    // CRITICAL FIX: Update the selected option element's property to sync visual display
+    // Setting select.value updates the DOM property, but the visual rendering uses the selected attribute
+    Array.from(select.options).forEach(option => {
+        option.selected = (option.value === currentSetting);
+    });
+    
+    console.log('🔧 Select element after:', { id: select.id, value: select.value });
+
+    // Wire change handler (persist on change)
+    select.removeEventListener('change', handleMetricsVisibilitySave);
+    select.addEventListener('change', handleMetricsVisibilitySave);
 }
 
 /**
  * Handle metrics visibility form submission
  */
 async function handleMetricsVisibilitySave(event) {
-    event.preventDefault();
+    if (event?.preventDefault) event.preventDefault();
     
-    const form = event.target;
-    const selectedValue = form.querySelector('input[name="metricsVisibility"]:checked')?.value;
+    const select = document.getElementById('metricsVisibilitySelect');
+    const selectedValue = select?.value;
+    
+    console.log('🔧 Metrics save triggered:', { selectedValue, teamId: appState.currentTeamId, hasDb: !!db });
     
     if (!selectedValue) {
         showToast('Please select a visibility option', 'error');
@@ -25710,6 +26217,8 @@ async function handleMetricsVisibilitySave(event) {
     
     // Check if user is owner
     const currentUserRole = appState.teammates?.find(t => t.id === currentAuthUser?.uid)?.role;
+    console.log('🔧 User role check:', { role: currentUserRole, uid: currentAuthUser?.uid });
+    
     if (currentUserRole !== 'owner') {
         showToast('Only the team owner can change metrics visibility', 'error');
         return;
@@ -25717,6 +26226,7 @@ async function handleMetricsVisibilitySave(event) {
     
     if (!db || !appState.currentTeamId) {
         showToast('Unable to save settings. Please try again.', 'error');
+        console.error('🔧 Missing db or teamId:', { hasDb: !!db, teamId: appState.currentTeamId });
         return;
     }
     
@@ -25724,9 +26234,13 @@ async function handleMetricsVisibilitySave(event) {
         const { doc, updateDoc } = await import('https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js');
         const teamRef = doc(db, 'teams', appState.currentTeamId);
         
+        console.log('🔧 About to updateDoc:', { path: `teams/${appState.currentTeamId}`, field: 'settings.metricsVisibility', value: selectedValue });
+        
         await updateDoc(teamRef, {
             'settings.metricsVisibility': selectedValue
         });
+        
+        console.log('✅ updateDoc succeeded for metrics visibility');
         
         // Update local state
         appState.metricsVisibility = selectedValue;
@@ -25760,6 +26274,9 @@ async function handleMetricsVisibilitySave(event) {
         
         showToast('Metrics visibility settings saved', 'success');
         debugLog('📊 Metrics visibility updated to:', selectedValue);
+        
+        // Refresh form UI to sync with saved value
+        initMetricsVisibilityForm();
         
     } catch (error) {
         console.error('Error saving metrics visibility:', error);
@@ -25805,16 +26322,29 @@ function initFinancesVisibilityForm() {
     const isEnabled = appState.financesEnabled || false;
     const currentVisibility = appState.financesVisibility || 'owner-only';
     
+    console.log('🔧 initFinancesVisibilityForm:', { isEnabled, currentVisibility, fromTeamData: appState.currentTeamData?.settings });
+    
     // Set the enabled toggle
     const enabledToggle = document.getElementById('financesEnabledToggle');
     if (enabledToggle) {
+        console.log('🔧 financesEnabledToggle before:', { checked: enabledToggle.checked });
         enabledToggle.checked = isEnabled;
+        console.log('🔧 financesEnabledToggle after:', { checked: enabledToggle.checked });
     }
     
     // Set the visibility select value (HTML uses select, not radio buttons)
     const visibilitySelect = document.getElementById('financesVisibilitySelect');
     if (visibilitySelect) {
+        console.log('🔧 financesVisibilitySelect before:', { value: visibilitySelect.value });
         visibilitySelect.value = currentVisibility;
+        
+        // CRITICAL FIX: Update the selected option element's property to sync visual display
+        // Setting select.value updates the DOM property, but the visual rendering uses the selected attribute
+        Array.from(visibilitySelect.options).forEach(option => {
+            option.selected = (option.value === currentVisibility);
+        });
+        
+        console.log('🔧 financesVisibilitySelect after:', { value: visibilitySelect.value });
     }
     
     // Show/hide visibility options based on enabled state
@@ -25845,6 +26375,8 @@ async function handleFinancesSettingsChange(event) {
     const isEnabled = enabledToggle?.checked || false;
     const selectedVisibility = visibilitySelect?.value || 'owner-only';
     
+    console.log('🔧 Finances settings change triggered:', { isEnabled, selectedVisibility, teamId: appState.currentTeamId });
+    
     // Show/hide visibility options based on enabled state
     const visibilityOptions = document.getElementById('financesVisibilityOptions');
     if (visibilityOptions) {
@@ -25861,12 +26393,16 @@ async function handleFinancesSettingsChange(event) {
 async function saveFinancesSettings(isEnabled, selectedVisibility) {
     // Check if user is owner
     const currentUserRole = appState.teammates?.find(t => t.id === currentAuthUser?.uid)?.role;
+    console.log('🔧 Finance save - role check:', { role: currentUserRole, uid: currentAuthUser?.uid });
+    
     if (currentUserRole !== 'owner') {
         // Silently fail for non-owners - they shouldn't see this form anyway
+        console.log('🔧 Finance save - non-owner, silently returning');
         return;
     }
     
     if (!db || !appState.currentTeamId) {
+        console.error('🔧 Finance save - missing db or teamId:', { hasDb: !!db, teamId: appState.currentTeamId });
         return;
     }
     
@@ -25874,10 +26410,14 @@ async function saveFinancesSettings(isEnabled, selectedVisibility) {
         const { doc, updateDoc } = await import('https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js');
         const teamRef = doc(db, 'teams', appState.currentTeamId);
         
+        console.log('🔧 About to updateDoc for finances:', { isEnabled, selectedVisibility, teamId: appState.currentTeamId });
+        
         await updateDoc(teamRef, {
             'settings.financesEnabled': isEnabled,
             'settings.financesVisibility': selectedVisibility
         });
+        
+        console.log('✅ updateDoc succeeded for finances');
         
         // Update local state
         appState.financesEnabled = isEnabled;
@@ -25910,7 +26450,11 @@ async function saveFinancesSettings(isEnabled, selectedVisibility) {
         }
         
         showToast('Finances settings saved', 'success');
+        console.log('✅ Finances settings updated to:', { isEnabled, selectedVisibility });
         debugLog('💰 Finances settings updated:', { isEnabled, selectedVisibility });
+        
+        // Refresh form UI to sync with saved values
+        initFinancesVisibilityForm();
         
     } catch (error) {
         console.error('Error saving finances settings:', error);
@@ -26112,6 +26656,36 @@ function shouldShowNotification(activityType, activityContext = {}) {
 let teamMembersUnsubscribe = null;
 let userProfileUnsubscribes = []; // Array of unsubscribe functions for user profile listeners
 
+// Lightweight diffs so we only refresh the pieces that actually changed
+function haveMembersChanged(prevMembers = {}, nextMembers = {}) {
+    const prevIds = Object.keys(prevMembers);
+    const nextIds = Object.keys(nextMembers);
+    if (prevIds.length !== nextIds.length) return true;
+
+    for (const id of nextIds) {
+        const prev = prevMembers[id];
+        const next = nextMembers[id];
+        if (!prev || !next) return true;
+
+        // Compare only the fields that drive permissions / display
+        if (
+            prev.role !== next.role ||
+            (prev.name || '') !== (next.name || '') ||
+            (prev.email || '') !== (next.email || '') ||
+            (prev.occupation || '') !== (next.occupation || '') ||
+            Boolean(prev.photoURL) !== Boolean(next.photoURL)
+        ) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+function haveSettingsChanged(prevSettings = {}, nextSettings = {}) {
+    return JSON.stringify(prevSettings) !== JSON.stringify(nextSettings);
+}
+
 // Start listening for team member changes (name updates, role changes, etc.)
 async function startTeamMembersListener() {
     if (!db || !currentAuthUser || !appState.currentTeamId) {
@@ -26131,24 +26705,48 @@ async function startTeamMembersListener() {
             if (!docSnapshot.exists()) return;
             
             const teamData = docSnapshot.data();
+            const prevTeamData = appState.currentTeamData || {};
             const members = teamData.members || {};
+            const prevMembers = prevTeamData.members || {};
+
+            const membersChanged = haveMembersChanged(prevMembers, members);
+            const settingsChanged = haveSettingsChanged(prevTeamData.settings, teamData.settings);
+            const roleChanged = prevMembers[currentAuthUser.uid]?.role !== members[currentAuthUser.uid]?.role;
             
             // Update team data in appState
             appState.currentTeamData = teamData;
-            
-            // Reload public profiles for identity resolution
-            await loadPublicProfilesForTeam();
-            
-            // Set up listeners for each team member's user profile
-            setupUserProfileListeners(Object.keys(members));
-            
-            // Reload teammates with latest data from user profiles
-            await loadTeammatesFromFirestore();
-            
-            // Update UI elements that show team member info
-            populateTaskAssigneeDropdown();
-            
-            debugLog('🔄 Team members updated in real-time');
+
+            // Only refresh permissions-sensitive UI when settings or roles actually change
+            if (settingsChanged || roleChanged) {
+                refreshMetricsAccess();
+                refreshFinancesAccess();
+                updateNavVisibilityForMetrics();
+                updateNavVisibilityForFinances();
+
+                // If settings UI is visible for the owner, refresh the form values
+                const metricsSettingsCard = document.getElementById('metricsSettingsCard');
+                if (metricsSettingsCard && metricsSettingsCard.style.display !== 'none') {
+                    initMetricsVisibilityForm();
+                }
+
+                const financesSettingsCard = document.getElementById('financesSettingsCard');
+                if (financesSettingsCard && financesSettingsCard.style.display !== 'none') {
+                    initFinancesVisibilityForm();
+                }
+
+                debugLog('🔄 Team settings updated from snapshot:', teamData.settings);
+            }
+
+            // Only reload teammates/profile listeners when membership data changed
+            if (membersChanged) {
+                await loadPublicProfilesForTeam();
+                setupUserProfileListeners(Object.keys(members));
+                await loadTeammatesFromFirestore();
+                populateTaskAssigneeDropdown();
+                debugLog('🔄 Team members updated in real-time');
+            } else {
+                debugLog('✅ No member changes detected; skipping teammate reload');
+            }
         }, (error) => {
             // Handle Firestore listener errors (permission-denied, network issues, etc.)
             if (error.code === 'permission-denied') {
@@ -27009,7 +27607,10 @@ async function promoteToAdmin(userId, userName) {
         // Add activity
         addActivity({
             type: 'team',
-            description: `promoted ${userName} to Admin`
+            description: `promoted ${userName} to Admin`,
+            entityType: 'team',
+            entityName: userName,
+            route: 'team'
         });
         
         showToast(`${userName} has been promoted to Admin`, 'success', 3000);
@@ -27053,7 +27654,10 @@ async function demoteToMember(userId, userName) {
         // Add activity
         addActivity({
             type: 'team',
-            description: `demoted ${userName} to Member`
+            description: `demoted ${userName} to Member`,
+            entityType: 'team',
+            entityName: userName,
+            route: 'team'
         });
         
         showToast(`${userName} has been demoted to Member`, 'success', 3000);
@@ -27099,7 +27703,10 @@ async function removeMember(userId, userName) {
         // Add activity
         addActivity({
             type: 'team',
-            description: `kicked ${userName} from the team`
+            description: `kicked ${userName} from the team`,
+            entityType: 'team',
+            entityName: userName,
+            route: 'team'
         });
         
         showToast(`${userName} has been kicked from the team`, 'success', 3000);
@@ -27838,14 +28445,13 @@ async function loadCompletedTasksFromFirestore() {
     if (tasksCompletedUnsubscribe) return;
 
     try {
-        const { collection, query, where, onSnapshot, orderBy, limit, getDocs } = 
+        const { collection, query, where, onSnapshot, limit } = 
             await import('https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js');
 
         const tasksRef = collection(db, 'teams', appState.currentTeamId, 'tasks');
         const q = query(
             tasksRef,
             where('status', 'in', ['done', 'won']),
-            orderBy('createdAt', 'desc'),
             limit(TASK_COMPLETED_FETCH_LIMIT)
         );
 
@@ -27864,11 +28470,25 @@ async function loadCompletedTasksFromFirestore() {
                 tasks.push(taskData);
             });
 
+            // Sort client-side by completedAt/updatedAt desc to avoid needing an index on Firestore
+            const getTime = (t) => {
+                const ts = t.completedAt || t.updatedAt || t.createdAt;
+                if (!ts) return 0;
+                if (ts.toDate) return ts.toDate().getTime();
+                if (ts.seconds) return ts.seconds * 1000;
+                const d = new Date(ts);
+                return isNaN(d.getTime()) ? 0 : d.getTime();
+            };
+            tasks.sort((a, b) => getTime(b) - getTime(a));
+
             appState.completedTasks = tasks;
             appState.completedTasksLoadedForMetrics = true;
             if (spreadsheetState.showCompleted) {
                 recomputeTasksView();
             }
+
+            // Refresh metrics only if the metrics tab is active; prevents tight re-render loops
+            updateMetricsIfActive();
 
             debugLog(`✅ Loaded ${tasks.length} completed tasks`);
         }, (error) => {
@@ -27880,23 +28500,30 @@ async function loadCompletedTasksFromFirestore() {
             } else {
                 console.error('❌ Error in completed tasks snapshot listener:', error.code || error.message);
                 debugError('Full error:', error);
+                // Prevent infinite loading if Firestore rejects (e.g., missing index)
+                appState.completedTasksLoadedForMetrics = true;
+                appState.completedTasks = [];
+                updateMetricsIfActive();
             }
         });
     } catch (error) {
         console.error('Error setting up completed tasks listener:', error.code || error.message);
         debugError('Full error:', error);
+        // Prevent lock-up on configuration errors
+        appState.completedTasksLoadedForMetrics = true;
+        appState.completedTasks = [];
+        updateMetricsIfActive();
     }
 }
 
 async function hydrateCompletedTasksOnce() {
     try {
-        const { collection, query, where, orderBy, limit, getDocs } =
+        const { collection, query, where, limit, getDocs } =
             await import('https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js');
         const tasksRef = collection(db, 'teams', appState.currentTeamId, 'tasks');
         const q = query(
             tasksRef,
             where('status', 'in', ['done', 'won']),
-            orderBy('createdAt', 'desc'),
             limit(TASK_COMPLETED_FETCH_LIMIT)
         );
         const snapshot = await getDocs(q);
@@ -27912,6 +28539,17 @@ async function hydrateCompletedTasksOnce() {
             tasks.push(taskData);
         });
 
+        // Sort client-side by completed/updated timestamp desc
+        const getTime = (t) => {
+            const ts = t.completedAt || t.updatedAt || t.createdAt;
+            if (!ts) return 0;
+            if (ts.toDate) return ts.toDate().getTime();
+            if (ts.seconds) return ts.seconds * 1000;
+            const d = new Date(ts);
+            return isNaN(d.getTime()) ? 0 : d.getTime();
+        };
+        tasks.sort((a, b) => getTime(b) - getTime(a));
+
         appState.completedTasks = tasks;
         appState.completedTasksLoadedForMetrics = true;
         if (spreadsheetState.showCompleted) {
@@ -27920,6 +28558,9 @@ async function hydrateCompletedTasksOnce() {
         debugLog(`✅ Fallback loaded ${tasks.length} completed tasks`);
     } catch (error) {
         console.error('Fallback completed task load failed:', error);
+        appState.completedTasksLoadedForMetrics = true;
+        appState.completedTasks = [];
+        updateMetricsIfActive();
     }
 }
 
