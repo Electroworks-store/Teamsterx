@@ -1243,6 +1243,9 @@
                                             <button type="button" class="theme-btn" data-theme="dark">
                                                 <i class="fas fa-moon"></i> Dark
                                             </button>
+                                            <button type="button" class="theme-btn" data-theme="cloud">
+                                                <i class="fas fa-cloud"></i> Cloud
+                                            </button>
                                         </div>
                                         <input type="hidden" id="themePreference" value="system">
                                     </div>
@@ -1267,6 +1270,10 @@
                                             <input type="checkbox" id="showSidebarIcons" checked>
                                             <span class="toggle-track"></span>
                                         </label>
+                                    </div>
+
+                                    <div class="settings-actions-minimal settings-actions-right">
+                                        <button type="submit" class="settings-btn-save btn-primary">Save Changes</button>
                                     </div>
                                 </form>
                             </div>
@@ -3358,6 +3365,7 @@
 
     <!-- Main JavaScript -->
     <script src="loader.js"></script>
+    <script src="calendar-drag.js?v=1"></script>
     <script src="main.js?v=65" id="main-script"></script>
     <script>
         // Auto-update version on links

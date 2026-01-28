@@ -746,11 +746,28 @@ function applyThemeEarly() {
         }
     }
     
+    if (themePreference === 'cloud') {
+        document.body.classList.remove('dark-mode');
+        document.documentElement.classList.remove('dark-mode');
+        document.body.classList.add('cloud-mode');
+        document.documentElement.classList.add('cloud-mode');
+
+        if (window.__setThemeMeta) {
+            window.__setThemeMeta(false);
+        }
+        return;
+    }
+
     const shouldBeDark = resolveTheme(themePreference);
+    document.body.classList.remove('cloud-mode');
+    document.documentElement.classList.remove('cloud-mode');
+
     if (shouldBeDark) {
         document.body.classList.add('dark-mode');
+        document.documentElement.classList.add('dark-mode');
     } else {
         document.body.classList.remove('dark-mode');
+        document.documentElement.classList.remove('dark-mode');
     }
 
     // Sync browser chrome color with chosen theme
@@ -4284,6 +4301,13 @@ function initCalendarMonthDropdown() {
     const dropdown = document.getElementById('calendarMonthDropdown');
     
     if (!titleBtn || !monthSelector || !dropdown) return;
+
+    // Disable month/year dropdown (remove days-of-week dropdown behavior)
+    dropdown.innerHTML = '';
+    monthSelector.classList.add('dropdown-disabled');
+    titleBtn.setAttribute('aria-disabled', 'true');
+    titleBtn.setAttribute('tabindex', '-1');
+    return;
     
     // Always attach click handler to title button (CSS will handle mobile visibility)
     titleBtn.addEventListener('click', (e) => {
@@ -4488,7 +4512,7 @@ function renderMonthView(titleEl, daysEl) {
     if (titleTextEl) {
         titleTextEl.textContent = titleText;
     } else if (titleEl) {
-        titleEl.innerHTML = `${monthName} <span>${year}</span>`;
+        titleEl.innerHTML = `${monthNameLong} <span>${year}</span>`;
     }
 
     let firstDayOfMonth = new Date(year, month, 1).getDay();
@@ -4658,20 +4682,15 @@ function renderWeekView(titleEl, daysEl) {
         console.log(`📋 Total events in appState: ${appState.events.length}`);
     }
     
-    // Mobile: shortened format "Jan. 12-18", Desktop: full format
-    if (isMobile) {
-        const startMonth = startOfWeek.toLocaleDateString('en-US', { month: 'short' });
-        const endMonth = endOfWeek.toLocaleDateString('en-US', { month: 'short' });
-        const startDay = startOfWeek.getDate();
-        const endDay = endOfWeek.getDate();
-        // If same month: "Jan. 12-18", if different: "Jan. 28 - Feb. 3"
-        if (startMonth === endMonth) {
-            titleEl.textContent = `${startMonth} ${startDay}-${endDay}`;
-        } else {
-            titleEl.textContent = `${startMonth} ${startDay} - ${endMonth} ${endDay}`;
-        }
+    // Short, consistent week title format
+    const startMonth = startOfWeek.toLocaleDateString('en-US', { month: 'short' });
+    const endMonth = endOfWeek.toLocaleDateString('en-US', { month: 'short' });
+    const startDay = startOfWeek.getDate();
+    const endDay = endOfWeek.getDate();
+    if (startMonth === endMonth) {
+        titleEl.textContent = `${startMonth} ${startDay}-${endDay}`;
     } else {
-        titleEl.textContent = `${startOfWeek.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })} - ${endOfWeek.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}`;
+        titleEl.textContent = `${startMonth} ${startDay}-${endMonth} ${endDay}`;
     }
     
     // Generate occurrences for the week range
@@ -4811,8 +4830,8 @@ function renderDesktopColumnWeek(titleEl, daysEl, startOfWeek, allOccurrences) {
                      data-time-range="${startTimeStr}–${endTimeStr}"
                      data-start-minutes="${event.startMinutes}"
                      data-end-minutes="${event.endMinutes}"
+                     data-duration-minutes="${durationMinutes}"
                      data-visibility="${event.visibility || 'team'}"
-                     onclick="if(!event.target.closest('.week-event-resize-handle')){event.stopPropagation(); viewEventDetails('${escapeHtml(eventId)}', '${occurrenceDateStr}')}" 
                      style="top: ${topPosition}px; height: ${height}px; left: ${leftPercent}%; width: ${widthPercent}%; border-left: 4px solid ${escapeHtml(eventColor)};">
                     <div class="week-event-resize-handle week-event-resize-top" data-resize="top" title="Drag to change start time"></div>
                     <div class="week-event-content">
@@ -5361,22 +5380,17 @@ function getStartOfWeek(date) {
 // CALENDAR DRAG AND DROP
 // ===================================
 function initCalendarDragDrop() {
-    // Support both old (.week-event-block) and new (.week-col-event) event selectors
-    const eventBlocks = document.querySelectorAll('.week-event-block[draggable="true"], .week-col-event[draggable="true"]');
-    const dayColumns = document.querySelectorAll('.week-day-column');
-    const timeCells = document.querySelectorAll('.week-time-cell');
-    const gridCells = document.querySelectorAll('.week-grid-cell'); // New column view cells
+    // Use the new precision drag system for week view if available
+    if (typeof window.initCalendarPrecisionDrag === 'function') {
+        window.initCalendarPrecisionDrag();
+        console.log('[DragDrop] Using precision drag system with 15-minute snapping');
+    }
     
-    // Month view elements
+    // Month view still uses HTML5 drag API (simpler date-only changes)
     const monthEventItems = document.querySelectorAll('.month-event-item[draggable="true"]');
     const calendarDays = document.querySelectorAll('.calendar-day');
     
-    console.log('[DragDrop] Initializing with', eventBlocks.length, 'week events,', monthEventItems.length, 'month events,', gridCells.length, 'grid cells');
-    
-    eventBlocks.forEach(block => {
-        block.addEventListener('dragstart', handleEventDragStart);
-        block.addEventListener('dragend', handleEventDragEnd);
-    });
+    console.log('[DragDrop] Initializing with', monthEventItems.length, 'month events');
     
     // Month view drag and drop
     monthEventItems.forEach(item => {
@@ -5388,25 +5402,6 @@ function initCalendarDragDrop() {
         day.addEventListener('dragover', handleMonthDayDragOver);
         day.addEventListener('dragleave', handleMonthDayDragLeave);
         day.addEventListener('drop', handleMonthDayDrop);
-    });
-    
-    dayColumns.forEach(column => {
-        column.addEventListener('dragover', handleEventDragOver);
-        column.addEventListener('dragleave', handleEventDragLeave);
-        column.addEventListener('drop', handleEventDrop);
-    });
-    
-    // Support both old time cells and new grid cells
-    timeCells.forEach(cell => {
-        cell.addEventListener('dragover', handleCellDragOver);
-        cell.addEventListener('dragleave', handleCellDragLeave);
-        cell.addEventListener('drop', handleCellDrop);
-    });
-    
-    gridCells.forEach(cell => {
-        cell.addEventListener('dragover', handleGridCellDragOver);
-        cell.addEventListener('dragleave', handleGridCellDragLeave);
-        cell.addEventListener('drop', handleGridCellDrop);
     });
     
     // Initialize week view resize functionality
@@ -5678,12 +5673,19 @@ function handleMonthEventDragStart(e) {
     e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setData('text/plain', monthDraggedEventId);
     
-    // Create a drag image
+    // Create a drag image that preserves the original size
+    const rect = eventItem.getBoundingClientRect();
     const dragImage = eventItem.cloneNode(true);
     dragImage.style.position = 'absolute';
     dragImage.style.top = '-1000px';
+    dragImage.style.left = '0';
+    dragImage.style.width = `${rect.width}px`;
+    dragImage.style.height = `${rect.height}px`;
+    dragImage.style.boxSizing = 'border-box';
+    dragImage.style.pointerEvents = 'none';
+    dragImage.style.boxShadow = '0 6px 18px rgba(0,0,0,0.12)';
     document.body.appendChild(dragImage);
-    e.dataTransfer.setDragImage(dragImage, 0, 0);
+    e.dataTransfer.setDragImage(dragImage, 8, rect.height / 2);
     setTimeout(() => dragImage.remove(), 0);
     
     console.log('[MonthDrag] Started dragging:', monthDraggedEventId, 'time:', monthDraggedOriginalTime);
@@ -25066,9 +25068,6 @@ function initThemeSelectorModern() {
             
             // Apply theme
             applyThemePreference(btn.dataset.theme);
-            
-            // Save preference
-            localStorage.setItem('themePreference', btn.dataset.theme);
         });
     });
     
@@ -25137,6 +25136,23 @@ function initMinimalColorPickers() {
 // Apply theme preference
 function applyThemePreference(preference) {
     const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    
+    // Handle cloud theme separately
+    if (preference === 'cloud') {
+        document.body.classList.remove('dark-mode');
+        document.documentElement.classList.remove('dark-mode');
+        document.body.classList.add('cloud-mode');
+        document.documentElement.classList.add('cloud-mode');
+        localStorage.setItem('darkMode', 'false');
+        if (window.__setThemeMeta) {
+            window.__setThemeMeta(false);
+        }
+        return;
+    }
+    
+    // Remove cloud mode for other themes
+    document.body.classList.remove('cloud-mode');
+    document.documentElement.classList.remove('cloud-mode');
     
     const shouldBeDark = preference === 'dark' || (preference === 'system' && prefersDark);
 
@@ -25922,13 +25938,12 @@ function initAppearanceForm() {
     const form = document.getElementById('appearanceForm');
     if (!form) return;
     
-    // Support both old (.theme-option) and new (.theme-option-modern) selectors
-    const themeOptions = document.querySelectorAll('.theme-option, .theme-option-modern');
+    // Support old, modern, and minimal theme selectors
+    const themeOptions = document.querySelectorAll('.theme-option, .theme-option-modern, .theme-btn');
     const themeInput = document.getElementById('themePreference');
     
     if (!themeOptions.length) {
         console.warn('Theme options not found');
-        return;
     }
     
     // Load theme from localStorage first (for instant UI)
@@ -25957,15 +25972,22 @@ function initAppearanceForm() {
         }
     });
     
-    // Handle theme option clicks
+    // Handle theme option clicks (apply only; do not persist)
     themeOptions.forEach(option => {
-        option.addEventListener('click', async () => {
+        option.addEventListener('click', () => {
             const theme = option.dataset.theme;
             updateThemeUI(theme);
             applyTheme(theme);
-            localStorage.setItem('themePreference', theme);
-            await saveThemePreference(theme);
         });
+    });
+
+    // Persist theme only when the appearance form is saved
+    form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const themeToSave = (themeInput && themeInput.value) ? themeInput.value : (localStorage.getItem('themePreference') || 'system');
+
+        localStorage.setItem('themePreference', themeToSave);
+        await saveThemePreference(themeToSave);
     });
 }
 
@@ -25974,8 +25996,8 @@ function initAppearanceForm() {
  * @param {string} theme - 'system', 'light', or 'dark'
  */
 function updateThemeUI(theme) {
-    // Support both old (.theme-option) and new (.theme-option-modern) selectors
-    const themeOptions = document.querySelectorAll('.theme-option, .theme-option-modern');
+    // Support old, modern, and minimal theme selectors
+    const themeOptions = document.querySelectorAll('.theme-option, .theme-option-modern, .theme-btn');
     const themeInput = document.getElementById('themePreference');
     
     themeOptions.forEach(option => {
@@ -26029,11 +26051,30 @@ async function loadThemePreference() {
  * @param {string} theme - 'system', 'light', or 'dark'
  */
 function applyTheme(theme) {
+    if (theme === 'cloud') {
+        document.body.classList.remove('dark-mode');
+        document.documentElement.classList.remove('dark-mode');
+        document.body.classList.add('cloud-mode');
+        document.documentElement.classList.add('cloud-mode');
+
+        localStorage.setItem('darkMode', 'false');
+        if (window.__setThemeMeta) {
+            window.__setThemeMeta(false);
+        }
+
+        document.querySelectorAll('.settings-card').forEach(card => {
+            card.classList.remove('dark-mode');
+        });
+        return;
+    }
+
     const shouldBeDark = resolveTheme(theme);
     
     // Apply on body + root for consistent CSS targeting
     document.body.classList.toggle('dark-mode', shouldBeDark);
     document.documentElement.classList.toggle('dark-mode', shouldBeDark);
+    document.body.classList.remove('cloud-mode');
+    document.documentElement.classList.remove('cloud-mode');
 
     // Persist dark flag for legacy paths and keep system meta in sync
     localStorage.setItem('darkMode', shouldBeDark ? 'true' : 'false');
