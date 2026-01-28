@@ -606,7 +606,7 @@ service cloud.firestore {
           && request.resource.data.createdBy == request.auth.uid
           && request.resource.data.keys().hasOnly([
             'createdBy', 'teamId', 'title', 'contentHtml', 'contentText',
-            'createdAt', 'updatedAt', 'updatedBy', 'tags', 'visibility', 'isReadOnly', 'pinned'
+            'createdAt', 'updatedAt', 'updatedBy', 'tags', 'visibility', 'isReadOnly', 'pinned', 'projectId', 'projectVisibility'
           ])
           && (!('teamId' in request.resource.data) || request.resource.data.teamId == teamId)
           && request.resource.data.title is string
@@ -622,7 +622,9 @@ service cloud.firestore {
               request.resource.data.tags.toSet().hasAll(request.resource.data.tags) // no duplicates
             ))
           && (!('visibility' in request.resource.data) || 
-              request.resource.data.visibility in ['team', 'private']);
+              request.resource.data.visibility in ['team', 'private'])
+          && (!('projectVisibility' in request.resource.data) || 
+              request.resource.data.projectVisibility in ['both', 'projectOnly']);
         
         // Update: creator or admin/owner; cannot change immutable fields
         // SECURITY: Schema validation on UPDATE using affectedKeys
@@ -632,7 +634,7 @@ service cloud.firestore {
         ) && (
           // Only validate CHANGED fields (affectedKeys)
           request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-            'title', 'contentHtml', 'contentText', 'updatedAt', 'updatedBy', 'tags', 'visibility', 'isReadOnly', 'pinned'
+            'title', 'contentHtml', 'contentText', 'updatedAt', 'updatedBy', 'tags', 'visibility', 'isReadOnly', 'pinned', 'projectId', 'projectVisibility'
           ])
         ) && (
           // SECURITY: Immutable fields cannot change
@@ -653,7 +655,9 @@ service cloud.firestore {
               request.resource.data.tags.size() <= 10
             )) &&
           (!('visibility' in request.resource.data) || 
-              request.resource.data.visibility in ['team', 'private'])
+              request.resource.data.visibility in ['team', 'private']) &&
+          (!('projectVisibility' in request.resource.data) || 
+              request.resource.data.projectVisibility in ['both', 'projectOnly'])
         );
         
         // Delete: creator or admin/owner
@@ -684,7 +688,7 @@ service cloud.firestore {
           && request.resource.data.keys().hasOnly([
             'createdBy', 'teamId', 'name', 'description', 'visibility',
             'createdAt', 'updatedAt', 'data', 'columns', 'rows',
-            'type', 'icon', 'color', 'customColumns', 'columnSettings'
+            'type', 'icon', 'color', 'customColumns', 'columnSettings', 'projectId', 'pinned', 'projectVisibility'
           ])
           && (!('teamId' in request.resource.data) || request.resource.data.teamId == teamId)
           && request.resource.data.name is string
@@ -709,7 +713,9 @@ service cloud.firestore {
           && (!('customColumns' in request.resource.data) || 
               (request.resource.data.customColumns is list && request.resource.data.customColumns.size() <= 50))
           && (!('columnSettings' in request.resource.data) || 
-              request.resource.data.columnSettings is map);
+              request.resource.data.columnSettings is map)
+          && (!('projectVisibility' in request.resource.data) || 
+              request.resource.data.projectVisibility in ['both', 'projectOnly']);
 
         // Update: any team member can update spreadsheets
         // SIMPLIFIED: Removed complex visibility checks to fix permission-denied errors
@@ -719,6 +725,41 @@ service cloud.firestore {
         allow delete: if isMemberInTeam(teamId) && (
           resource.data.createdBy == request.auth.uid ||
           (resource.data.visibility != 'private' && isAdmin(teamId))
+        );
+      }
+
+      // ==========================
+      // PROJECTS SUBCOLLECTION
+      // Workspace-level grouping/filtering for docs & sheets
+      // ==========================
+      match /projects/{projectId} {
+        // Read: all team members can read projects
+        allow read: if isMemberInTeam(teamId);
+
+        // Create: any member can create projects
+        allow create: if isMemberInTeam(teamId)
+          && request.resource.data.createdBy == request.auth.uid
+          && request.resource.data.keys().hasOnly([
+            'createdBy', 'name', 'icon', 'color', 'order', 'createdAt'
+          ])
+          && request.resource.data.name is string
+          && request.resource.data.name.size() > 0
+          && request.resource.data.name.size() <= 50
+          && (!('icon' in request.resource.data) || 
+              (request.resource.data.icon is string && request.resource.data.icon.size() <= 10))
+          && (!('color' in request.resource.data) || 
+              (request.resource.data.color is string && request.resource.data.color.size() <= 20))
+          && (!('order' in request.resource.data) || 
+              request.resource.data.order is int);
+
+        // Update: creator or admin can update projects
+        allow update: if isMemberInTeam(teamId) && (
+          resource.data.createdBy == request.auth.uid || isAdmin(teamId)
+        );
+
+        // Delete: creator or admin can delete projects
+        allow delete: if isMemberInTeam(teamId) && (
+          resource.data.createdBy == request.auth.uid || isAdmin(teamId)
         );
       }
 

@@ -11,6 +11,7 @@
     <link rel="manifest" href="manifest.json" id="manifest-link">
     <meta name="theme-color" content="#ffffff">
     <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="Teamsterx">
     <script src="version.js"></script>
@@ -675,6 +676,23 @@
                     </div>
                 </div>
 
+                <!-- Project View Header (shown when viewing a specific project) -->
+                <div class="spreadsheet-header project-view-header" id="projectViewHeader" style="display: none;">
+                    <div class="spreadsheet-header-left">
+                        <h3 id="projectViewTitle"><i class="fas fa-folder"></i> Project</h3>
+                        <p class="spreadsheet-subtitle" id="projectViewSubtitle">Sheets and docs in this project</p>
+                        <div class="header-toggle-row">
+                            <button class="project-back-btn" id="projectBackBtn">
+                                <i class="fas fa-arrow-left"></i>
+                                <span>Projects</span>
+                            </button>
+                            <button class="btn-primary" id="projectAddBtn" title="New sheet or doc">
+                                <i class="fas fa-plus"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Spreadsheet Cards Grid -->
                 <div class="spreadsheet-cards" id="spreadsheetCards">
                     <!-- Spreadsheet cards will be rendered by JS -->
@@ -682,6 +700,13 @@
                         <div class="spreadsheet-card-icon"><i class="fas fa-plus"></i></div>
                         <span>Create Spreadsheet</span>
                     </div>
+                </div>
+
+                <!-- Unified Project Empty State (when project has no sheets or docs) -->
+                <div class="project-empty-state" id="projectEmptyState" style="display: none;">
+                    <i class="fas fa-folder-open"></i>
+                    <h4 id="projectEmptyTitle">No items in this project</h4>
+                    <p>Create sheets or docs and assign them to this project</p>
                 </div>
 
                 <!-- Docs Header (shown when Docs view active) -->
@@ -699,8 +724,8 @@
                                     <i class="fas fa-file-lines"></i> Docs
                                 </button>
                             </div>
-                            <button class="btn-primary" id="createDocBtn">
-                                <i class="fas fa-plus"></i> Doc
+                            <button class="btn-primary" id="createDocBtn" title="New sheet or doc">
+                                <i class="fas fa-plus"></i>
                             </button>
                         </div>
                     </div>
@@ -2906,6 +2931,10 @@
             <i class="fas fa-thumbtack"></i>
             <span>Pin</span>
         </div>
+        <div class="context-menu-item" id="docContextMenuMoveToProject">
+            <i class="fas fa-folder-open"></i>
+            <span>Move to Project</span>
+        </div>
         <div class="context-menu-item" id="docContextMenuPrivacy">
             <i class="fas fa-eye"></i>
             <span>Visibility</span>
@@ -2930,6 +2959,10 @@
         <div class="context-menu-item" id="contextMenuEdit">
             <i class="fas fa-palette"></i>
             <span>Edit Style & Privacy</span>
+        </div>
+        <div class="context-menu-item" id="contextMenuMoveToProject">
+            <i class="fas fa-folder-open"></i>
+            <span>Move to Project</span>
         </div>
         <div class="context-menu-item" id="contextMenuPin">
             <i class="fas fa-thumbtack"></i>

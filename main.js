@@ -497,127 +497,67 @@ See SECURITY.md for detailed instructions.
 // Validate before initializing
 assertFirebaseConfig(firebaseConfig);
 
-// ===================================
-// FIRESTORE ERROR LOGGER HELPER
-// Centralized logging for permission-denied and other Firestore errors
-// ===================================
-// ===================================
-// ENHANCED FIRESTORE ERROR LOGGER
-// ===================================
-// This comprehensive logger provides detailed diagnostics for permission-denied errors:
-// - Fetches and displays the ACTUAL Firestore document (resource.data)
-// - Shows the MERGED document after applying updates (request.resource.data)
-// - Field-by-field comparison showing what changed
-// - Auth context with permission checks (creator match, role validation)
-// - Color-coded output for quick visual scanning
-// - Helps diagnose EXACTLY which Firestore rule condition failed
-//
-// FIXES APPLIED (v=48):
-// - Added missing task fields: budget, spreadsheetId, showOnCalendar
-// - Made teamId validation conditional for legacy tasks (like title)
-// - Made teamId IMMUTABILITY checks conditional across ALL collections:
-//   * Tasks: (!('teamId' in resource.data) || fieldUnchanged('teamId'))
-//   * Events: Same conditional check
-//   * Spreadsheets: Same conditional check
-//   * LinkLobbyGroups: Same conditional check
-//   * Transactions: Same conditional check
-//   * TeamJoinInfo: Made createdAt check conditional too
-// - This allows updates to legacy docs created before teamId was added
-// - Enhanced diagnostics to show actual vs merged document state
-// ===================================
+    // Centralized Firestore error diagnostic logger
+    function logFirestoreDiagnostic(op, path, error, payload, { actualDocData = null, mergedDocData = null, extraContext = null, prefix = '[FIRESTORE]' } = {}) {
+        const isPermDenied = error?.code === 'permission-denied';
+        let payloadPreview = payload;
 
-async function logFirestoreError(op, path, payload, extraContext, error) {
-    const isPermDenied = error?.code === 'permission-denied';
-    const prefix = isPermDenied ? '🔒 [PERMISSION-DENIED]' : '❌ [FIRESTORE ERROR]';
-    
-    // Truncate large arrays in payload for readability
-    const truncateValue = (val) => {
-        if (Array.isArray(val) && val.length > 5) {
-            return `[Array(${val.length}): ${JSON.stringify(val.slice(0, 3))}... +${val.length - 3} more]`;
-        }
-        if (typeof val === 'object' && val !== null) {
-            const keys = Object.keys(val);
-            if (keys.length > 10) {
-                return `{Object with ${keys.length} keys: ${keys.slice(0, 5).join(', ')}...}`;
-            }
-        }
-        return val;
-    };
-    
-    const payloadPreview = {};
-    if (payload && typeof payload === 'object') {
-        for (const [k, v] of Object.entries(payload)) {
-            payloadPreview[k] = truncateValue(v);
-        }
-    }
-    
-    // For permission-denied on UPDATE, try to fetch the ACTUAL document to diagnose
-    let actualDocData = null;
-    let mergedDocData = null;
-    if (isPermDenied && path && !path.includes('<new>') && db) {
+        // Clone payload for safer logging without mutating callers
         try {
-            const { doc, getDoc } = await import('https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js');
-            const docRef = doc(db, ...path.split('/'));
-            const docSnap = await getDoc(docRef);
-            if (docSnap.exists()) {
-                actualDocData = docSnap.data();
-                // Simulate what merged doc would look like
-                mergedDocData = { ...actualDocData, ...payload };
+            payloadPreview = payload ? JSON.parse(JSON.stringify(payload)) : null;
+        } catch (_) {
+            // If cloning fails, fall back to the raw payload
+        }
+
+        console.group(`${prefix} ${op}`);
+        console.log('%c━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'color: #ff4444; font-weight: bold');
+        console.log('%c📍 OPERATION:', 'color: #ff8800; font-weight: bold', op);
+        console.log('%c📂 PATH:', 'color: #ff8800; font-weight: bold', path);
+        console.log('%c🚫 ERROR CODE:', 'color: #ff0000; font-weight: bold', error?.code || 'unknown');
+        console.log('%c💬 ERROR MESSAGE:', 'color: #ff0000; font-weight: bold', error?.message || String(error));
+        console.log('%c━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'color: #ff4444; font-weight: bold');
+        console.log('%c📦 PAYLOAD KEYS:', 'color: #00aaff; font-weight: bold', payload ? Object.keys(payload) : 'N/A');
+        console.log('%c📦 PAYLOAD DATA:', 'color: #00aaff; font-weight: bold', payloadPreview);
+
+        if (actualDocData && mergedDocData) {
+            console.log('%c━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'color: #ffaa00; font-weight: bold');
+            console.log('%c📄 ACTUAL FIRESTORE DOC (resource.data):', 'color: #ffaa00; font-weight: bold');
+            console.log('Keys:', Object.keys(actualDocData));
+            console.log('Data:', actualDocData);
+            console.log('%c🔀 MERGED DOC (request.resource.data):', 'color: #aa00ff; font-weight: bold');
+            console.log('Keys:', Object.keys(mergedDocData));
+            console.log('Data:', mergedDocData);
+            console.log('%c🔍 FIELD COMPARISON:', 'color: #00ff88; font-weight: bold');
+            console.log('• teamId:', { before: actualDocData.teamId, after: mergedDocData.teamId, hasField: 'teamId' in mergedDocData });
+            console.log('• title:', { before: actualDocData.title, after: mergedDocData.title, hasField: 'title' in mergedDocData });
+            console.log('• createdBy:', { before: actualDocData.createdBy, after: mergedDocData.createdBy, unchanged: actualDocData.createdBy === mergedDocData.createdBy });
+            console.log('• createdAt:', { before: actualDocData.createdAt, after: mergedDocData.createdAt, hasInOld: 'createdAt' in actualDocData });
+        }
+
+        console.log('%c━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'color: #00ff00; font-weight: bold');
+        if (extraContext) {
+            console.log('%c🔐 AUTH CONTEXT:', 'color: #00ff00; font-weight: bold', extraContext);
+            if (isPermDenied && extraContext.taskCreatedBy && extraContext.uid) {
+                console.log('%c✅ Creator Match:', 'color: ' + (extraContext.taskCreatedBy === extraContext.uid ? '#00ff00' : '#ff0000') + '; font-weight: bold',
+                    extraContext.taskCreatedBy === extraContext.uid ? 'YES' : 'NO',
+                    `(${extraContext.uid} ${extraContext.taskCreatedBy === extraContext.uid ? '===' : '!=='} ${extraContext.taskCreatedBy})`);
             }
-        } catch (fetchErr) {
-            console.warn('⚠️ Could not fetch document for diagnosis:', fetchErr.message);
+            if (isPermDenied && extraContext.userRole) {
+                console.log('%c👑 User Role:', 'color: #ffaa00; font-weight: bold', extraContext.userRole,
+                    '(Admin check:', ['admin', 'owner'].includes(extraContext.userRole) ? 'PASS' : 'FAIL' + ')');
+            }
         }
-    }
-    
-    console.group(`${prefix} ${op}`);
-    console.log('%c━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'color: #ff4444; font-weight: bold');
-    console.log('%c📍 OPERATION:', 'color: #ff8800; font-weight: bold', op);
-    console.log('%c📂 PATH:', 'color: #ff8800; font-weight: bold', path);
-    console.log('%c🚫 ERROR CODE:', 'color: #ff0000; font-weight: bold', error?.code || 'unknown');
-    console.log('%c💬 ERROR MESSAGE:', 'color: #ff0000; font-weight: bold', error?.message || String(error));
-    console.log('%c━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'color: #ff4444; font-weight: bold');
-    console.log('%c📦 PAYLOAD KEYS:', 'color: #00aaff; font-weight: bold', payload ? Object.keys(payload) : 'N/A');
-    console.log('%c📦 PAYLOAD DATA:', 'color: #00aaff; font-weight: bold', payloadPreview);
-    
-    if (actualDocData) {
-        console.log('%c━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'color: #ffaa00; font-weight: bold');
-        console.log('%c📄 ACTUAL FIRESTORE DOC (resource.data):', 'color: #ffaa00; font-weight: bold');
-        console.log('Keys:', Object.keys(actualDocData));
-        console.log('Data:', actualDocData);
-        console.log('%c🔀 MERGED DOC (request.resource.data):', 'color: #aa00ff; font-weight: bold');
-        console.log('Keys:', Object.keys(mergedDocData));
-        console.log('Data:', mergedDocData);
-        console.log('%c🔍 FIELD COMPARISON:', 'color: #00ff88; font-weight: bold');
-        console.log('• teamId:', { before: actualDocData.teamId, after: mergedDocData.teamId, hasField: 'teamId' in mergedDocData });
-        console.log('• title:', { before: actualDocData.title, after: mergedDocData.title, hasField: 'title' in mergedDocData });
-        console.log('• createdBy:', { before: actualDocData.createdBy, after: mergedDocData.createdBy, unchanged: actualDocData.createdBy === mergedDocData.createdBy });
-        console.log('• createdAt:', { before: actualDocData.createdAt, after: mergedDocData.createdAt, hasInOld: 'createdAt' in actualDocData });
-    }
-    
-    console.log('%c━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'color: #00ff00; font-weight: bold');
-    if (extraContext) {
-        console.log('%c🔐 AUTH CONTEXT:', 'color: #00ff00; font-weight: bold', extraContext);
-        if (isPermDenied && extraContext.taskCreatedBy && extraContext.uid) {
-            console.log('%c✅ Creator Match:', 'color: ' + (extraContext.taskCreatedBy === extraContext.uid ? '#00ff00' : '#ff0000') + '; font-weight: bold', 
-                extraContext.taskCreatedBy === extraContext.uid ? 'YES' : 'NO',
-                `(${extraContext.uid} ${extraContext.taskCreatedBy === extraContext.uid ? '===' : '!=='} ${extraContext.taskCreatedBy})`);
+        console.log('%c━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'color: #ff4444; font-weight: bold');
+
+        if (error?.stack) {
+            console.log('%c📚 STACK TRACE:', 'color: #888; font-style: italic');
+            console.log(error.stack);
         }
-        if (isPermDenied && extraContext.userRole) {
-            console.log('%c👑 User Role:', 'color: #ffaa00; font-weight: bold', extraContext.userRole,
-                '(Admin check:', ['admin', 'owner'].includes(extraContext.userRole) ? 'PASS' : 'FAIL' + ')');
-        }
+        console.groupEnd();
+
+        // Also log a one-liner for quick scanning
+        console.error(`${prefix} ${op} @ ${path} | keys=[${payload ? Object.keys(payload).join(',') : ''}] | ${error?.code}: ${error?.message}`);
     }
-    console.log('%c━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'color: #ff4444; font-weight: bold');
-    
-    if (error?.stack) {
-        console.log('%c📚 STACK TRACE:', 'color: #888; font-style: italic');
-        console.log(error.stack);
-    }
-    console.groupEnd();
-    
-    // Also log a one-liner for quick scanning
-    console.error(`${prefix} ${op} @ ${path} | keys=[${payload ? Object.keys(payload).join(',') : ''}] | ${error?.code}: ${error?.message}`);
-}
 
 // ===================================
 // EARLY GLOBAL FUNCTIONS (must be defined before DOM loads)
@@ -1913,7 +1853,11 @@ const appState = {
     docSaveTimer: null, // Debounce timer for autosave
     isDocDirty: false, // Whether doc has unsaved changes
     isDocSaving: false, // Whether doc is currently saving
-    tasksViewMode: 'sheets' // 'sheets' or 'docs' - which view is active in tasks section
+    tasksViewMode: 'sheets', // 'sheets' or 'docs' - which view is active in tasks section
+    // Projects state (workspace filter/grouping)
+    projects: [], // Team projects
+    activeProjectId: null, // Currently active project filter (null = show all)
+    projectsUnsub: null // Firestore listener cleanup function
 };
 
 // ===================================
@@ -6118,7 +6062,7 @@ function initTasks() {
     const createSpreadsheetBtn = document.getElementById('createSpreadsheetCard');
     if (createSpreadsheetBtn) {
         createSpreadsheetBtn.addEventListener('click', () => {
-            openModal('spreadsheetModal');
+            openCreateWorkspaceItemModal();
         });
     }
 
@@ -6214,10 +6158,33 @@ function initTasks() {
         const container = document.getElementById('spreadsheetCards');
         if (!container) return;
 
-        // Keep the create card
+        // Keep the create card but hide it in project view
         const createCardEl = container.querySelector('.create-new');
         container.innerHTML = '';
-        if (createCardEl) container.appendChild(createCardEl);
+        if (createCardEl) {
+            // Hide create card in project view
+            createCardEl.style.display = appState.activeProjectId ? 'none' : '';
+            container.appendChild(createCardEl);
+        }
+
+        // Insert project tile before the create card (only when NOT in project view)
+        if (!appState.activeProjectId) {
+            const projectTileHTML = window.buildProjectTile ? window.buildProjectTile() : '';
+            if (projectTileHTML) {
+                const projectTileWrapper = document.createElement('div');
+                projectTileWrapper.className = 'spreadsheet-card project-tile-card';
+                projectTileWrapper.innerHTML = projectTileHTML;
+                container.insertBefore(projectTileWrapper, createCardEl);
+
+                // Enable project context menu on badges
+                projectTileWrapper.querySelectorAll('.project-badge:not(.project-overflow)').forEach(badge => {
+                    badge.addEventListener('contextmenu', (e) => {
+                        const projectId = badge.dataset.projectId;
+                        if (projectId) showProjectContextMenu(projectId, e);
+                    });
+                });
+            }
+        }
 
         // Initialize spreadsheets array if not exists
         if (!appState.spreadsheets) {
@@ -6269,8 +6236,37 @@ function initTasks() {
             return (a.name || '').localeCompare(b.name || '');
         });
 
+        // Apply project filter if active, or filter out projectOnly items in workspace view
+        let filteredSpreadsheets;
+        if (appState.activeProjectId) {
+            // In project view: show all sheets assigned to this project
+            filteredSpreadsheets = visibleSpreadsheets.filter(s => s.projectId === appState.activeProjectId);
+        } else {
+            // In workspace view: hide sheets with projectVisibility = 'projectOnly'
+            filteredSpreadsheets = visibleSpreadsheets.filter(s => s.projectVisibility !== 'projectOnly');
+        }
+
+        // Empty state for filtered view (only show individual empty state when NOT in project view)
+        if (filteredSpreadsheets.length === 0) {
+            // In project view, skip individual empty state - unified empty will be shown if both are empty
+            if (appState.activeProjectId) {
+                // Do nothing here - unified empty state handled elsewhere
+                return;
+            }
+            
+            const emptyState = document.createElement('div');
+            emptyState.className = 'spreadsheet-empty-state';
+            emptyState.innerHTML = `
+                <i class="fas fa-table"></i>
+                <h4>No sheets yet</h4>
+                <p>Create your first sheet to get started</p>
+            `;
+            container.appendChild(emptyState);
+            return;
+        }
+
         // Render spreadsheet cards
-        visibleSpreadsheets.forEach(spreadsheet => {
+        filteredSpreadsheets.forEach(spreadsheet => {
             const card = buildSpreadsheetCard(spreadsheet);
             container.insertBefore(card, createCardEl);
         });
@@ -6412,6 +6408,16 @@ function initTasks() {
             hideSpreadsheetContextMenu();
         });
 
+        // Move to project action
+        document.getElementById('contextMenuMoveToProject')?.addEventListener('click', () => {
+            if (contextMenuSpreadsheet) {
+                // Important: open modal before clearing context menu state
+                const spreadsheet = contextMenuSpreadsheet;
+                hideSpreadsheetContextMenu();
+                showProjectAssignModal(spreadsheet, 'spreadsheet');
+            }
+        });
+
         // Pin/Unpin action
         document.getElementById('contextMenuPin')?.addEventListener('click', async () => {
             if (contextMenuSpreadsheet) {
@@ -6434,6 +6440,7 @@ function initTasks() {
         const menu = document.getElementById('spreadsheetContextMenu');
         if (!menu) return;
         
+        console.log('DEBUG: showSpreadsheetContextMenu spreadsheet', spreadsheet?.id, spreadsheet);
         contextMenuSpreadsheet = spreadsheet;
         
         // Position menu near cursor
@@ -6460,6 +6467,7 @@ function initTasks() {
         // Disable delete for "default" spreadsheet
         const deleteItem = document.getElementById('contextMenuDelete');
         const pinItem = document.getElementById('contextMenuPin');
+        const projectItem = document.getElementById('contextMenuMoveToProject');
         if (pinItem) {
             const pinLabel = pinItem.querySelector('span');
             if (pinLabel) {
@@ -6478,6 +6486,10 @@ function initTasks() {
                 deleteItem.style.opacity = '1';
                 deleteItem.style.pointerEvents = 'auto';
             }
+        }
+        if (projectItem) {
+            projectItem.style.opacity = '1';
+            projectItem.style.pointerEvents = 'auto';
         }
     }
     
@@ -6723,6 +6735,9 @@ function initTasks() {
 
         // Show panel by adding class to tasks section (hides cards, shows panel)
         tasksSection.classList.add('spreadsheet-open');
+        
+        // Store project context so back button returns to project if opened from there
+        appState.returnToProjectId = appState.activeProjectId || null;
     }
 
     // Close spreadsheet panel
@@ -6732,6 +6747,18 @@ function initTasks() {
             tasksSection.classList.remove('spreadsheet-open');
             appState.currentSpreadsheet = null;
             spreadsheetState.selectedTasks.clear();
+            
+            // Return to project view if we came from there
+            if (appState.returnToProjectId) {
+                appState.activeProjectId = appState.returnToProjectId;
+                appState.returnToProjectId = null;
+                switchTasksView('combined');
+                renderSpreadsheetCards();
+                renderDocCards();
+            } else {
+                // Normal workspace view
+                switchTasksView(appState.activeWorkspaceView || 'sheets');
+            }
         }
     };
 
@@ -10794,7 +10821,9 @@ function initTasks() {
                     // Load custom columns with all properties (type, options, colors, ranges)
                     customColumns: data.customColumns || [],
                     // Load built-in column customizations
-                    columnSettings: data.columnSettings || {}
+                    columnSettings: data.columnSettings || {},
+                    // IMPORTANT: Load projectId so sheets stay assigned to projects after reload
+                    projectId: data.projectId || null
                 };
                 
                 // Debug logging
@@ -10862,54 +10891,232 @@ function initTasks() {
      * Initialize Sheets/Docs toggle in tasks section header
      */
     function initSheetsDocsToggle() {
-        const toggleBtns = document.querySelectorAll('.sheets-docs-toggle .toggle-btn');
+        // Log to localStorage for debugging
+        let debugLog_ = JSON.parse(localStorage.getItem('teamster_debug_log') || '[]');
         
-        toggleBtns.forEach(btn => {
-            btn.addEventListener('click', () => {
+        // Try both selectors to ensure we find the buttons
+        let toggleBtns = document.querySelectorAll('.sheets-docs-toggle .toggle-btn');
+        debugLog_.push(`[${new Date().toLocaleTimeString()}] Found ${toggleBtns.length} buttons`);
+        console.log(`[TOGGLE INIT] Found ${toggleBtns.length} buttons`);
+        debugLog(`📋 Found ${toggleBtns.length} toggle buttons`);
+        
+        // If not found, try alternative selector
+        if (toggleBtns.length === 0) {
+            toggleBtns = document.querySelectorAll('button[data-view]');
+            debugLog_.push(`[${new Date().toLocaleTimeString()}] Fallback: Found ${toggleBtns.length} buttons`);
+        }
+        
+        if (toggleBtns.length === 0) {
+            debugLog_.push(`[${new Date().toLocaleTimeString()}] ERROR: NO BUTTONS FOUND`);
+            localStorage.setItem('teamster_debug_log', JSON.stringify(debugLog_));
+            debugLog(`❌ No toggle buttons found!`);
+            return;
+        }
+        
+        toggleBtns.forEach((btn, index) => {
+            const clickHandler = (e) => {
+                const timestamp = new Date().toLocaleTimeString();
+                const logMsg = `[${timestamp}] CLICK on button ${index} (${btn.dataset.view})`;
+                debugLog_.push(logMsg);
+                localStorage.setItem('teamster_debug_log', JSON.stringify(debugLog_));
+                console.log('[CLICK]', logMsg);
+                
+                e.preventDefault();
+                e.stopPropagation();
                 const view = btn.dataset.view;
                 switchTasksView(view);
-            });
+            };
+            
+            // Add listener
+            btn.addEventListener('click', clickHandler);
+            debugLog_.push(`[${new Date().toLocaleTimeString()}] Attached listener to button ${index}`);
         });
+        
+        debugLog_.push(`[${new Date().toLocaleTimeString()}] Done. ${toggleBtns.length} buttons configured`);
+        localStorage.setItem('teamster_debug_log', JSON.stringify(debugLog_));
+        debugLog(`✅ Toggle initialization complete`);
         
         // Restore last view from localStorage
         const savedView = localStorage.getItem('teamster_tasks_view') || 'sheets';
-        // Don't auto-switch on init - keep default to sheets
+        
+        // Make debug function available globally
+        window.showToggleDebugLog = () => {
+            const log = JSON.parse(localStorage.getItem('teamster_debug_log') || '[]');
+            console.log('=== TOGGLE DEBUG LOG ===');
+            log.forEach(entry => console.log(entry));
+            console.log('=====================');
+            return log;
+        };
     }
     
     /**
      * Switch between Sheets and Docs views
      */
     function switchTasksView(view) {
-        appState.tasksViewMode = view;
-        localStorage.setItem('teamster_tasks_view', view);
+        debugLog(`🔄 switchTasksView called with view: ${view}`);
+        const isCombined = view === 'combined';
+        const storedView = localStorage.getItem('teamster_tasks_view') || appState.tasksViewMode || 'sheets';
+        const effectiveView = isCombined ? storedView : view;
+        if (!isCombined) {
+            appState.tasksViewMode = view;
+            localStorage.setItem('teamster_tasks_view', view);
+        }
+
+        const forceCombined = !!appState.activeProjectId;
         
         // Update toggle buttons
         const toggleBtns = document.querySelectorAll('.sheets-docs-toggle .toggle-btn');
+        debugLog(`🔘 Updating ${toggleBtns.length} toggle buttons`);
         toggleBtns.forEach(btn => {
-            btn.classList.toggle('active', btn.dataset.view === view);
+            btn.classList.toggle('active', forceCombined || btn.dataset.view === effectiveView);
         });
         
         // Show/hide the appropriate containers
         const spreadsheetHeader = document.getElementById('spreadsheetsViewHeader');
+        const projectViewHeader = document.getElementById('projectViewHeader');
         const spreadsheetCards = document.getElementById('spreadsheetCards');
         const docsHeader = document.getElementById('docsViewHeader');
         const docCards = document.getElementById('docCards');
         
-        if (view === 'sheets') {
-            if (spreadsheetHeader) spreadsheetHeader.style.display = '';
-            if (spreadsheetCards) spreadsheetCards.style.display = '';
-            if (docsHeader) docsHeader.style.display = 'none';
-            if (docCards) docCards.style.display = 'none';
-        } else if (view === 'docs') {
+        debugLog(`🎯 Elements found - spreadsheetHeader: ${!!spreadsheetHeader}, spreadsheetCards: ${!!spreadsheetCards}, docsHeader: ${!!docsHeader}, docCards: ${!!docCards}`);
+        
+        const showSheets = forceCombined || effectiveView === 'sheets';
+        const showDocs = forceCombined || effectiveView === 'docs';
+
+        // ===================================
+        // PROJECT VIEW: Show project header, hide sheet/doc headers
+        // ===================================
+        if (forceCombined && projectViewHeader) {
+            // Update project header content
+            const activeProject = appState.projects?.find(p => p.id === appState.activeProjectId);
+            const projectTitle = document.getElementById('projectViewTitle');
+            const projectSubtitle = document.getElementById('projectViewSubtitle');
+            
+            if (projectTitle && activeProject) {
+                const iconSVG = window.getProjectIconSVG ? window.getProjectIconSVG(activeProject.icon) : '<i class="fas fa-folder"></i>';
+                projectTitle.innerHTML = `${iconSVG} ${escapeHtml(activeProject.name)}`;
+            }
+            if (projectSubtitle) {
+                projectSubtitle.textContent = 'Sheets and docs in this project';
+            }
+            
+            // Show project header, hide regular headers
+            projectViewHeader.style.display = 'flex';
             if (spreadsheetHeader) spreadsheetHeader.style.display = 'none';
-            if (spreadsheetCards) spreadsheetCards.style.display = 'none';
-            if (docsHeader) docsHeader.style.display = '';
-            if (docCards) docCards.style.display = '';
+            if (docsHeader) docsHeader.style.display = 'none';
+            
+            // Bind back button
+            const backBtn = document.getElementById('projectBackBtn');
+            if (backBtn && !backBtn.dataset.bound) {
+                backBtn.addEventListener('click', () => clearProjectFilter());
+                backBtn.dataset.bound = 'true';
+            }
+            
+            // Bind add button
+            const addBtn = document.getElementById('projectAddBtn');
+            if (addBtn && !addBtn.dataset.bound) {
+                addBtn.addEventListener('click', () => openCreateWorkspaceItemModal());
+                addBtn.dataset.bound = 'true';
+            }
+        } else {
+            // Hide project header
+            if (projectViewHeader) projectViewHeader.style.display = 'none';
+        }
+
+        // ===================================
+        // REGULAR VIEW: Show appropriate sheet/doc headers
+        // ===================================
+        if (!forceCombined) {
+            if (showSheets) {
+                debugLog(`📊 Switching to SHEETS view`);
+                if (spreadsheetHeader) { 
+                    spreadsheetHeader.style.display = 'flex';
+                    debugLog(`✓ Set spreadsheetsViewHeader display to flex`);
+                }
+            } else {
+                if (spreadsheetHeader) { 
+                    spreadsheetHeader.style.display = 'none';
+                    debugLog(`✓ Set spreadsheetsViewHeader display to none`);
+                }
+            }
+
+            if (showDocs) {
+                debugLog(`📄 Switching to DOCS view`);
+                if (docsHeader) { 
+                    docsHeader.style.display = 'flex';
+                    debugLog(`✓ Set docsViewHeader display to flex`);
+                }
+            } else {
+                if (docsHeader) { 
+                    docsHeader.style.display = 'none';
+                    debugLog(`✓ Set docsViewHeader display to none`);
+                }
+            }
+        }
+
+        // ===================================
+        // CARDS: Always show based on view mode
+        // ===================================
+        if (showSheets) {
+            if (spreadsheetCards) { 
+                spreadsheetCards.style.display = 'grid';
+                debugLog(`✓ Set spreadsheetCards display to grid`);
+            }
+        } else {
+            if (spreadsheetCards) { 
+                spreadsheetCards.style.display = 'none';
+                debugLog(`✓ Set spreadsheetCards display to none`);
+            }
+        }
+
+        if (showDocs) {
+            if (docCards) { 
+                docCards.style.display = 'grid';
+                debugLog(`✓ Set docCards display to grid`);
+            }
             
             // Load docs if not already loaded
             if (appState.currentTeamId && appState.docs.length === 0) {
+                debugLog(`📥 Loading docs from Firestore...`);
                 loadDocsFromFirestore();
             }
+        } else {
+            if (docCards) { 
+                docCards.style.display = 'none';
+                debugLog(`✓ Set docCards display to none`);
+            }
+        }
+
+        // ===================================
+        // PROJECT VIEW: Show unified empty state if both sheets and docs are empty
+        // ===================================
+        const projectEmptyState = document.getElementById('projectEmptyState');
+        if (forceCombined && appState.activeProjectId) {
+            // Add spacing class to doc-cards in project view
+            if (docCards) {
+                docCards.classList.add('project-view-spacing');
+            }
+            
+            const projectSheets = appState.spreadsheets.filter(s => s.projectId === appState.activeProjectId);
+            const projectDocs = appState.docs.filter(d => d.projectId === appState.activeProjectId);
+            
+            if (projectSheets.length === 0 && projectDocs.length === 0) {
+                // Update empty state with project name
+                const activeProject = appState.projects?.find(p => p.id === appState.activeProjectId);
+                const emptyTitle = document.getElementById('projectEmptyTitle');
+                if (emptyTitle && activeProject) {
+                    emptyTitle.textContent = `No items in ${activeProject.name}`;
+                }
+                if (projectEmptyState) projectEmptyState.style.display = 'flex';
+            } else {
+                if (projectEmptyState) projectEmptyState.style.display = 'none';
+            }
+        } else {
+            // Remove spacing class and hide project empty state when not in project view
+            if (docCards) {
+                docCards.classList.remove('project-view-spacing');
+            }
+            if (projectEmptyState) projectEmptyState.style.display = 'none';
         }
     }
     
@@ -10917,16 +11124,16 @@ function initTasks() {
      * Initialize doc cards click handlers
      */
     function initDocCards() {
-        // Create Doc button
+        // Unified create button
         const createDocBtn = document.getElementById('createDocBtn');
         if (createDocBtn) {
-            createDocBtn.addEventListener('click', () => openCreateDocModal());
+            createDocBtn.addEventListener('click', () => openCreateWorkspaceItemModal());
         }
         
         // Create Doc card
         const createDocCard = document.getElementById('createDocCard');
         if (createDocCard) {
-            createDocCard.addEventListener('click', () => openCreateDocModal());
+            createDocCard.addEventListener('click', () => openCreateWorkspaceItemModal());
         }
     }
     
@@ -11003,6 +11210,51 @@ function initTasks() {
             });
         }
     }
+
+    // Unified create modal for sheets/docs
+    function openCreateWorkspaceItemModal() {
+        const existing = document.getElementById('createWorkspaceItemModal');
+        if (existing) existing.remove();
+
+        const modalHTML = `
+            <div class="unified-modal active" id="createWorkspaceItemModal">
+                <div class="unified-modal-content create-item-content">
+                    <div class="unified-modal-header">
+                        <div class="unified-modal-title">
+                            <h2><i class="fas fa-plus-circle"></i> New item</h2>
+                            <p class="subtitle">Choose what you want to create</p>
+                        </div>
+                        <button class="unified-modal-close" onclick="closeCreateWorkspaceItemModal()">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    <div class="unified-modal-body create-item-body">
+                        <button class="create-item-option" onclick="closeCreateWorkspaceItemModal(); openModal('spreadsheetModal');">
+                            <span class="create-item-icon" aria-hidden="true"><i class="fas fa-table-cells"></i></span>
+                            <div class="create-item-text">
+                                <span class="create-item-title">Sheet</span>
+                                <span class="create-item-subtitle">Track tasks, leads, or data</span>
+                            </div>
+                        </button>
+                        <button class="create-item-option" onclick="closeCreateWorkspaceItemModal(); openCreateDocModal();">
+                            <span class="create-item-icon" aria-hidden="true"><i class="fas fa-file-lines"></i></span>
+                            <div class="create-item-text">
+                                <span class="create-item-title">Doc</span>
+                                <span class="create-item-subtitle">Notes, briefs, and docs</span>
+                            </div>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        document.body.insertAdjacentHTML('beforeend', modalHTML);
+    }
+
+    window.closeCreateWorkspaceItemModal = function() {
+        const modal = document.getElementById('createWorkspaceItemModal');
+        if (modal) modal.remove();
+    };
     
     /**
      * Export document as a downloadable text file
@@ -11497,13 +11749,52 @@ function initTasks() {
         const container = document.getElementById('docCards');
         if (!container) return;
         
-        // Keep the create card
+        // Keep the create card but hide it in project view
         const createCard = container.querySelector('.create-new');
         container.innerHTML = '';
-        if (createCard) container.appendChild(createCard);
+        if (createCard) {
+            // Hide create card in project view
+            createCard.style.display = appState.activeProjectId ? 'none' : '';
+            container.appendChild(createCard);
+        }
         
-        // Check if no docs
-        if (appState.docs.length === 0) {
+        // Add project tile as the first card (only when NOT in project view)
+        if (!appState.activeProjectId) {
+            const projectTileHTML = window.buildProjectTile ? window.buildProjectTile() : '';
+            if (projectTileHTML) {
+                const projectTileWrapper = document.createElement('div');
+                projectTileWrapper.className = 'doc-card';
+                projectTileWrapper.innerHTML = projectTileHTML;
+                container.insertBefore(projectTileWrapper, createCard);
+                
+                // Add right-click context menu to project badges
+                projectTileWrapper.querySelectorAll('.project-badge:not(.project-overflow)').forEach(badge => {
+                    badge.addEventListener('contextmenu', (e) => {
+                        const projectId = badge.dataset.projectId;
+                        if (projectId) showProjectContextMenu(projectId, e);
+                    });
+                });
+            }
+        }
+        
+        // Apply project filter if active, or filter out projectOnly items in workspace view
+        let filteredDocs;
+        if (appState.activeProjectId) {
+            // In project view: show all docs assigned to this project
+            filteredDocs = appState.docs.filter(d => d.projectId === appState.activeProjectId);
+        } else {
+            // In workspace view: hide docs with projectVisibility = 'projectOnly'
+            filteredDocs = appState.docs.filter(d => d.projectVisibility !== 'projectOnly');
+        }
+        
+        // Check if no docs (after filtering) - skip individual empty state when in project view
+        if (filteredDocs.length === 0) {
+            // In project view, skip individual empty state - unified empty will be shown if both are empty
+            if (appState.activeProjectId) {
+                // Do nothing here - unified empty state handled elsewhere
+                return;
+            }
+            
             const emptyState = document.createElement('div');
             emptyState.className = 'doc-empty-state';
             emptyState.innerHTML = `
@@ -11516,7 +11807,7 @@ function initTasks() {
         }
         
         // Render doc cards (pinned first, then updatedAt desc)
-        const sortedDocs = [...appState.docs].sort((a, b) => {
+        const sortedDocs = [...filteredDocs].sort((a, b) => {
             const aPinned = a.pinned === true ? 1 : 0;
             const bPinned = b.pinned === true ? 1 : 0;
             if (aPinned !== bPinned) return bPinned - aPinned;
@@ -11633,6 +11924,7 @@ function initTasks() {
             { id: 'docContextMenuOpen', handler: () => { closeFloatingMenu(); openDoc(doc.id); } },
             { id: 'docContextMenuRename', handler: () => { closeFloatingMenu(); renameDoc(doc); } },
             { id: 'docContextMenuPin', handler: () => { closeFloatingMenu(); toggleDocPinned(doc, !doc.pinned); } },
+            { id: 'docContextMenuMoveToProject', handler: () => { closeFloatingMenu(); showProjectAssignModal(doc, 'doc'); } },
             { id: 'docContextMenuPrivacy', handler: () => { closeFloatingMenu(); openDocVisibilityModal(doc); } },
             { id: 'docContextMenuDelete', handler: () => { closeFloatingMenu(); deleteDoc(doc); } }
         ];
@@ -11849,6 +12141,9 @@ function initTasks() {
             hydrateDocEmbeds();
         }, 100);
         
+        // Store project context so back button returns to project if opened from there
+        appState.returnToProjectId = appState.activeProjectId || null;
+        
         // Show panel
         const tasksSection = document.getElementById('tasks-section');
         if (tasksSection) {
@@ -11909,6 +12204,18 @@ function initTasks() {
         const tasksSection = document.getElementById('tasks-section');
         if (tasksSection) {
             tasksSection.classList.remove('doc-open');
+            
+            // Return to project view if we came from there
+            if (appState.returnToProjectId) {
+                appState.activeProjectId = appState.returnToProjectId;
+                appState.returnToProjectId = null;
+                switchTasksView('combined');
+                renderSpreadsheetCards();
+                renderDocCards();
+            } else {
+                // Normal workspace view
+                switchTasksView(appState.activeWorkspaceView || 'docs');
+            }
         }
     }
     
@@ -13576,6 +13883,841 @@ function initTasks() {
     window.closeDocPanel = closeDocPanel;
     window.cleanupDocsState = cleanupDocsState;
     window.openCreateDocModal = openCreateDocModal;
+
+    // ===================================
+    // PROJECTS MODULE
+    // Workspace-level grouping/filtering for docs & sheets
+    // Projects are tags/filters, NOT containers
+    // ===================================
+
+    /**
+     * Initialize Projects module
+     */
+    function initProjectsModule() {
+        debugLog('📁 Initializing Projects module...');
+        initProjectModalHandlers();
+    }
+
+    /**
+     * Load projects from Firestore for current team
+     */
+    async function loadProjectsFromFirestore() {
+        if (!appState.currentTeamId) return;
+        
+        try {
+            const { collection, query, orderBy, onSnapshot } = await import('https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js');
+            
+            // Unsubscribe from previous listener
+            if (appState.projectsUnsub) {
+                appState.projectsUnsub();
+            }
+            
+            const projectsRef = collection(db, 'teams', appState.currentTeamId, 'projects');
+            const projectsQuery = query(projectsRef, orderBy('order', 'asc'));
+            
+            appState.projectsUnsub = onSnapshot(projectsQuery, (snapshot) => {
+                appState.projects = [];
+                snapshot.forEach(doc => {
+                    appState.projects.push({ id: doc.id, ...doc.data() });
+                });
+                console.log('📁 Loaded projects:', appState.projects.length);
+                
+                // Re-render cards with project tile
+                renderSpreadsheetCards();
+                renderDocCards();
+            }, (error) => {
+                console.error('Error loading projects:', error);
+            });
+        } catch (error) {
+            console.error('Error setting up projects listener:', error);
+        }
+    }
+
+    /**
+     * Create a new project
+     */
+    async function createProject(name, icon = 'folder', color = '#6366f1') {
+        if (!appState.currentTeamId || !currentAuthUser) return null;
+        
+        try {
+            const { collection, addDoc, serverTimestamp } = await import('https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js');
+            
+            const projectData = {
+                name: name.trim().substring(0, 50),
+                icon: icon,
+                color: color,
+                order: appState.projects.length,
+                createdAt: serverTimestamp(),
+                createdBy: currentAuthUser.uid
+            };
+            
+            const docRef = await addDoc(collection(db, 'teams', appState.currentTeamId, 'projects'), projectData);
+            console.log('📁 Created project:', docRef.id);
+            showToast('Project created', 'success');
+            return docRef.id;
+        } catch (error) {
+            console.error('Error creating project:', error);
+            showToast('Failed to create project', 'error');
+            return null;
+        }
+    }
+
+    /**
+     * Update a project
+     */
+    async function updateProject(projectId, updates) {
+        if (!appState.currentTeamId) return false;
+        
+        try {
+            const { doc: docRef, updateDoc } = await import('https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js');
+            
+            await updateDoc(docRef(db, 'teams', appState.currentTeamId, 'projects', projectId), updates);
+            console.log('📁 Updated project:', projectId);
+            return true;
+        } catch (error) {
+            console.error('Error updating project:', error);
+            showToast('Failed to update project', 'error');
+            return false;
+        }
+    }
+
+    /**
+     * Delete a project (unassigns all docs/sheets)
+     */
+    async function deleteProject(projectId) {
+        if (!appState.currentTeamId) return false;
+        
+        const project = appState.projects.find(p => p.id === projectId);
+        if (!project) return false;
+        
+        // Count affected items
+        const affectedDocs = appState.docs.filter(d => d.projectId === projectId).length;
+        const affectedSheets = appState.spreadsheets.filter(s => s.projectId === projectId).length;
+        
+        const confirmMsg = affectedDocs + affectedSheets > 0
+            ? `Delete "${project.name}"? ${affectedDocs} docs and ${affectedSheets} sheets will become unassigned.`
+            : `Delete "${project.name}"?`;
+        
+        if (!confirm(confirmMsg)) return false;
+        
+        try {
+            const { doc: docRef, deleteDoc, collection, query, where, getDocs, writeBatch } = await import('https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js');
+            
+            // Batch unassign all docs/sheets with this project
+            const batch = writeBatch(db);
+            
+            // Unassign docs
+            const docsQuery = query(collection(db, 'teams', appState.currentTeamId, 'docs'), where('projectId', '==', projectId));
+            const docsSnapshot = await getDocs(docsQuery);
+            docsSnapshot.forEach(docSnap => {
+                batch.update(docSnap.ref, { projectId: null });
+            });
+            
+            // Unassign spreadsheets
+            const sheetsQuery = query(collection(db, 'teams', appState.currentTeamId, 'spreadsheets'), where('projectId', '==', projectId));
+            const sheetsSnapshot = await getDocs(sheetsQuery);
+            sheetsSnapshot.forEach(sheetSnap => {
+                batch.update(sheetSnap.ref, { projectId: null });
+            });
+            
+            // Delete the project
+            batch.delete(docRef(db, 'teams', appState.currentTeamId, 'projects', projectId));
+            
+            await batch.commit();
+            
+            // Clear filter if deleted project was active
+            if (appState.activeProjectId === projectId) {
+                appState.activeProjectId = null;
+                updateProjectFilterUI();
+            }
+            
+            console.log('📁 Deleted project:', projectId);
+            showToast('Project deleted', 'success');
+            return true;
+        } catch (error) {
+            console.error('Error deleting project:', error);
+            showToast('Failed to delete project', 'error');
+            return false;
+        }
+    }
+
+    /**
+     * Set active project filter
+     */
+    function setActiveProject(projectId) {
+        appState.activeProjectId = projectId;
+        updateProjectFilterUI();
+        renderSpreadsheetCards();
+        renderDocCards();
+        switchTasksView(appState.tasksViewMode || 'sheets');
+    }
+
+    /**
+     * Clear project filter
+     */
+    function clearProjectFilter() {
+        appState.activeProjectId = null;
+        appState.returnToProjectId = null; // Clear any stored project return context
+        if (appState.tasksViewMode === 'combined') {
+            appState.tasksViewMode = localStorage.getItem('teamster_tasks_view') || 'sheets';
+        }
+        
+        // Hide project-specific UI elements
+        const projectViewHeader = document.getElementById('projectViewHeader');
+        const projectEmptyState = document.getElementById('projectEmptyState');
+        if (projectViewHeader) projectViewHeader.style.display = 'none';
+        if (projectEmptyState) projectEmptyState.style.display = 'none';
+        
+        // Remove project view spacing from doc cards
+        const docCards = document.getElementById('docCards');
+        if (docCards) docCards.classList.remove('project-view-spacing');
+        
+        updateProjectFilterUI();
+        renderSpreadsheetCards();
+        renderDocCards();
+        switchTasksView(appState.tasksViewMode || 'sheets');
+    }
+
+    /**
+     * Update project filter UI (chip visibility)
+     */
+    function updateProjectFilterUI() {
+        const chips = document.querySelectorAll('.project-filter-chip');
+        chips.forEach(chip => {
+            if (appState.activeProjectId) {
+                const project = appState.projects.find(p => p.id === appState.activeProjectId);
+                if (project) {
+                    chip.innerHTML = `
+                        <span class="project-filter-icon">${project.icon}</span>
+                        <span class="project-filter-name">${escapeHtml(project.name)}</span>
+                        <button class="project-filter-clear" onclick="clearProjectFilter()">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    `;
+                    chip.style.display = 'flex';
+                }
+            } else {
+                chip.style.display = 'none';
+            }
+        });
+
+        // Update project tile active states
+        document.querySelectorAll('.project-badge').forEach(badge => {
+            badge.classList.toggle('active', badge.dataset.projectId === appState.activeProjectId);
+        });
+    }
+
+    /**
+     * Assign a doc/sheet to a project
+     * @param {string} itemId - The ID of the doc or spreadsheet
+     * @param {string} itemType - 'doc' or 'spreadsheet'
+     * @param {string|null} projectId - The project ID to assign to (null to remove)
+     * @param {string|null} visibility - 'both' (show in workspace + project) or 'projectOnly' (hide from workspace)
+     */
+    async function assignToProject(itemId, itemType, projectId, visibility = 'both') {
+        if (!appState.currentTeamId) return false;
+        if (!itemId || !itemType) {
+            console.error('assignToProject called with missing params', { itemId, itemType, projectId });
+            showToast('Cannot move item: missing id', 'error');
+            return false;
+        }
+        
+        try {
+            const { doc: docRef, updateDoc } = await import('https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js');
+            
+            const collectionName = itemType === 'doc' ? 'docs' : 'spreadsheets';
+            const updateData = {
+                projectId: projectId,
+                projectVisibility: projectId ? visibility : null // Only set visibility if project is assigned
+            };
+            await updateDoc(docRef(db, 'teams', appState.currentTeamId, collectionName, itemId), updateData);
+            
+            // Update local state
+            if (itemType === 'doc') {
+                const docItem = appState.docs.find(d => d.id === itemId);
+                if (docItem) {
+                    docItem.projectId = projectId;
+                    docItem.projectVisibility = projectId ? visibility : null;
+                }
+            } else {
+                const sheet = appState.spreadsheets.find(s => s.id === itemId);
+                if (sheet) {
+                    sheet.projectId = projectId;
+                    sheet.projectVisibility = projectId ? visibility : null;
+                }
+            }
+            
+            const projectName = projectId 
+                ? appState.projects.find(p => p.id === projectId)?.name || 'project'
+                : 'none';
+            const actionText = visibility === 'projectOnly' ? 'Moved to' : 'Linked to';
+            showToast(projectId ? `${actionText} ${projectName}` : 'Removed from project', 'success');
+            
+            renderSpreadsheetCards();
+            renderDocCards();
+            return true;
+        } catch (error) {
+            console.error('Error assigning to project:', error?.code, error?.message || error, { itemId, itemType, projectId });
+            showToast('Failed to assign to project', 'error');
+            return false;
+        }
+    }
+
+    /**
+     * Build the project tile HTML for grid views
+     */
+    function buildProjectTile() {
+        const projects = appState.projects || [];
+        const maxVisible = 4;
+        const visibleProjects = projects.slice(0, maxVisible);
+        const overflow = projects.length - maxVisible;
+        
+        let listHTML = '';
+        
+        if (projects.length === 0) {
+            // Empty state - simple and clean
+            listHTML = `
+                <div class="project-tile-empty">
+                    <p class="project-tile-empty-text">Group docs and sheets by project</p>
+                    <button class="project-tile-create-btn" onclick="openCreateProjectModal()">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                        <span>New project</span>
+                    </button>
+                </div>
+            `;
+        } else {
+            // Simple project list
+            visibleProjects.forEach(project => {
+                const activeClass = project.id === appState.activeProjectId ? 'active' : '';
+                const iconSVG = getProjectIconSVG(project.icon);
+                const accent = project.color || '#007aff';
+                listHTML += `
+                    <button class="project-badge ${activeClass}" 
+                         data-project-id="${project.id}"
+                         onclick="toggleProjectFilter('${project.id}')"
+                         title="${escapeHtml(project.name)}"
+                         style="--project-color: ${accent};">
+                        <span class="project-badge-icon">${iconSVG}</span>
+                        <span class="project-badge-name">${escapeHtml(project.name)}</span>
+                        ${project.id === appState.activeProjectId ? '<svg class="project-badge-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>' : ''}
+                    </button>
+                `;
+            });
+            
+            // Overflow badge
+            if (overflow > 0) {
+                listHTML += `
+                    <button class="project-badge project-overflow" onclick="openProjectOverflowMenu(event)">
+                        <span class="project-badge-name">+${overflow} more</span>
+                    </button>
+                `;
+            }
+        }
+        
+        return `
+            <div class="project-tile-header">
+                <span class="project-tile-title">Projects</span>
+                ${projects.length > 0 ? `
+                    <button class="project-tile-add" onclick="openCreateProjectModal()">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                        New
+                    </button>
+                ` : ''}
+            </div>
+            <div class="project-tile-list">
+                ${listHTML}
+            </div>
+        `;
+    }
+
+    /**
+     * Toggle project filter (click on badge)
+     */
+    function toggleProjectFilter(projectId) {
+        if (appState.activeProjectId === projectId) {
+            clearProjectFilter();
+        } else {
+            setActiveProject(projectId);
+        }
+    }
+
+    /**
+     * Open create project modal
+     */
+    function openCreateProjectModal() {
+        const modal = document.getElementById('createProjectModal');
+        if (!modal) {
+            createProjectModal();
+            return openCreateProjectModal();
+        }
+        
+        // Reset form
+        const nameInput = modal.querySelector('#projectNameInput');
+        const iconInput = modal.querySelector('#projectIconInput');
+        const colorInput = modal.querySelector('#projectColorInput');
+
+        if (nameInput) nameInput.value = '';
+        if (iconInput) iconInput.value = 'folder';
+        if (colorInput) colorInput.value = PROJECT_COLOR_PALETTE[0];
+
+        // Reset visual states
+        setProjectIcon('folder');
+        setProjectColor(PROJECT_COLOR_PALETTE[0]);
+
+        modal.classList.add('active');
+        nameInput?.focus();
+    }
+
+    /**
+     * Create the project modal if it doesn't exist
+     */
+    const PROJECT_COLOR_PALETTE = ['#6d5dfc', '#0ea5e9', '#22c55e', '#f59e0b', '#ef4444', '#14b8a6', '#a855f7', '#475569'];
+
+    // SVG icon definitions for projects (monochromatic, clean design)
+    const PROJECT_ICONS = {
+        folder: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 7.5V18a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6.586a1 1 0 01-.707-.293l-1.414-1.414A1 1 0 009.586 5H5a2 2 0 00-2 2.5z"/></svg>',
+        briefcase: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 012-2h4a2 2 0 012 2v2"/><line x1="12" y1="12" x2="12" y2="12.01"/></svg>',
+        target: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>',
+        rocket: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 00-2.91-.09z"/><path d="M12 15l-3-3a22 22 0 012-3.95A12.88 12.88 0 0122 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 01-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/></svg>',
+        globe: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg>',
+        chart: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>',
+        lightbulb: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0018 8 6 6 0 006 8c0 1 .23 2.23 1.5 3.5A4.61 4.61 0 018.91 14"/></svg>',
+        star: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>',
+        cube: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>',
+        users: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>',
+        code: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>',
+        heart: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg>'
+    };
+
+    function createProjectModal() {
+        const existingModal = document.getElementById('createProjectModal');
+        if (existingModal) return;
+        
+        // Build icon grid HTML
+        let iconGridHTML = '';
+        Object.entries(PROJECT_ICONS).forEach(([key, svg], index) => {
+            const isSelected = index === 0 ? 'selected' : '';
+            iconGridHTML += `
+                <button type="button" class="project-icon-option ${isSelected}" data-icon="${key}" onclick="setProjectIcon('${key}')">
+                    ${svg}
+                </button>
+            `;
+        });
+
+        // Build color grid HTML
+        const colorGridHTML = PROJECT_COLOR_PALETTE.map((color, index) => {
+            const isSelected = index === 0 ? 'selected' : '';
+            return `<button type="button" class="project-color-swatch ${isSelected}" data-color="${color}" style="--swatch-color: ${color};" onclick="setProjectColor('${color}')"></button>`;
+        }).join('');
+
+        const modalHTML = `
+            <div class="unified-modal project-modal" id="createProjectModal">
+                <div class="unified-modal-content project-modal-content">
+                    <div class="project-modal-header">
+                        <h2 class="project-modal-title">New project</h2>
+                        <button class="project-modal-close" onclick="closeCreateProjectModal()">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                        </button>
+                    </div>
+                    <div class="project-modal-body">
+                        <div class="project-form-group">
+                            <label class="project-form-label" for="projectNameInput">Name</label>
+                            <input 
+                                type="text" 
+                                id="projectNameInput" 
+                                class="project-form-input"
+                                placeholder="e.g., Q2 Campaign, Client Name" 
+                                maxlength="50"
+                                autocomplete="off">
+                        </div>
+
+                        <div class="project-form-group">
+                            <label class="project-form-label">Icon</label>
+                            <input type="hidden" id="projectIconInput" value="folder">
+                            <div class="project-icon-grid">
+                                ${iconGridHTML}
+                            </div>
+                        </div>
+
+                        <div class="project-form-group">
+                            <label class="project-form-label">Color</label>
+                            <input type="hidden" id="projectColorInput" value="${PROJECT_COLOR_PALETTE[0]}">
+                            <div class="project-color-grid">
+                                ${colorGridHTML}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="unified-modal-footer project-modal-footer">
+                        <button class="unified-btn unified-btn-secondary" onclick="closeCreateProjectModal()">Cancel</button>
+                        <button class="unified-btn unified-btn-primary" onclick="submitCreateProject()">Create project</button>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        document.body.insertAdjacentHTML('beforeend', modalHTML);
+    }
+
+    /**
+     * Close create project modal
+     */
+    function closeCreateProjectModal() {
+        const modal = document.getElementById('createProjectModal');
+        if (modal) modal.classList.remove('active');
+    }
+
+    /**
+     * Set project icon from picker
+     */
+    function setProjectIcon(iconKey) {
+        const input = document.getElementById('projectIconInput');
+        const options = document.querySelectorAll('.project-icon-option');
+        
+        if (input) input.value = iconKey;
+        
+        // Update selected state
+        options.forEach(opt => {
+            opt.classList.toggle('selected', opt.dataset.icon === iconKey);
+        });
+    }
+
+    function setProjectColor(color) {
+        const input = document.getElementById('projectColorInput');
+        if (input) input.value = color;
+
+        document.querySelectorAll('.project-color-swatch').forEach(swatch => {
+            swatch.classList.toggle('selected', swatch.dataset.color === color);
+        });
+    }
+
+    /**
+     * Show project assign modal for docs/spreadsheets
+     * Redesigned with action type selection at top
+     */
+    function showProjectAssignModal(item, itemType) {
+        let modal = document.getElementById('projectAssignModal');
+        const resolvedItem = item || (itemType === 'spreadsheet' ? contextMenuSpreadsheet : null);
+        const currentProjectId = resolvedItem?.projectId || null;
+        const currentVisibility = resolvedItem?.projectVisibility || 'both';
+        const itemId = resolvedItem?.id || resolvedItem?.spreadsheetId || resolvedItem?.docId || '';
+        
+        if (!resolvedItem || !itemId) {
+            console.error('Project assign: missing item or id', { itemType, item, contextMenuSpreadsheet, resolvedItem });
+            showToast('Unable to move this item right now', 'error');
+            return;
+        }
+
+        // Build project options
+        const projects = appState.projects || [];
+        const projectOptionsHTML = projects.map(project => {
+            const iconSVG = getProjectIconSVG(project.icon);
+            const checked = project.id === currentProjectId ? 'checked' : '';
+            return `
+                <label class="project-select-row ${checked ? 'active' : ''}" style="--project-color: ${project.color || '#007aff'};">
+                    <input type="radio" name="projectAssignOption" value="${project.id}" ${checked}>
+                    <span class="project-select-icon">${iconSVG}</span>
+                    <span class="project-select-name">${escapeHtml(project.name)}</span>
+                    <span class="project-select-check"><i class="fas fa-check"></i></span>
+                </label>
+            `;
+        }).join('');
+
+        const modalHTML = `
+            <div class="unified-modal active project-assign-modal" id="projectAssignModal" data-item-id="${itemId}" data-item-type="${itemType}">
+                <div class="unified-modal-container modal-sm">
+                    <div class="unified-modal-header">
+                        <div class="unified-modal-title">
+                            <h2>Add to Project</h2>
+                            <p class="project-assign-intro">Choose visibility, then select a project.</p>
+                        </div>
+                        <button class="unified-modal-close" onclick="closeProjectAssignModal()">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+
+                    <div class="unified-modal-body project-assign-body">
+                        <div class="project-assign-section">
+                            <div class="project-assign-section-title">Visibility</div>
+                            <div class="project-assign-section-subtitle">Where should this item appear?</div>
+                            <div class="project-action-section">
+                            <div class="project-action-cards">
+                                <label class="project-action-card ${currentVisibility === 'both' || !currentProjectId ? 'active' : ''}" data-action="link">
+                                    <input type="radio" name="projectVisibility" value="both" ${currentVisibility === 'both' || !currentProjectId ? 'checked' : ''}>
+                                    <div class="action-card-icon">
+                                        <i class="fas fa-link"></i>
+                                    </div>
+                                    <div class="action-card-content">
+                                        <span class="action-card-text">Link <span class="action-card-muted">(Visible everywhere)</span></span>
+                                    </div>
+                                </label>
+                                <label class="project-action-card ${currentVisibility === 'projectOnly' ? 'active' : ''}" data-action="move">
+                                    <input type="radio" name="projectVisibility" value="projectOnly" ${currentVisibility === 'projectOnly' ? 'checked' : ''}>
+                                    <div class="action-card-icon">
+                                        <i class="fas fa-folder-open"></i>
+                                    </div>
+                                    <div class="action-card-content">
+                                        <span class="action-card-text">Move <span class="action-card-muted">(Project only)</span></span>
+                                    </div>
+                                </label>
+                            </div>
+                            </div>
+                        </div>
+
+                        <div class="project-assign-section">
+                            <div class="project-assign-section-title">Project</div>
+                            <div class="project-assign-section-subtitle">Pick a destination for this item.</div>
+                            <p class="project-select-label">Choose project</p>
+                            <div class="project-select-list">
+                                <label class="project-select-row remove-option ${!currentProjectId ? 'active' : ''}">
+                                    <input type="radio" name="projectAssignOption" value="" ${!currentProjectId ? 'checked' : ''}>
+                                    <span class="project-select-icon remove-icon"><i class="fas fa-times-circle"></i></span>
+                                    <span class="project-select-name">Remove from project</span>
+                                    <span class="project-select-check"><i class="fas fa-check"></i></span>
+                                </label>
+                                ${projectOptionsHTML}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="unified-modal-footer">
+                        <button class="unified-btn unified-btn-secondary" onclick="closeProjectAssignModal()">Cancel</button>
+                        <button class="unified-btn unified-btn-primary" onclick="confirmProjectAssignFromModal()">Save</button>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        if (modal) modal.remove();
+        document.body.insertAdjacentHTML('beforeend', modalHTML);
+
+        // Handle action card selection
+        const actionCards = document.querySelectorAll('#projectAssignModal .project-action-card');
+        actionCards.forEach(card => {
+            const input = card.querySelector('input[type="radio"]');
+            if (input) {
+                input.addEventListener('change', () => {
+                    actionCards.forEach(c => c.classList.remove('active'));
+                    card.classList.add('active');
+                });
+            }
+        });
+
+        // Handle project selection
+        const projectRows = document.querySelectorAll('#projectAssignModal .project-select-row');
+        projectRows.forEach(row => {
+            const input = row.querySelector('input[type="radio"]');
+            if (input) {
+                input.addEventListener('change', () => {
+                    projectRows.forEach(r => r.classList.remove('active'));
+                    row.classList.add('active');
+                });
+            }
+        });
+    }
+
+    window.closeProjectAssignModal = function() {
+        const modal = document.getElementById('projectAssignModal');
+        if (modal) modal.remove();
+    };
+
+    window.confirmProjectAssignFromModal = async function() {
+        const modal = document.getElementById('projectAssignModal');
+        const itemId = modal?.dataset.itemId;
+        const itemType = modal?.dataset.itemType;
+        const selectedProject = document.querySelector('input[name="projectAssignOption"]:checked');
+        const selectedVisibility = document.querySelector('input[name="projectVisibility"]:checked');
+        const projectId = selectedProject?.value || null;
+        const visibility = projectId ? (selectedVisibility?.value || 'both') : null;
+        
+        console.log('DEBUG: confirmProjectAssignFromModal - itemId:', itemId, 'itemType:', itemType, 'projectId:', projectId, 'visibility:', visibility);
+        
+        await assignToProject(itemId, itemType, projectId || null, visibility);
+        closeProjectAssignModal();
+    };
+
+    window.confirmProjectAssign = async function(itemId, itemType) {
+        const selected = document.querySelector('input[name="projectAssignOption"]:checked');
+        const projectId = selected?.value || null;
+        await assignToProject(itemId, itemType, projectId || null);
+        closeProjectAssignModal();
+    };
+
+    /**
+     * Get SVG for a project icon key
+     */
+    function getProjectIconSVG(iconKey) {
+        return PROJECT_ICONS[iconKey] || PROJECT_ICONS.folder;
+    }
+
+    /**
+     * Submit create project form
+     */
+    async function submitCreateProject() {
+        const nameInput = document.getElementById('projectNameInput');
+        const iconInput = document.getElementById('projectIconInput');
+        const colorInput = document.getElementById('projectColorInput');
+        
+        const name = nameInput?.value?.trim();
+        const icon = iconInput?.value || 'folder';
+        const color = colorInput?.value || PROJECT_COLOR_PALETTE[0];
+        
+        if (!name) {
+            showToast('Please enter a project name', 'error');
+            nameInput?.focus();
+            return;
+        }
+        
+        const projectId = await createProject(name, icon, color);
+        if (projectId) {
+            closeCreateProjectModal();
+        }
+    }
+
+    /**
+     * Open project overflow menu (for +N more)
+     */
+    function openProjectOverflowMenu(event) {
+        event.stopPropagation();
+        
+        const existingMenu = document.querySelector('.project-overflow-menu');
+        if (existingMenu) existingMenu.remove();
+        
+        const projects = appState.projects.slice(4); // Overflow projects
+        if (projects.length === 0) return;
+        
+        let menuHTML = '<div class="project-overflow-menu">';
+        projects.forEach(project => {
+            const activeClass = project.id === appState.activeProjectId ? 'active' : '';
+            const iconSVG = getProjectIconSVG(project.icon);
+            menuHTML += `
+                <button class="project-overflow-item ${activeClass}" onclick="toggleProjectFilter('${project.id}')">
+                    <span class="project-badge-icon" style="--project-color: ${project.color || '#6366f1'};">${iconSVG}</span>
+                    <span class="project-badge-name">${escapeHtml(project.name)}</span>
+                    ${project.id === appState.activeProjectId ? '<svg class="project-badge-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>' : ''}
+                </button>
+            `;
+        });
+        menuHTML += '</div>';
+        
+        event.target.closest('.project-tile').insertAdjacentHTML('beforeend', menuHTML);
+        
+        // Close on outside click
+        setTimeout(() => {
+            document.addEventListener('click', function closeOverflow(e) {
+                if (!e.target.closest('.project-overflow-menu')) {
+                    document.querySelector('.project-overflow-menu')?.remove();
+                    document.removeEventListener('click', closeOverflow);
+                }
+            });
+        }, 0);
+    }
+
+    /**
+     * Show project context menu for a project badge
+     */
+    function showProjectContextMenu(projectId, event) {
+        event.stopPropagation();
+        event.preventDefault();
+        
+        const project = appState.projects.find(p => p.id === projectId);
+        if (!project) return;
+        
+        // Remove existing menu
+        document.querySelector('.project-context-menu')?.remove();
+        
+        const menuHTML = `
+            <div class="project-context-menu" style="position: fixed; left: ${event.clientX}px; top: ${event.clientY}px;">
+                <div class="context-menu-item" onclick="openRenameProjectModal('${projectId}')">
+                    <i class="fas fa-pencil"></i> Rename
+                </div>
+                <div class="context-menu-item danger" onclick="deleteProject('${projectId}')">
+                    <i class="fas fa-trash"></i> Delete
+                </div>
+            </div>
+        `;
+        
+        document.body.insertAdjacentHTML('beforeend', menuHTML);
+        
+        // Close on outside click
+        setTimeout(() => {
+            document.addEventListener('click', function closeMenu(e) {
+                if (!e.target.closest('.project-context-menu')) {
+                    document.querySelector('.project-context-menu')?.remove();
+                    document.removeEventListener('click', closeMenu);
+                }
+            });
+        }, 0);
+    }
+
+    /**
+     * Init project modal handlers
+     */
+    function initProjectModalHandlers() {
+        // Create modal on first use
+        createProjectModal();
+        
+        // Enter key in name input
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && document.getElementById('createProjectModal')?.classList.contains('active')) {
+                e.preventDefault();
+                submitCreateProject();
+            }
+        });
+    }
+
+    /**
+     * Build project assignment dropdown for cards
+     */
+    function buildProjectAssignDropdown(itemId, itemType, currentProjectId) {
+        const projects = appState.projects || [];
+        
+        let optionsHTML = `
+            <div class="project-assign-option ${!currentProjectId ? 'active' : ''}" 
+                 onclick="assignToProject('${itemId}', '${itemType}', null)">
+                <span class="project-badge-icon">—</span>
+                <span>No Project</span>
+            </div>
+        `;
+        
+        projects.forEach(project => {
+            const activeClass = project.id === currentProjectId ? 'active' : '';
+            const iconSVG = getProjectIconSVG(project.icon);
+            optionsHTML += `
+                <div class="project-assign-option ${activeClass}" 
+                     onclick="assignToProject('${itemId}', '${itemType}', '${project.id}')">
+                    <span class="project-badge-icon">${iconSVG}</span>
+                    <span>${escapeHtml(project.name)}</span>
+                    ${project.id === currentProjectId ? '<i class="fas fa-check"></i>' : ''}
+                </div>
+            `;
+        });
+        
+        return `
+            <div class="project-assign-dropdown">
+                ${optionsHTML}
+            </div>
+        `;
+    }
+
+    // Expose projects functions globally
+    window.initProjectsModule = initProjectsModule;
+    window.loadProjectsFromFirestore = loadProjectsFromFirestore;
+    window.createProject = createProject;
+    window.updateProject = updateProject;
+    window.deleteProject = deleteProject;
+    window.setActiveProject = setActiveProject;
+    window.clearProjectFilter = clearProjectFilter;
+    window.assignToProject = assignToProject;
+    window.buildProjectTile = buildProjectTile;
+    window.toggleProjectFilter = toggleProjectFilter;
+    window.openCreateProjectModal = openCreateProjectModal;
+    window.closeCreateProjectModal = closeCreateProjectModal;
+    window.setProjectIcon = setProjectIcon;
+    window.setProjectColor = setProjectColor;
+    window.submitCreateProject = submitCreateProject;
+    window.openProjectOverflowMenu = openProjectOverflowMenu;
+    window.showProjectContextMenu = showProjectContextMenu;
+    window.buildProjectAssignDropdown = buildProjectAssignDropdown;
 
     // Show task details in a clean modal
     window.showTaskDetails = function(task) {
@@ -22033,9 +23175,13 @@ async function loadTeamData() {
         if (window.cleanupDocsState) {
             window.cleanupDocsState();
         }
+        if (window.cleanupProjectsState) {
+            window.cleanupProjectsState();
+        }
         const parallelLoads = [
             loadTasksFromFirestore(),
             window.loadSpreadsheetsFromFirestore ? window.loadSpreadsheetsFromFirestore() : null,
+            window.loadProjectsFromFirestore ? window.loadProjectsFromFirestore() : null,
             appState.tasksViewMode === 'docs' && window.loadDocsFromFirestore ? window.loadDocsFromFirestore() : null,
             loadMessagesFromFirestore(),
             loadEventsFromFirestore(),
@@ -33121,6 +34267,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     initSubscriptionEventListeners(); // Initialize Subscriptions
     initDropdownGuards(); // Ensure dropdown options close on selection
     initDocsModule(); // Initialize Docs feature
+    initProjectsModule(); // Initialize Projects feature (workspace grouping)
     initGlobalKeyboardShortcuts(); // Initialize keyboard shortcuts (t/e/m//)
     startActivityRefreshTimer(); // Start periodic refresh of activity times
     
