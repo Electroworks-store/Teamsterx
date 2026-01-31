@@ -1556,10 +1556,10 @@ function showToast(message, type = 'info', duration = 4000, title = '') {
     if (!container) return;
 
     const icons = {
-        success: '<i class="fas fa-check-circle"></i>',
-        error: '<i class="fas fa-times-circle"></i>',
-        warning: '<i class="fas fa-exclamation-triangle"></i>',
-        info: '<i class="fas fa-info-circle"></i>'
+        success: '<i class="fas fa-check"></i>',
+        error: '<i class="fas fa-times"></i>',
+        warning: '<i class="fas fa-exclamation"></i>',
+        info: '<i class="fas fa-info"></i>'
     };
 
     const toast = document.createElement('div');
@@ -4363,6 +4363,12 @@ function renderCalendar() {
         return;
     }
     
+    // STRICT VIEW ENFORCEMENT: Only allow 'week' or 'month', default to 'week'
+    if (appState.calendarView !== 'week' && appState.calendarView !== 'month') {
+        console.warn(`[Calendar] Invalid view "${appState.calendarView}", defaulting to week`);
+        appState.calendarView = 'week';
+    }
+    
     // Update view toggle button states
     document.querySelectorAll('#calendar-section .calendar-view-toggle .view-toggle-btn').forEach(btn => {
         btn.classList.toggle('active', btn.dataset.view === appState.calendarView);
@@ -4372,13 +4378,22 @@ function renderCalendar() {
     const isCalendarActive = calendarSection && calendarSection.classList.contains('active');
     console.log(`Rendering calendar in ${appState.calendarView} view with ${appState.events.length} events (active: ${isCalendarActive})`);
     
+    // Get the calendar grid container
+    const calendarGrid = document.querySelector('.calendar-grid');
+    
     if (appState.calendarView === 'month') {
         // Show day headers in month view
         dayHeaders.forEach(header => header.style.display = '');
+        // Remove week-view class from grid
+        if (calendarGrid) calendarGrid.classList.remove('week-view-active');
         renderMonthView(calendarTitle, calendarDays);
     } else {
+        // Strict week view - explicitly set appState.calendarView to 'week'
+        appState.calendarView = 'week';
         // Hide day headers in week view
         dayHeaders.forEach(header => header.style.display = 'none');
+        // Add week-view class to grid for CSS targeting
+        if (calendarGrid) calendarGrid.classList.add('week-view-active');
         renderWeekView(calendarTitle, calendarDays);
     }
     
@@ -4432,7 +4447,7 @@ function renderMonthView(titleEl, daysEl) {
     if (titleTextEl) {
         titleTextEl.textContent = titleText;
     } else if (titleEl) {
-        titleEl.innerHTML = `${monthName} <span>${year}</span>`;
+        titleEl.innerHTML = `${monthNameLong} <span>${year}</span>`;
     }
 
     let firstDayOfMonth = new Date(year, month, 1).getDay();
@@ -4737,6 +4752,7 @@ function renderDesktopColumnWeek(titleEl, daysEl, startOfWeek, allOccurrences) {
             // Format times in 24h format
             const startTimeStr = formatTime24(event.startDate.getHours(), event.startDate.getMinutes());
             const endTimeStr = formatTime24(event.endDate.getHours(), event.endDate.getMinutes());
+            const originalDateStr = event.startDate.toISOString();
             
             // Check for visibility badges
             const isPrivate = event.visibility === 'private';
@@ -4755,6 +4771,10 @@ function renderDesktopColumnWeek(titleEl, daysEl, startOfWeek, allOccurrences) {
                      data-time-range="${startTimeStr}–${endTimeStr}"
                      data-start-minutes="${event.startMinutes}"
                      data-end-minutes="${event.endMinutes}"
+                     data-start-time="${startTimeStr}"
+                     data-duration="${durationMinutes}"
+                     data-original-date="${originalDateStr}"
+                     data-col-index="${i}"
                      data-visibility="${event.visibility || 'team'}"
                      onclick="if(!event.target.closest('.week-event-resize-handle')){event.stopPropagation(); viewEventDetails('${escapeHtml(eventId)}', '${occurrenceDateStr}')}" 
                      style="top: ${topPosition}px; height: ${height}px; left: ${leftPercent}%; width: ${widthPercent}%; border-left: 4px solid ${escapeHtml(eventColor)};">
@@ -5305,24 +5325,13 @@ function getStartOfWeek(date) {
 // CALENDAR DRAG AND DROP
 // ===================================
 function initCalendarDragDrop() {
-    // Support both old (.week-event-block) and new (.week-col-event) event selectors
-    const eventBlocks = document.querySelectorAll('.week-event-block[draggable="true"], .week-col-event[draggable="true"]');
-    const dayColumns = document.querySelectorAll('.week-day-column');
-    const timeCells = document.querySelectorAll('.week-time-cell');
-    const gridCells = document.querySelectorAll('.week-grid-cell'); // New column view cells
-    
     // Month view elements
     const monthEventItems = document.querySelectorAll('.month-event-item[draggable="true"]');
     const calendarDays = document.querySelectorAll('.calendar-day');
     
-    console.log('[DragDrop] Initializing with', eventBlocks.length, 'week events,', monthEventItems.length, 'month events,', gridCells.length, 'grid cells');
+    console.log('[DragDrop] Initializing with', monthEventItems.length, 'month events');
     
-    eventBlocks.forEach(block => {
-        block.addEventListener('dragstart', handleEventDragStart);
-        block.addEventListener('dragend', handleEventDragEnd);
-    });
-    
-    // Month view drag and drop
+    // Month view drag and drop (uses HTML5 drag API)
     monthEventItems.forEach(item => {
         item.addEventListener('dragstart', handleMonthEventDragStart);
         item.addEventListener('dragend', handleMonthEventDragEnd);
@@ -5334,24 +5343,10 @@ function initCalendarDragDrop() {
         day.addEventListener('drop', handleMonthDayDrop);
     });
     
-    dayColumns.forEach(column => {
-        column.addEventListener('dragover', handleEventDragOver);
-        column.addEventListener('dragleave', handleEventDragLeave);
-        column.addEventListener('drop', handleEventDrop);
-    });
-    
-    // Support both old time cells and new grid cells
-    timeCells.forEach(cell => {
-        cell.addEventListener('dragover', handleCellDragOver);
-        cell.addEventListener('dragleave', handleCellDragLeave);
-        cell.addEventListener('drop', handleCellDrop);
-    });
-    
-    gridCells.forEach(cell => {
-        cell.addEventListener('dragover', handleGridCellDragOver);
-        cell.addEventListener('dragleave', handleGridCellDragLeave);
-        cell.addEventListener('drop', handleGridCellDrop);
-    });
+    // Initialize week view precision drag (pointer-based, from calendar-drag.js)
+    if (typeof initCalendarPrecisionDrag === 'function') {
+        initCalendarPrecisionDrag();
+    }
     
     // Initialize week view resize functionality
     initWeekEventResize();
@@ -5623,9 +5618,17 @@ function handleMonthEventDragStart(e) {
     e.dataTransfer.setData('text/plain', monthDraggedEventId);
     
     // Create a drag image
+    const rect = eventItem.getBoundingClientRect();
     const dragImage = eventItem.cloneNode(true);
     dragImage.style.position = 'absolute';
     dragImage.style.top = '-1000px';
+    dragImage.style.left = '-1000px';
+    dragImage.style.width = `${rect.width}px`;
+    dragImage.style.height = `${rect.height}px`;
+    dragImage.style.maxWidth = `${rect.width}px`;
+    dragImage.style.maxHeight = `${rect.height}px`;
+    dragImage.style.transform = 'none';
+    dragImage.style.boxSizing = 'border-box';
     document.body.appendChild(dragImage);
     e.dataTransfer.setDragImage(dragImage, 0, 0);
     setTimeout(() => dragImage.remove(), 0);
@@ -5766,193 +5769,9 @@ async function rescheduleMonthEvent(eventId, newDate) {
     }
 }
 
-let draggedEventId = null;
-let draggedEventElement = null;
-let dragOffsetY = 0; // Offset from top of event where user clicked
-
-function handleEventDragStart(e) {
-    draggedEventId = e.target.dataset.eventId;
-    draggedEventElement = e.target;
-    
-    // Calculate offset from top of event element to mouse position
-    const rect = e.target.getBoundingClientRect();
-    dragOffsetY = e.clientY - rect.top;
-    
-    e.target.classList.add('dragging');
-    e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData('text/plain', draggedEventId);
-    console.log('[DragDrop] Started dragging event:', draggedEventId, 'offsetY:', dragOffsetY);
-}
-
-function handleEventDragEnd(e) {
-    e.target.classList.remove('dragging');
-    draggedEventId = null;
-    draggedEventElement = null;
-    dragOffsetY = 0;
-    
-    // Remove all drag-over highlights
-    document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
-    console.log('[DragDrop] Drag ended');
-}
-
-function handleEventDragOver(e) {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-}
-
-function handleEventDragLeave(e) {
-    e.target.classList.remove('drag-over');
-}
-
-function handleCellDragOver(e) {
-    e.preventDefault();
-    e.target.classList.add('drag-over');
-    e.dataTransfer.dropEffect = 'move';
-}
-
-function handleCellDragLeave(e) {
-    e.target.classList.remove('drag-over');
-}
-
-// Dedicated handlers for week grid cells (column view)
-function handleGridCellDragOver(e) {
-    e.preventDefault();
-    e.stopPropagation();
-    
-    // Only highlight if we're dragging an event
-    if (!draggedEventId) return;
-    
-    e.currentTarget.classList.add('drag-over');
-    e.dataTransfer.dropEffect = 'move';
-}
-
-function handleGridCellDragLeave(e) {
-    e.currentTarget.classList.remove('drag-over');
-}
-
-async function handleGridCellDrop(e) {
-    e.preventDefault();
-    e.stopPropagation();
-    
-    const cell = e.currentTarget;
-    cell.classList.remove('drag-over');
-    
-    // Remove all drag-over states
-    document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
-    
-    if (!draggedEventId) {
-        console.log('[DragDrop] No dragged event ID');
-        return;
-    }
-    
-    // Get the day column for the date
-    const column = cell.closest('.week-day-column');
-    const dateStr = column?.dataset.date;
-    
-    if (!dateStr) {
-        console.log('[DragDrop] Invalid drop target - missing date');
-        return;
-    }
-    
-    // Calculate the drop position based on the TOP of the event (not mouse position)
-    // The top of the event = mouse position - drag offset
-    const eventTopY = e.clientY - dragOffsetY;
-    
-    // Find the grid container to calculate relative position
-    const gridContainer = column.querySelector('.week-day-grid');
-    const gridRect = gridContainer.getBoundingClientRect();
-    
-    // Calculate position relative to the grid (in pixels from top of grid)
-    const relativeY = eventTopY - gridRect.top;
-    
-    // Each cell is 60px (SLOT_HEIGHT), starting from hour 6 (START_HOUR)
-    const SLOT_HEIGHT = 60;
-    const START_HOUR = 6;
-    
-    // Calculate total minutes from the top of the grid
-    const totalMinutesFromStart = (relativeY / SLOT_HEIGHT) * 60;
-    
-    // Calculate hour and minute (snap to 30-minute intervals)
-    const hour = Math.floor(totalMinutesFromStart / 60) + START_HOUR;
-    const rawMinute = totalMinutesFromStart % 60;
-    const minute = Math.round(rawMinute / 30) * 30; // Snap to 0 or 30
-    
-    // Clamp values to valid range
-    const clampedHour = Math.max(START_HOUR, Math.min(22, hour));
-    const clampedMinute = Math.max(0, Math.min(30, minute));
-    
-    const newDate = new Date(dateStr);
-    newDate.setHours(clampedHour, clampedMinute, 0, 0);
-    
-    console.log('[DragDrop] Rescheduling to:', newDate, 'hour:', clampedHour, 'minute:', clampedMinute);
-    
-    await rescheduleEvent(draggedEventId, newDate, clampedHour, clampedMinute);
-}
-
-async function handleEventDrop(e) {
-    e.preventDefault();
-    e.stopPropagation();
-    
-    const column = e.currentTarget;
-    column.classList.remove('drag-over');
-    
-    if (!draggedEventId) return;
-    
-    const newDateStr = column.dataset.date;
-    if (!newDateStr) return;
-    
-    await rescheduleEvent(draggedEventId, new Date(newDateStr));
-}
-
-async function handleCellDrop(e) {
-    e.preventDefault();
-    e.stopPropagation();
-    
-    const cell = e.target;
-    cell.classList.remove('drag-over');
-    
-    if (!draggedEventId) return;
-    
-    // Try to get hour from cell dataset (old week view: .week-time-cell)
-    let hour = parseInt(cell.dataset.hour);
-    let dateStr = cell.dataset.date;
-    
-    // If no hour, try to get from parent column and calculate from mouse position (new column view: .week-grid-cell)
-    if (isNaN(hour)) {
-        const column = cell.closest('.week-day-column');
-        if (!column) return;
-        
-        dateStr = column.dataset.date;
-        const cellRect = cell.getBoundingClientRect();
-        const mouseY = e.clientY - cellRect.top;
-        const cellIndex = Array.from(column.querySelectorAll('.week-grid-cell')).indexOf(cell);
-        
-        // Each cell represents 1 hour starting from hour 6
-        const START_HOUR = 6;
-        hour = START_HOUR + cellIndex;
-        
-        // Calculate minute based on mouse position within cell (snap to 15-minute intervals)
-        const minuteFraction = mouseY / cellRect.height;
-        const minute = Math.round(minuteFraction * 4) * 15; // 0, 15, 30, or 45
-        
-        if (!dateStr) return;
-        
-        const newDate = new Date(dateStr);
-        newDate.setHours(hour, minute, 0, 0);
-        
-        await rescheduleEvent(draggedEventId, newDate, hour, minute);
-        return;
-    }
-    
-    // Old behavior for .week-time-cell
-    if (isNaN(hour) || !dateStr) return;
-    
-    const newDate = new Date(dateStr);
-    newDate.setHours(hour, 0, 0, 0);
-    
-    await rescheduleEvent(draggedEventId, newDate, hour);
-}
-
+// ===================================
+// WEEK VIEW RESCHEDULE (used by calendar-drag.js)
+// ===================================
 async function rescheduleEvent(eventId, newDate, newHour = null, newMinute = 0) {
     const event = appState.events.find(e => e.id === eventId);
     if (!event) {
@@ -6062,7 +5881,7 @@ function initTasks() {
     const createSpreadsheetBtn = document.getElementById('createSpreadsheetCard');
     if (createSpreadsheetBtn) {
         createSpreadsheetBtn.addEventListener('click', () => {
-            openCreateWorkspaceItemModal();
+            openModal('spreadsheetModal');
         });
     }
 
@@ -10419,6 +10238,15 @@ function initTasks() {
                 closeModal('spreadsheetModal');
                 
                 showToast(`Spreadsheet "${name}" created!`, 'success');
+                
+                // Log activity for sheet creation
+                addActivity({
+                    type: 'sheet',
+                    description: `created spreadsheet "${name}"`,
+                    entityType: 'sheet',
+                    entityId: newSpreadsheet.id,
+                    entityName: name
+                });
                 }
             });
         }
@@ -10994,7 +10822,13 @@ function initTasks() {
             
             if (projectTitle && activeProject) {
                 const iconSVG = window.getProjectIconSVG ? window.getProjectIconSVG(activeProject.icon) : '<i class="fas fa-folder"></i>';
-                projectTitle.innerHTML = `${iconSVG} ${escapeHtml(activeProject.name)}`;
+                projectTitle.innerHTML = `
+                    <span class="project-title-icon" style="--project-color: ${activeProject.color || '#6366f1'}">${iconSVG}</span>
+                    <span class="project-title-text">${escapeHtml(activeProject.name)}</span>
+                    <button class="project-edit-btn" onclick="openEditProjectModal('${activeProject.id}')" title="Edit project">
+                        <i class="fas fa-ellipsis-h"></i>
+                    </button>
+                `;
             }
             if (projectSubtitle) {
                 projectSubtitle.textContent = 'Sheets and docs in this project';
@@ -11012,10 +10846,12 @@ function initTasks() {
                 backBtn.dataset.bound = 'true';
             }
             
-            // Bind add button
+            // Bind add button - show choice modal
             const addBtn = document.getElementById('projectAddBtn');
             if (addBtn && !addBtn.dataset.bound) {
-                addBtn.addEventListener('click', () => openCreateWorkspaceItemModal());
+                addBtn.addEventListener('click', () => {
+                    openCreateWorkspaceItemModal();
+                });
                 addBtn.dataset.bound = 'true';
             }
         } else {
@@ -11124,16 +10960,16 @@ function initTasks() {
      * Initialize doc cards click handlers
      */
     function initDocCards() {
-        // Unified create button
+        // Docs create button - open doc modal directly
         const createDocBtn = document.getElementById('createDocBtn');
         if (createDocBtn) {
-            createDocBtn.addEventListener('click', () => openCreateWorkspaceItemModal());
+            createDocBtn.addEventListener('click', () => openCreateDocModal());
         }
         
-        // Create Doc card
+        // Create Doc card - open doc modal directly
         const createDocCard = document.getElementById('createDocCard');
         if (createDocCard) {
-            createDocCard.addEventListener('click', () => openCreateWorkspaceItemModal());
+            createDocCard.addEventListener('click', () => openCreateDocModal());
         }
     }
     
@@ -11257,9 +11093,54 @@ function initTasks() {
     };
     
     /**
-     * Export document as a downloadable text file
+     * Show export options dropdown
      */
     function exportDocument() {
+        // Remove existing dropdown if any
+        const existingDropdown = document.querySelector('.export-dropdown');
+        if (existingDropdown) {
+            existingDropdown.remove();
+            return;
+        }
+
+        const exportBtn = document.getElementById('exportDocBtn');
+        if (!exportBtn) return;
+
+        const rect = exportBtn.getBoundingClientRect();
+
+        const dropdownHTML = `
+            <div class="export-dropdown" style="position: fixed; top: ${rect.bottom + 4}px; left: ${rect.left}px; z-index: 10000;">
+                <button class="export-dropdown-option" onclick="exportAsText()">
+                    <i class="fas fa-file-alt"></i>
+                    <span>Export as Text (.txt)</span>
+                </button>
+                <button class="export-dropdown-option" onclick="exportDocToPdf()">
+                    <i class="fas fa-file-pdf"></i>
+                    <span>Export as PDF</span>
+                </button>
+            </div>
+        `;
+
+        document.body.insertAdjacentHTML('beforeend', dropdownHTML);
+
+        // Close on outside click
+        setTimeout(() => {
+            document.addEventListener('click', function closeDropdown(e) {
+                if (!e.target.closest('.export-dropdown') && !e.target.closest('#exportDocBtn')) {
+                    document.querySelector('.export-dropdown')?.remove();
+                    document.removeEventListener('click', closeDropdown);
+                }
+            });
+        }, 0);
+    }
+
+    /**
+     * Export document as plain text file
+     */
+    function exportAsText() {
+        // Close dropdown
+        document.querySelector('.export-dropdown')?.remove();
+
         const editor = document.getElementById('docEditor');
         const titleInput = document.getElementById('docTitleInput');
         
@@ -11296,8 +11177,11 @@ function initTasks() {
         // Clean up
         URL.revokeObjectURL(url);
         
-        showToast('Document exported successfully', 'success');
+        showToast('Document exported as text', 'success');
     }
+
+    // Expose export functions globally
+    window.exportAsText = exportAsText;
     
     /**
      * Initialize doc editor with toolbar commands
@@ -12062,6 +11946,15 @@ function initTasks() {
             closeCreateDocModal();
             showToast('Document created', 'success');
             
+            // Log activity for doc creation
+            addActivity({
+                type: 'doc',
+                description: `created document "${title}"`,
+                entityType: 'doc',
+                entityId: docRef.id,
+                entityName: title
+            });
+            
             // Open the new doc
             openDoc(docRef.id);
             
@@ -12304,6 +12197,102 @@ function initTasks() {
             appState.isDocSaving = false;
         }
     }
+
+    /**
+     * Export document content to PDF
+     * Uses html2pdf.js library for client-side PDF generation
+     * @param {string} elementId - ID of the element to export (default: doc-editor)
+     * @param {string} filename - Output filename (default: document title or 'document.pdf')
+     */
+    async function exportDocToPdf(elementId = 'docEditor', filename = null) {
+        try {
+            const element = document.getElementById(elementId);
+            if (!element) {
+                console.error('[PDF Export] Element not found:', elementId);
+                showToast('Could not find document content', 'error');
+                return;
+            }
+
+            // Check if html2pdf is available
+            if (typeof html2pdf === 'undefined') {
+                console.error('[PDF Export] html2pdf library not loaded');
+                showToast('PDF export is not available', 'error');
+                return;
+            }
+
+            // Get document title for filename - prefer input field value, then appState
+            const titleInput = document.getElementById('docTitleInput');
+            const docTitle = (titleInput && titleInput.value.trim()) || appState.activeDocTitle || 'Untitled Document';
+            const safeFilename = (filename || docTitle).replace(/[^a-z0-9]/gi, '_').substring(0, 50);
+
+            showToast('Generating PDF...', 'info');
+
+            // Clone the element to avoid modifying the original
+            const clone = element.cloneNode(true);
+            
+            // Create a wrapper with PDF-optimized styling
+            const wrapper = document.createElement('div');
+            wrapper.className = 'pdf-export-mode';
+            wrapper.style.cssText = `
+                background: #ffffff;
+                color: #1a1a1a;
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                font-size: 14px;
+                line-height: 1.6;
+                padding: 0;
+                max-width: 100%;
+            `;
+            
+            // Style the cloned content
+            clone.style.cssText = `
+                padding: 0;
+                margin: 0;
+                background: transparent;
+            `;
+            
+            wrapper.appendChild(clone);
+
+            // Configure html2pdf options
+            const options = {
+                margin: 0.5,
+                filename: `${safeFilename}.pdf`,
+                image: { 
+                    type: 'jpeg', 
+                    quality: 0.98 
+                },
+                html2canvas: { 
+                    scale: 2,
+                    useCORS: true,
+                    letterRendering: true,
+                    logging: false
+                },
+                jsPDF: { 
+                    unit: 'in', 
+                    format: 'letter', 
+                    orientation: 'portrait' 
+                },
+                pagebreak: { 
+                    mode: ['avoid-all', 'css', 'legacy'],
+                    before: '.page-break-before',
+                    after: '.page-break-after',
+                    avoid: ['.doc-chip', '.chip', 'h1', 'h2', 'h3', 'p', 'li', 'blockquote', 'pre', 'table', 'img']
+                }
+            };
+
+            // Generate and save PDF
+            await html2pdf().set(options).from(wrapper).save();
+
+            showToast('PDF downloaded successfully', 'success');
+            console.log('[PDF Export] Successfully exported:', safeFilename + '.pdf');
+
+        } catch (error) {
+            console.error('[PDF Export] Error generating PDF:', error);
+            showToast('Failed to generate PDF', 'error');
+        }
+    }
+
+    // Expose PDF export globally
+    window.exportDocToPdf = exportDocToPdf;
     
     /**
      * Sanitize HTML content - whitelist safe tags
@@ -13954,6 +13943,16 @@ function initTasks() {
             const docRef = await addDoc(collection(db, 'teams', appState.currentTeamId, 'projects'), projectData);
             console.log('📁 Created project:', docRef.id);
             showToast('Project created', 'success');
+            
+            // Log activity for project creation
+            addActivity({
+                type: 'project',
+                description: `created project "${name.trim()}"`,
+                entityType: 'project',
+                entityId: docRef.id,
+                entityName: name.trim()
+            });
+            
             return docRef.id;
         } catch (error) {
             console.error('Error creating project:', error);
@@ -14152,6 +14151,20 @@ function initTasks() {
                 : 'none';
             const actionText = visibility === 'projectOnly' ? 'Moved to' : 'Linked to';
             showToast(projectId ? `${actionText} ${projectName}` : 'Removed from project', 'success');
+            
+            // Log activity for moving item to project
+            if (projectId) {
+                const itemName = itemType === 'doc' 
+                    ? (appState.docs.find(d => d.id === itemId)?.title || 'item')
+                    : (appState.spreadsheets.find(s => s.id === itemId)?.name || 'item');
+                addActivity({
+                    type: 'project',
+                    description: `moved "${itemName}" to project "${projectName}"`,
+                    entityType: itemType,
+                    entityId: itemId,
+                    entityName: itemName
+                });
+            }
             
             renderSpreadsheetCards();
             renderDocCards();
@@ -14388,6 +14401,182 @@ function initTasks() {
         document.querySelectorAll('.project-color-swatch').forEach(swatch => {
             swatch.classList.toggle('selected', swatch.dataset.color === color);
         });
+    }
+
+    /**
+     * Open edit project modal (rename, change icon/color)
+     */
+    function openEditProjectModal(projectId) {
+        const project = appState.projects.find(p => p.id === projectId);
+        if (!project) {
+            showToast('Project not found', 'error');
+            return;
+        }
+
+        // Remove existing modal if any
+        const existingModal = document.getElementById('editProjectModal');
+        if (existingModal) existingModal.remove();
+
+        // Build icon grid HTML
+        let iconGridHTML = '';
+        Object.entries(PROJECT_ICONS).forEach(([key, svg]) => {
+            const isSelected = key === project.icon ? 'selected' : '';
+            iconGridHTML += `
+                <button type="button" class="project-icon-option ${isSelected}" data-icon="${key}" onclick="setEditProjectIcon('${key}')">
+                    ${svg}
+                </button>
+            `;
+        });
+
+        // Build color grid HTML
+        const colorGridHTML = PROJECT_COLOR_PALETTE.map((color) => {
+            const isSelected = color === project.color ? 'selected' : '';
+            return `<button type="button" class="project-color-swatch ${isSelected}" data-color="${color}" style="--swatch-color: ${color};" onclick="setEditProjectColor('${color}')"></button>`;
+        }).join('');
+
+        const modalHTML = `
+            <div class="unified-modal project-modal active" id="editProjectModal" data-project-id="${projectId}">
+                <div class="unified-modal-content project-modal-content">
+                    <div class="project-modal-header">
+                        <h2 class="project-modal-title">Edit project</h2>
+                        <button class="project-modal-close" onclick="closeEditProjectModal()">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                        </button>
+                    </div>
+                    <div class="project-modal-body">
+                        <div class="project-form-group">
+                            <label class="project-form-label" for="editProjectNameInput">Name</label>
+                            <input 
+                                type="text" 
+                                id="editProjectNameInput" 
+                                class="project-form-input"
+                                value="${escapeHtml(project.name)}"
+                                placeholder="Project name" 
+                                maxlength="50"
+                                autocomplete="off">
+                        </div>
+
+                        <div class="project-form-group">
+                            <label class="project-form-label">Icon</label>
+                            <input type="hidden" id="editProjectIconInput" value="${project.icon || 'folder'}">
+                            <div class="project-icon-grid">
+                                ${iconGridHTML}
+                            </div>
+                        </div>
+
+                        <div class="project-form-group">
+                            <label class="project-form-label">Color</label>
+                            <input type="hidden" id="editProjectColorInput" value="${project.color || PROJECT_COLOR_PALETTE[0]}">
+                            <div class="project-color-grid">
+                                ${colorGridHTML}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="unified-modal-footer project-modal-footer">
+                        <button class="unified-btn unified-btn-danger-outline" onclick="confirmDeleteProject('${projectId}')">
+                            <i class="fas fa-trash"></i> Delete
+                        </button>
+                        <div class="modal-footer-spacer"></div>
+                        <button class="unified-btn unified-btn-secondary" onclick="closeEditProjectModal()">Cancel</button>
+                        <button class="unified-btn unified-btn-primary" onclick="submitEditProject()">Save changes</button>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        document.body.insertAdjacentHTML('beforeend', modalHTML);
+        
+        // Focus name input
+        setTimeout(() => {
+            document.getElementById('editProjectNameInput')?.focus();
+        }, 100);
+    }
+
+    function closeEditProjectModal() {
+        const modal = document.getElementById('editProjectModal');
+        if (modal) modal.remove();
+    }
+
+    function setEditProjectIcon(iconKey) {
+        const input = document.getElementById('editProjectIconInput');
+        if (input) input.value = iconKey;
+        
+        document.querySelectorAll('#editProjectModal .project-icon-option').forEach(opt => {
+            opt.classList.toggle('selected', opt.dataset.icon === iconKey);
+        });
+    }
+
+    function setEditProjectColor(color) {
+        const input = document.getElementById('editProjectColorInput');
+        if (input) input.value = color;
+
+        document.querySelectorAll('#editProjectModal .project-color-swatch').forEach(swatch => {
+            swatch.classList.toggle('selected', swatch.dataset.color === color);
+        });
+    }
+
+    async function submitEditProject() {
+        const modal = document.getElementById('editProjectModal');
+        const projectId = modal?.dataset.projectId;
+        if (!projectId) return;
+
+        const nameInput = document.getElementById('editProjectNameInput');
+        const iconInput = document.getElementById('editProjectIconInput');
+        const colorInput = document.getElementById('editProjectColorInput');
+
+        const name = nameInput?.value?.trim();
+        const icon = iconInput?.value || 'folder';
+        const color = colorInput?.value || PROJECT_COLOR_PALETTE[0];
+
+        if (!name) {
+            showToast('Please enter a project name', 'error');
+            nameInput?.focus();
+            return;
+        }
+
+        const success = await updateProject(projectId, { name, icon, color });
+        if (success) {
+            showToast('Project updated', 'success');
+            closeEditProjectModal();
+            
+            // Log activity for project edit
+            addActivity({
+                type: 'project',
+                description: `updated project "${name}"`,
+                entityType: 'project',
+                entityId: projectId,
+                entityName: name
+            });
+            
+            // Update local state immediately
+            const project = appState.projects.find(p => p.id === projectId);
+            if (project) {
+                project.name = name;
+                project.icon = icon;
+                project.color = color;
+            }
+            
+            // Re-render UI
+            updateProjectFilterUI();
+            renderSpreadsheetCards();
+            renderDocCards();
+            if (appState.activeProjectId === projectId) {
+                switchTasksView(appState.tasksViewMode || 'sheets');
+            }
+        }
+    }
+
+    async function confirmDeleteProject(projectId) {
+        const confirmed = await showConfirmModal('This will delete the project and unassign all items. Continue?', {
+            title: 'Delete Project',
+            confirmText: 'Delete',
+            type: 'danger'
+        });
+        
+        if (confirmed) {
+            closeEditProjectModal();
+            await deleteProject(projectId);
+        }
     }
 
     /**
@@ -14718,6 +14907,13 @@ function initTasks() {
     window.openProjectOverflowMenu = openProjectOverflowMenu;
     window.showProjectContextMenu = showProjectContextMenu;
     window.buildProjectAssignDropdown = buildProjectAssignDropdown;
+    window.openEditProjectModal = openEditProjectModal;
+    window.closeEditProjectModal = closeEditProjectModal;
+    window.setEditProjectIcon = setEditProjectIcon;
+    window.setEditProjectColor = setEditProjectColor;
+    window.submitEditProject = submitEditProject;
+    window.confirmDeleteProject = confirmDeleteProject;
+    window.getProjectIconSVG = getProjectIconSVG;
 
     // Show task details in a clean modal
     window.showTaskDetails = function(task) {
@@ -15784,12 +15980,21 @@ function displayActivities() {
 
     activitiesToShow.forEach(activity => {
         
-        const iconClass = activity.type === 'task' ? 'task-icon' : 
-                         activity.type === 'message' ? 'message-icon' : 
-                         activity.type === 'team' ? 'team-icon' : 'calendar-icon';
-        const icon = activity.type === 'task' ? 'fa-check-circle' : 
-                    activity.type === 'message' ? 'fa-comment' : 
-                    activity.type === 'team' ? 'fa-user-plus' : 'fa-calendar';
+        // Expanded icon mapping for all activity types
+        const iconMap = {
+            task: { icon: 'fa-check-circle', class: 'task-icon' },
+            message: { icon: 'fa-comment', class: 'message-icon' },
+            team: { icon: 'fa-user-plus', class: 'team-icon' },
+            calendar: { icon: 'fa-calendar', class: 'calendar-icon' },
+            sheet: { icon: 'fa-table-cells', class: 'sheet-icon' },
+            doc: { icon: 'fa-file-lines', class: 'doc-icon' },
+            project: { icon: 'fa-folder', class: 'project-icon' },
+            milestone: { icon: 'fa-trophy', class: 'milestone-icon' }
+        };
+        
+        const typeInfo = iconMap[activity.type] || iconMap.task;
+        const iconClass = typeInfo.class;
+        const icon = typeInfo.icon;
 
         const activityEl = document.createElement('div');
         activityEl.className = 'activity-item';
@@ -18330,7 +18535,7 @@ function renderXAxis(data, viewMode, primaryColor = '#2563EB') {
     }
     
     // Decide if we should render segment bars (avoid for 7-day and very tight layouts)
-    const shouldRenderSegments = hasDates && !isLast7 && count >= 2 && monthSegments.length > 0;
+    const shouldRenderSegments = hasDates && !isLast7 && viewMode !== 'last30days' && count >= 2 && monthSegments.length > 0;
     const segmentPalette = [
         '#d8b4fe', // muted lavender
         '#f3c6f0', // soft pink
@@ -18345,9 +18550,11 @@ function renderXAxis(data, viewMode, primaryColor = '#2563EB') {
     
     // Row 0: Thin segment bars dividing months/years (optional)
     if (shouldRenderSegments) {
-        html += `<div class="bar-chart-x-row bar-chart-x-row-segments" style="grid-template-columns: repeat(${count}, 1fr);">`;
+        html += `<div class="bar-chart-x-row bar-chart-x-row-segments" style="grid-template-columns: 5% repeat(${count}, 1fr) 2%; gap: 2px;">`;
         let segmentsProcessed = 0;
         let segIndex = 0;
+        // Add left padding spacer
+        html += `<span class="bar-chart-x-cell bar-chart-x-segment-spacer"></span>`;
         monthSegments.forEach((group) => {
             while (segmentsProcessed < group.startIndex) {
                 html += `<span class="bar-chart-x-cell bar-chart-x-segment-spacer"></span>`;
@@ -18362,13 +18569,15 @@ function renderXAxis(data, viewMode, primaryColor = '#2563EB') {
             html += `<span class="bar-chart-x-cell bar-chart-x-segment-spacer"></span>`;
             segmentsProcessed++;
         }
+        // Add right padding spacer
+        html += `<span class="bar-chart-x-cell bar-chart-x-segment-spacer"></span>`;
         html += `</div>`;
     }
     
     // Row 1: Top labels
     if (viewMode === 'allTime' && !shouldGroupByYear) {
         // Render one label per month as spanning cells
-        html += `<div class="bar-chart-x-row bar-chart-x-row-top" style="grid-template-columns: repeat(${count}, 1fr);">`;
+        html += `<div class="bar-chart-x-row bar-chart-x-row-top" style="grid-template-columns: 5% repeat(${count}, 1fr) 2%; gap: 2px;">`;
         let processed = 0;
         let currentMonthKey = null;
         let spanStart = 0;
@@ -18385,6 +18594,8 @@ function renderXAxis(data, viewMode, primaryColor = '#2563EB') {
                 spanStart = i;
             }
         }
+        // Add left padding spacer
+        html += `<span class="bar-chart-x-cell bar-chart-x-group-spacer"></span>`;
         monthLabels.forEach((m) => {
             while (processed < m.start) {
                 html += `<span class="bar-chart-x-cell bar-chart-x-group-spacer"></span>`;
@@ -18397,19 +18608,27 @@ function renderXAxis(data, viewMode, primaryColor = '#2563EB') {
             html += `<span class="bar-chart-x-cell bar-chart-x-group-spacer"></span>`;
             processed++;
         }
+        // Add right padding spacer
+        html += `<span class="bar-chart-x-cell bar-chart-x-group-spacer"></span>`;
         html += `</div>`;
     } else {
         // Default per-slot labels
-        html += `<div class="bar-chart-x-row bar-chart-x-row-top" style="grid-template-columns: repeat(${count}, 1fr);">`;
+        html += `<div class="bar-chart-x-row bar-chart-x-row-top" style="grid-template-columns: 5% repeat(${count}, 1fr) 2%; gap: 2px;">`;
+        // Add left padding spacer
+        html += `<span class="bar-chart-x-cell bar-chart-x-group-spacer"></span>`;
         topLabels.forEach((label, index) => {
             const visibleClass = label.visible ? '' : 'hidden';
             html += `<span class="bar-chart-x-cell ${visibleClass}" data-index="${index}">${escapeHtml(label.text)}</span>`;
         });
+        // Add right padding spacer
+        html += `<span class="bar-chart-x-cell bar-chart-x-group-spacer"></span>`;
         html += `</div>`;
     }
     
     // Row 2: Bottom labels (grouped month or year) - spans across groups
-    html += `<div class="bar-chart-x-row bar-chart-x-row-bottom" style="grid-template-columns: repeat(${count}, 1fr);">`;
+    html += `<div class="bar-chart-x-row bar-chart-x-row-bottom" style="grid-template-columns: 5% repeat(${count}, 1fr) 2%; gap: 2px;">`;
+    // Add left padding spacer
+    html += `<span class="bar-chart-x-cell bar-chart-x-group-spacer"></span>`;
     
     // We need to create cells that span the correct number of columns
     let processedIndex = 0;
@@ -18420,7 +18639,7 @@ function renderXAxis(data, viewMode, primaryColor = '#2563EB') {
             processedIndex++;
         }
         // Render the group label spanning its columns
-        html += `<span class="bar-chart-x-cell bar-chart-x-group-label" style="grid-column: span ${group.span};">${escapeHtml(group.text)}</span>`;
+        html += `<span class="bar-chart-x-cell bar-chart-x-group-label" style="grid-column: span ${group.span};"><span class="bar-chart-x-group-label-text">${escapeHtml(group.text)}</span></span>`;
         processedIndex = group.endIndex + 1;
     });
     // Fill remaining empty cells
@@ -18428,6 +18647,8 @@ function renderXAxis(data, viewMode, primaryColor = '#2563EB') {
         html += `<span class="bar-chart-x-cell bar-chart-x-group-spacer"></span>`;
         processedIndex++;
     }
+    // Add right padding spacer
+    html += `<span class="bar-chart-x-cell bar-chart-x-group-spacer"></span>`;
     
     html += `</div>`;
     html += `</div>`;
@@ -18862,23 +19083,28 @@ function renderGraphByTypeWithConfig(data, type, dataType = 'trend', config = {}
 /**
  * Generate clean, unique axis tick values
  * Always starts from 0, no duplicates, nice round numbers
+ * Enforces a minimum max of 5 for better chart readability
  */
 function generateCleanAxisTicks(max, steps = 4) {
     // Handle edge cases
-    if (max <= 0) return [0];
-    if (max === 1) return [1, 0];
+    if (max <= 0) return [5, 4, 3, 2, 1, 0]; // Minimum Y-axis max is 5
+    
+    // Enforce minimum max of 5 for better chart visibility
+    const effectiveMax = Math.max(max, 5);
+    
+    if (effectiveMax === 1) return [1, 0];
     
     // For very small values, use simpler logic
-    if (max <= steps) {
+    if (effectiveMax <= steps) {
         const ticks = [];
-        for (let i = max; i >= 0; i--) {
+        for (let i = effectiveMax; i >= 0; i--) {
             ticks.push(i);
         }
         return ticks;
     }
     
     // Find a nice round step size
-    const roughStep = max / steps;
+    const roughStep = effectiveMax / steps;
     const magnitude = Math.pow(10, Math.floor(Math.log10(roughStep)));
     const residual = roughStep / magnitude;
     
@@ -18889,7 +19115,7 @@ function generateCleanAxisTicks(max, steps = 4) {
     else niceStep = 10 * magnitude;
     
     // Calculate nice max (round up to nearest step)
-    const niceMax = Math.ceil(max / niceStep) * niceStep;
+    const niceMax = Math.ceil(effectiveMax / niceStep) * niceStep;
     
     // Generate ticks from niceMax down to 0
     const ticks = [];
@@ -19065,13 +19291,13 @@ function createLineChart(data, options = {}) {
         yAxisMin = 0,
         yAxisMax = null,
         yAxisStep = null,
-        tickCount = 4 // Default tick count, can be overridden by tickDensity
+        tickCount = 6 // Default tick count, can be overridden by tickDensity
     } = options;
     
     // Chart dimensions
     const width = 400;
     const chartHeight = height;
-    const padding = { top: 16, right: showSecondaryAxis ? 45 : 16, bottom: 32, left: 40 };
+    const padding = { top: 16, right: showSecondaryAxis ? 45 : 8, bottom: 8, left: 20 };
     const drawWidth = width - padding.left - padding.right;
     const drawHeight = chartHeight - padding.top - padding.bottom;
     
@@ -19110,7 +19336,12 @@ function createLineChart(data, options = {}) {
     }
     
     // Generate points - using the effective range for Y positioning
-    const getX = (index, len) => padding.left + (len === 1 ? drawWidth / 2 : (index / (len - 1)) * drawWidth);
+    // Align dot centers with x-axis grid cells
+    const getX = (index, len) => {
+        if (len === 1) return padding.left + drawWidth / 2;
+        const step = drawWidth / len;
+        return padding.left + (index + 0.5) * step;
+    };
     const getY = (value, maxVal, minVal = 0) => {
         const range = maxVal - minVal;
         const clampedValue = Math.max(minVal, Math.min(maxVal, value));
@@ -19165,10 +19396,15 @@ function createLineChart(data, options = {}) {
     const xStep = data.length > 1 ? (getX(1, data.length) - getX(0, data.length)) : drawWidth;
     const segmentY = chartHeight - 22; // sits above x-labels
     const segmentH = 6;
+
+    const viewModeMap = { '7days': 'last7days', '30days': 'last30days', 'all': 'allTime' };
+    const resolvedViewMode = options.viewMode
+        || (typeof metricsTimeFilter !== 'undefined' ? (viewModeMap[metricsTimeFilter] || 'last7days') : 'last30days');
+    const yLabelOffset = resolvedViewMode === 'last7days' ? 2 : 8;
     
     return `
         <div class="line-chart-v2">
-            <svg viewBox="0 0 ${width} ${chartHeight}" preserveAspectRatio="xMidYMid meet">
+            <svg viewBox="0 0 ${width} ${chartHeight}" preserveAspectRatio="xMinYMid meet">
                 <defs>
                     <linearGradient id="${gradientId}" x1="0%" y1="0%" x2="0%" y2="100%">
                         <stop offset="0%" stop-color="${primaryColor}" stop-opacity="0.25" />
@@ -19192,7 +19428,7 @@ function createLineChart(data, options = {}) {
                 <g class="line-chart-y-labels">
                     ${primaryTicks.map((val, i) => {
                         const y = padding.top + (i / Math.max(primaryTicks.length - 1, 1)) * drawHeight;
-                        return `<text x="${padding.left - 8}" y="${y}" text-anchor="end" dominant-baseline="middle">${formatAxisValue(val)}</text>`;
+                        return `<text x="${padding.left - yLabelOffset}" y="${y}" text-anchor="end" dominant-baseline="middle">${formatAxisValue(val)}</text>`;
                     }).join('')}
                 </g>
                 
@@ -19222,17 +19458,17 @@ function createLineChart(data, options = {}) {
                     <g class="line-chart-dots">
                         ${primaryPoints.map((p, i) => `
                             <circle 
-                                cx="${p.x}" cy="${p.y}" r="4" 
+                                cx="${p.x}" cy="${p.y}" r="2.5" 
                                 fill="var(--bg-surface)" 
                                 stroke="${primaryColor}" 
-                                stroke-width="2"
+                                stroke-width="1.5"
                                 class="line-dot"
                                 data-tooltip="${escapeHtml(p.label)}: ${formatAxisValue(p.value)}"
                             />
                         `).join('')}
                         ${secondaryPoints.map((p, i) => `
                             <circle 
-                                cx="${p.x}" cy="${p.y}" r="3.5" 
+                                cx="${p.x}" cy="${p.y}" r="2" 
                                 fill="var(--bg-surface)" 
                                 stroke="${secondaryColor}" 
                                 stroke-width="2"
@@ -19242,37 +19478,14 @@ function createLineChart(data, options = {}) {
                         `).join('')}
                     </g>
                 ` : ''}
-                
-                <!-- Time segment bars (months/years) -->
-                ${timeSegments.length && xStep >= 8 ? `
-                    <g class="line-chart-segments">
-                        ${timeSegments.map((seg, idx) => {
-                            const startX = seg.startIndex === 0 
-                                ? padding.left 
-                                : getX(seg.startIndex, data.length) - xStep / 2;
-                            const endX = seg.endIndex === data.length - 1 
-                                ? padding.left + drawWidth 
-                                : getX(seg.endIndex, data.length) + xStep / 2;
-                            const width = Math.max(6, endX - startX);
-                            const clampedX = Math.max(padding.left, startX);
-                            const maxWidth = (padding.left + drawWidth) - clampedX;
-                            const finalWidth = Math.max(6, Math.min(width, maxWidth));
-                            const fill = idx % 2 === 0 ? 'var(--border-strong, rgba(0,0,0,0.18))' : 'var(--border-card, rgba(0,0,0,0.10))';
-                            return `<rect class="line-chart-segment-bar" x="${clampedX}" y="${segmentY}" rx="3" ry="3" width="${finalWidth}" height="${segmentH}" fill="${fill}" />`;
-                        }).join('')}
-                    </g>
-                ` : ''}
-                
-                <!-- X-axis labels -->
-                <g class="line-chart-x-labels">
-                    ${data.map((item, i) => {
-                        if (!labelIndices.has(i)) return '';
-                        const x = getX(i, data.length);
-                        return `<text x="${x}" y="${chartHeight - 8}" text-anchor="middle">${escapeHtml(item.label)}</text>`;
-                    }).join('')}
-                </g>
             </svg>
             
+            ${renderXAxis(data, resolvedViewMode, primaryColor) ? `
+                <div class="line-chart-axis-wrap" data-view-mode="${resolvedViewMode}">
+                    ${renderXAxis(data, resolvedViewMode, primaryColor)}
+                </div>
+            ` : ''}
+
             ${primaryLabel || secondaryLabel ? `
                 <div class="line-chart-legend">
                     ${primaryLabel ? `<span class="legend-item"><span class="legend-dot" style="background: ${primaryColor}"></span>${escapeHtml(primaryLabel)}</span>` : ''}
@@ -19397,11 +19610,14 @@ function createPieChart(data, options = {}) {
         // Use assigned color or default based on index (ensures distinct colors)
         const color = item.color || defaultColors[index % defaultColors.length];
         
+        // Calculate center angle for hover expansion (midpoint between start and end)
+        const centerAngle = (startAngle + endAngle) / 2;
+        
         currentAngle = endAngle;
         
         const path = `M ${x1.toFixed(2)} ${y1.toFixed(2)} A ${radius} ${radius} 0 ${largeArc} 1 ${x2.toFixed(2)} ${y2.toFixed(2)} L ${x3.toFixed(2)} ${y3.toFixed(2)} A ${innerRadius} ${innerRadius} 0 ${largeArc} 0 ${x4.toFixed(2)} ${y4.toFixed(2)} Z`;
         
-        return { path, color, label: item.label, value: item.value, percentage: percentage.toFixed(1) };
+        return { path, color, label: item.label, value: item.value, percentage: percentage.toFixed(1), centerAngle };
     }).filter(seg => seg !== null); // Remove skipped segments
     
     if (segments.length === 0) {
@@ -19417,6 +19633,7 @@ function createPieChart(data, options = {}) {
                         d="${seg.path}" 
                         fill="${seg.color}"
                         data-tooltip="${escapeHtml(seg.label)}: ${formatAxisValue(seg.value)} (${seg.percentage}%)"
+                        data-angle="${seg.centerAngle}"
                         style="animation-delay: ${i * 0.05}s"
                     />
                 `).join('')}
@@ -20116,6 +20333,7 @@ async function renderMetrics() {
         } else if (!personalTrendHidden || metricsEditMode) {
             // Ensure dailyCompletions has proper structure for chart rendering
             const trendData = personalMetrics.trends.dailyCompletions.map(d => ({
+                date: d.date,
                 label: d.label,
                 value: d.count,
                 count: d.count
@@ -20238,6 +20456,7 @@ async function renderMetrics() {
                     
                     // Ensure proper data structure for trend chart
                     const teamTrendData = teamMetrics.trends.dailyCompletions.map(d => ({
+                        date: d.date,
                         label: d.label,
                         value: d.count,
                         count: d.count
@@ -20420,12 +20639,14 @@ async function renderMetrics() {
  * Initialize trend bar tooltips (reuse line chart tooltip pattern)
  */
 function initTrendBarTooltips(container) {
-    // Support both old v2 charts and new v3 charts
-    const charts = container.querySelectorAll('.bar-chart-v3, .metrics-trend-chart-v2');
+    // Support v2, v3, and v4 charts
+    const charts = container.querySelectorAll('.bar-chart-v3, .metrics-trend-chart-v2, .bar-chart-v4');
     
     charts.forEach(chart => {
-        // Find chart area (different class names for v2 vs v3)
-        const chartArea = chart.querySelector('.bar-chart-v3-area') || chart.querySelector('.trend-chart-area');
+        // Find chart area (different class names for v2/v3/v4)
+        const chartArea = chart.querySelector('.bar-chart-v3-area')
+            || chart.querySelector('.bar-chart-v4-area')
+            || chart.querySelector('.trend-chart-area');
         if (!chartArea) return;
         
         // Reuse a single tooltip per chart to avoid duplicates
@@ -20437,8 +20658,10 @@ function initTrendBarTooltips(container) {
         }
         tooltip.classList.remove('visible');
         
-        // Find bar wrappers (different class names for v2 vs v3)
-        const barWrappers = chart.querySelectorAll('.bar-chart-v3-bar-wrap[data-tooltip], .trend-bar-wrapper[data-tooltip]');
+        // Find bar wrappers (different class names for v2/v3/v4)
+        const barWrappers = chart.querySelectorAll(
+            '.bar-chart-v3-bar-wrap[data-tooltip], .bar-chart-v4-bar-wrap[data-tooltip], .trend-bar-wrapper[data-tooltip]'
+        );
         
         barWrappers.forEach(wrapper => {
             wrapper.addEventListener('mouseenter', (e) => {
@@ -20448,16 +20671,22 @@ function initTrendBarTooltips(container) {
                 tooltip.textContent = tooltipText;
                 
                 // Position tooltip above the bar, centered on bar width
-                const bar = wrapper.querySelector('.bar-chart-v3-bar') || wrapper.querySelector('.trend-bar-primary');
+                const bar = wrapper.querySelector('.bar-chart-v3-bar')
+                    || wrapper.querySelector('.bar-chart-v4-bar')
+                    || wrapper.querySelector('.trend-bar-primary');
                 if (!bar) return;
                 
                 const barRect = bar.getBoundingClientRect();
                 const chartAreaRect = chartArea.getBoundingClientRect();
+                const barsContainer = chartArea.querySelector('.bar-chart-v4-bars')
+                    || chartArea.querySelector('.bar-chart-v3-bars')
+                    || chartArea.querySelector('.trend-chart-bars');
+                const containerRect = barsContainer ? barsContainer.getBoundingClientRect() : chartAreaRect;
                 
                 // Center tooltip horizontally on bar
-                const x = barRect.left - chartAreaRect.left + barRect.width / 2;
+                const x = barRect.left - containerRect.left + barRect.width / 2;
                 // Position tooltip at top of bar
-                const y = barRect.top - chartAreaRect.top;
+                const y = barRect.top - containerRect.top;
                 
                 tooltip.style.left = x + 'px';
                 tooltip.style.top = y + 'px';
@@ -20495,12 +20724,15 @@ function initLineChartTooltips(container) {
                 
                 tooltip.textContent = tooltipText;
                 
-                // Position tooltip above the dot
-                const cx = parseFloat(dot.getAttribute('cx'));
-                const cy = parseFloat(dot.getAttribute('cy'));
+                // Position tooltip above the dot using actual screen coordinates
+                const dotRect = dot.getBoundingClientRect();
+                const chartRect = chart.getBoundingClientRect();
                 
-                tooltip.style.left = cx + 'px';
-                tooltip.style.top = cy + 'px';
+                const x = dotRect.left - chartRect.left + dotRect.width / 2;
+                const y = dotRect.top - chartRect.top;
+                
+                tooltip.style.left = x + 'px';
+                tooltip.style.top = y + 'px';
                 tooltip.classList.add('visible');
             });
             
@@ -20516,16 +20748,51 @@ function initLineChartTooltips(container) {
 /**
  * Initialize pie chart hover interactions
  * Highlights corresponding legend item when a segment is hovered
+ * Expands segment outward by scaling from pie center
  */
 function initPieChartHoverEffects(container) {
     const pieCharts = container.querySelectorAll('.metrics-pie-chart');
+    const expandScale = 1.08; // Scale factor for expansion
     
     pieCharts.forEach(pieChart => {
         const segments = pieChart.querySelectorAll('.pie-segment');
         const legendItems = pieChart.querySelectorAll('.pie-legend-item');
         
+        // Helper function to expand a segment outward using scale
+        function expandSegment(segment) {
+            segment.style.transform = `scale(${expandScale})`;
+            segment.style.filter = 'brightness(1.1) drop-shadow(0 3px 12px rgba(0, 0, 0, 0.25))';
+        }
+        
+        // Helper function to reset a segment
+        function resetSegment(segment) {
+            segment.style.transform = '';
+            segment.style.filter = '';
+        }
+        
+        // Helper function to dim other segments
+        function dimOtherSegments(activeIndex) {
+            segments.forEach((seg, i) => {
+                if (i !== activeIndex) {
+                    seg.style.opacity = '0.6';
+                    seg.style.filter = 'brightness(0.92)';
+                }
+            });
+        }
+        
+        // Helper function to restore all segments
+        function restoreAllSegments() {
+            segments.forEach(seg => {
+                seg.style.opacity = '';
+                seg.style.filter = '';
+                seg.style.transform = '';
+            });
+        }
+        
         segments.forEach((segment, index) => {
             segment.addEventListener('mouseenter', () => {
+                expandSegment(segment);
+                dimOtherSegments(index);
                 // Highlight corresponding legend item
                 if (legendItems[index]) {
                     legendItems[index].classList.add('highlighted');
@@ -20533,6 +20800,7 @@ function initPieChartHoverEffects(container) {
             });
             
             segment.addEventListener('mouseleave', () => {
+                restoreAllSegments();
                 // Remove highlight from legend item
                 if (legendItems[index]) {
                     legendItems[index].classList.remove('highlighted');
@@ -20540,33 +20808,18 @@ function initPieChartHoverEffects(container) {
             });
         });
         
-        // Also allow legend items to highlight segments
+        // Also allow legend items to highlight and expand segments
         legendItems.forEach((legendItem, index) => {
             legendItem.addEventListener('mouseenter', () => {
                 if (segments[index]) {
-                    segments[index].style.transform = 'scale(1.08)';
-                    segments[index].style.filter = 'brightness(1.15) drop-shadow(0 2px 8px rgba(0, 0, 0, 0.15))';
-                    // Dim other segments
-                    segments.forEach((seg, i) => {
-                        if (i !== index) {
-                            seg.style.opacity = '0.5';
-                            seg.style.filter = 'brightness(0.9)';
-                        }
-                    });
+                    expandSegment(segments[index]);
+                    dimOtherSegments(index);
                 }
                 legendItem.classList.add('highlighted');
             });
             
             legendItem.addEventListener('mouseleave', () => {
-                if (segments[index]) {
-                    segments[index].style.transform = '';
-                    segments[index].style.filter = '';
-                    // Restore other segments
-                    segments.forEach(seg => {
-                        seg.style.opacity = '';
-                        seg.style.filter = '';
-                    });
-                }
+                restoreAllSegments();
                 legendItem.classList.remove('highlighted');
             });
         });
@@ -32790,9 +33043,98 @@ async function loadTransactions() {
         debugLog('💰 Loaded transactions:', appState.transactions.length);
         renderFinances();
         
+        // Check for milestone achievements
+        checkRevenueMilestones();
+        
     } catch (error) {
         console.error('Error loading transactions:', error);
         appState.transactions = [];
+    }
+}
+
+/**
+ * Track achieved milestones to avoid duplicate logging
+ * Uses localStorage to persist across sessions
+ */
+function getAchievedMilestones() {
+    try {
+        const key = `teamster_milestones_${appState.currentTeamId}`;
+        const data = localStorage.getItem(key);
+        return data ? JSON.parse(data) : {};
+    } catch {
+        return {};
+    }
+}
+
+function setMilestoneAchieved(milestoneKey) {
+    try {
+        const key = `teamster_milestones_${appState.currentTeamId}`;
+        const achieved = getAchievedMilestones();
+        achieved[milestoneKey] = Date.now();
+        localStorage.setItem(key, JSON.stringify(achieved));
+    } catch (e) {
+        console.warn('Could not save milestone:', e);
+    }
+}
+
+/**
+ * Check for revenue/MRR milestones and log activities
+ * Milestones: $100 MRR, $1000 MRR, $5000 MRR, $10000 MRR
+ * Also checks: $1000 total revenue, $10000 total revenue, $100000 total revenue
+ */
+function checkRevenueMilestones() {
+    if (!appState.currentTeamId || !currentAuthUser) return;
+    
+    const financeData = getFinanceMetricsData();
+    const mrr = financeData.mrr || 0;
+    const totalIncome = financeData.totalIncome || 0;
+    const achieved = getAchievedMilestones();
+    
+    // MRR milestones
+    const mrrMilestones = [
+        { amount: 100, label: '$100 MRR', key: 'mrr_100' },
+        { amount: 1000, label: '$1,000 MRR', key: 'mrr_1000' },
+        { amount: 5000, label: '$5,000 MRR', key: 'mrr_5000' },
+        { amount: 10000, label: '$10,000 MRR', key: 'mrr_10000' },
+        { amount: 50000, label: '$50,000 MRR', key: 'mrr_50000' }
+    ];
+    
+    // Total revenue milestones
+    const revenueMilestones = [
+        { amount: 1000, label: '$1,000 total revenue', key: 'revenue_1000' },
+        { amount: 10000, label: '$10,000 total revenue', key: 'revenue_10000' },
+        { amount: 100000, label: '$100,000 total revenue', key: 'revenue_100000' },
+        { amount: 1000000, label: '$1,000,000 total revenue', key: 'revenue_1000000' }
+    ];
+    
+    // Check MRR milestones
+    for (const milestone of mrrMilestones) {
+        if (mrr >= milestone.amount && !achieved[milestone.key]) {
+            setMilestoneAchieved(milestone.key);
+            addActivity({
+                type: 'milestone',
+                description: `🎉 Milestone reached: ${milestone.label}!`,
+                entityType: 'milestone',
+                entityId: milestone.key,
+                entityName: milestone.label
+            });
+            showToast(`🎉 Milestone: ${milestone.label}!`, 'success', 5000, 'Congratulations!');
+        }
+    }
+    
+    // Check revenue milestones
+    for (const milestone of revenueMilestones) {
+        if (totalIncome >= milestone.amount && !achieved[milestone.key]) {
+            setMilestoneAchieved(milestone.key);
+            addActivity({
+                type: 'milestone',
+                description: `🎉 Milestone reached: ${milestone.label}!`,
+                entityType: 'milestone',
+                entityId: milestone.key,
+                entityName: milestone.label
+            });
+            showToast(`🎉 Milestone: ${milestone.label}!`, 'success', 5000, 'Congratulations!');
+        }
     }
 }
 

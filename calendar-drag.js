@@ -494,6 +494,13 @@ const CalendarDragHandler = {
         // Disable transitions on preview for smoother feel
         document.body.classList.add('calendar-dragging');
         
+        // Disable scrolling on the container during drag
+        const scrollContainer = document.querySelector('.week-view-scroll-container');
+        if (scrollContainer) {
+            scrollContainer.style.overflow = 'hidden';
+            this._scrollContainer = scrollContainer;
+        }
+        
         console.log('[CalendarDrag] Drag started for:', this.draggedEventId);
     },
     
@@ -646,6 +653,12 @@ const CalendarDragHandler = {
      * Reset all drag state
      */
     reset() {
+        // Restore scrolling on the container
+        if (this._scrollContainer) {
+            this._scrollContainer.style.overflow = '';
+            this._scrollContainer = null;
+        }
+        
         this.isDragging = false;
         this.dragStarted = false;
         this.startX = 0;
@@ -760,6 +773,30 @@ async function rescheduleEventWithPrecision(eventId, newDate, startHour, startMi
         }
     }
 }
+
+// ===================================
+// CUSTOM EVENT LISTENER
+// ===================================
+// Listen for calendar-event-update custom events (for external integrations)
+document.addEventListener('calendar-event-update', async function(e) {
+    const { eventId, newDate, startHour, startMinute, endHour, endMinute } = e.detail || {};
+    
+    if (!eventId || !newDate) {
+        console.error('[CalendarDrag] calendar-event-update missing required fields:', e.detail);
+        return;
+    }
+    
+    console.log('[CalendarDrag] Received calendar-event-update:', e.detail);
+    
+    await rescheduleEventWithPrecision(
+        eventId,
+        new Date(newDate),
+        startHour ?? 9,
+        startMinute ?? 0,
+        endHour ?? 10,
+        endMinute ?? 0
+    );
+});
 
 // Expose to global scope
 window.CalendarDragConfig = CalendarDragConfig;

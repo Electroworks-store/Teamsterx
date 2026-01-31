@@ -1261,6 +1261,8 @@ body.dark-mode .search-highlight {
 .top-bar-actions {
     display: flex;
     gap: var(--spacing-md);
+    align-items: center;
+    overflow: visible;
 }
 
 .icon-btn {
@@ -1276,6 +1278,7 @@ body.dark-mode .search-highlight {
     align-items: center;
     justify-content: center;
     font-size: 1.2rem;
+    overflow: visible;
     transition: background-color var(--transition-fast),
                 color var(--transition-fast),
                 transform var(--transition-fast);
@@ -1595,6 +1598,7 @@ body.dark-mode .search-highlight {
     min-width: 20px;
     text-align: center;
     box-shadow: 0 2px 4px rgba(255, 59, 48, 0.3);
+    z-index: 10;
 }
 
 /* ===================================
@@ -1734,9 +1738,18 @@ body.dark-mode .search-highlight {
 .activity-icon.task-icon,
 .activity-icon.message-icon,
 .activity-icon.calendar-icon,
-.activity-icon.team-icon {
+.activity-icon.team-icon,
+.activity-icon.sheet-icon,
+.activity-icon.doc-icon,
+.activity-icon.project-icon {
     background: var(--accent-soft);
     color: var(--accent);
+}
+
+/* Milestone icon - special golden styling */
+.activity-icon.milestone-icon {
+    background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+    color: #d97706;
 }
 
 /* Activity Content - Tighter layout */
@@ -3481,11 +3494,20 @@ body.dark-mode .calendar-grid {
 }
 
 /* Hide default grid when week view is active */
-.calendar-grid:has(.week-colview) {
+.calendar-grid:has(.week-colview),
+.calendar-grid:has(.week-view-scroll-container),
+.calendar-grid.week-view-active {
     display: block;
     border: none;
     background: transparent;
     gap: 0;
+}
+
+/* Hide day headers when week view is showing */
+.calendar-grid:has(.week-colview) > .calendar-day-header,
+.calendar-grid:has(.week-view-scroll-container) > .calendar-day-header,
+.calendar-grid.week-view-active > .calendar-day-header {
+    display: none !important;
 }
 
 .calendar-day-header {
@@ -5030,11 +5052,105 @@ body.dark-mode .day-event-time {
 .week-event-pill.dragging,
 .week-task-badge.dragging,
 .week-col-event.dragging {
-    opacity: 0.5;
+    opacity: 0.4;
     cursor: grabbing;
+    transform: scale(0.98);
+    box-shadow: none;
+    z-index: 1;
+}
+
+/* Calendar Drag Preview - Floating element during drag */
+.calendar-drag-preview {
+    position: fixed;
+    z-index: 10000;
+    pointer-events: none;
+    background: var(--event-color, #007AFF);
+    border-radius: 8px;
+    padding: 8px 12px;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25), 0 4px 12px rgba(0, 0, 0, 0.15);
     transform: scale(1.02);
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
-    z-index: 100;
+    opacity: 0.95;
+    min-width: 100px;
+}
+
+.drag-preview-content {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.drag-preview-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: #fff;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 200px;
+}
+
+.drag-preview-time {
+    font-size: 11px;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.85);
+}
+
+/* Time indicator in time column */
+.calendar-drag-time-indicator {
+    position: fixed;
+    z-index: 9999;
+    background: #007AFF;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 8px;
+    border-radius: 4px;
+    text-align: center;
+    pointer-events: none;
+    box-shadow: 0 2px 8px rgba(0, 122, 255, 0.4);
+}
+
+/* Target column highlight during drag */
+.week-day-column.drag-target-column {
+    background: rgba(0, 122, 255, 0.04);
+}
+
+.week-day-column.drag-target-column .week-day-grid {
+    background: rgba(0, 122, 255, 0.02);
+}
+
+/* Target time slot highlight */
+.week-grid-cell.drag-target-slot {
+    background: rgba(0, 122, 255, 0.12) !important;
+    border: 1px dashed rgba(0, 122, 255, 0.4);
+}
+
+/* Body state during drag */
+body.calendar-dragging {
+    cursor: grabbing !important;
+    user-select: none;
+}
+
+body.calendar-dragging * {
+    cursor: grabbing !important;
+}
+
+/* Dark mode styles for drag preview */
+body.dark-mode .calendar-drag-preview {
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5), 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+body.dark-mode .week-day-column.drag-target-column {
+    background: rgba(0, 122, 255, 0.08);
+}
+
+body.dark-mode .week-day-column.drag-target-column .week-day-grid {
+    background: rgba(0, 122, 255, 0.04);
+}
+
+body.dark-mode .week-grid-cell.drag-target-slot {
+    background: rgba(0, 122, 255, 0.2) !important;
+    border: 1px dashed rgba(0, 122, 255, 0.5);
 }
 
 /* Event resize handle */
@@ -5120,7 +5236,9 @@ body.dark-mode .day-event-time {
 
 .month-event-item.dragging {
     opacity: 0.5;
-    transform: scale(1.05);
+    transform: none;
+    width: 100%;
+    max-width: 100%;
 }
 
 /* Allow drag events to pass through to calendar-day during drag */
@@ -8075,6 +8193,21 @@ body.dark-mode .spreadsheet-table tbody tr:hover {
     outline: none;
     border: none;
     box-shadow: none;
+}
+
+/* Circular button overrides for project add and create doc buttons */
+#projectAddBtn,
+#createDocBtn {
+    border-radius: 50% !important;
+    padding: 10px !important;
+    width: 40px !important;
+    height: 40px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    line-height: 1 !important;
+    gap: 0 !important;
+    gap: 0 !important;
 }
 
 .btn-secondary {
@@ -15872,113 +16005,153 @@ body.dark-mode .activity-item:hover {
 }
 
 .toast {
-    background: white;
-    border-radius: 8px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-    padding: 16px 20px;
+    background: #ffffff;
+    border-radius: 10px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+    padding: 12px 16px;
     display: flex;
     align-items: center;
     gap: 12px;
-    min-width: 300px;
-    animation: slideInRight 0.3s ease-out;
-    border-left: 4px solid;
+    min-width: 260px;
+    max-width: 380px;
+    animation: toastSlideIn 0.3s ease-out;
+    border: 1px solid rgba(0, 0, 0, 0.1);
 }
 
-.toast.success {
-    border-left-color: #107C10;
+.toast.success .toast-icon {
+    color: #22c55e;
 }
 
-.toast.error {
-    border-left-color: #D13438;
+.toast.error .toast-icon {
+    color: #ef4444;
 }
 
-.toast.warning {
-    border-left-color: #F59E0B;
+.toast.warning .toast-icon {
+    color: #f59e0b;
 }
 
-.toast.info {
-    border-left-color: #0078D4;
+.toast.info .toast-icon {
+    color: #3b82f6;
 }
 
 .toast-icon {
-    font-size: 24px;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     flex-shrink: 0;
+    font-size: 18px;
 }
 
 .toast-content {
     flex: 1;
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 2px;
+    min-width: 0;
 }
 
 .toast-title {
     font-weight: 600;
-    color: #323130;
+    color: #1a1a1a;
     font-size: 14px;
+    letter-spacing: -0.01em;
 }
 
 .toast-message {
     font-size: 13px;
-    color: #605E5C;
+    color: #666666;
+    line-height: 1.4;
+    letter-spacing: -0.01em;
 }
 
 .toast-close {
     background: none;
     border: none;
     font-size: 18px;
-    color: #8A8886;
+    color: #999999;
     cursor: pointer;
     padding: 0;
-    width: 24px;
-    height: 24px;
+    width: 28px;
+    height: 28px;
     display: flex;
     align-items: center;
     justify-content: center;
-    border-radius: 4px;
-    transition: background-color 0.2s;
+    border-radius: 8px;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+    line-height: 1;
+    margin: 0;
 }
 
 .toast-close:hover {
-    background-color: #F3F4F6;
+    background-color: rgba(0, 0, 0, 0.06);
+    color: #666666;
 }
 
-@keyframes slideInRight {
-    from {
-        transform: translateX(400px);
+@keyframes toastSlideIn {
+    0% {
+        transform: translateX(100%) scale(0.9);
         opacity: 0;
     }
-    to {
-        transform: translateX(0);
+    100% {
+        transform: translateX(0) scale(1);
         opacity: 1;
     }
 }
 
-@keyframes slideOutRight {
-    from {
-        transform: translateX(0);
+@keyframes toastSlideOut {
+    0% {
+        transform: translateX(0) scale(1);
         opacity: 1;
     }
-    to {
-        transform: translateX(400px);
+    100% {
+        transform: translateX(100%) scale(0.9);
         opacity: 0;
     }
 }
 
 .toast.closing {
-    animation: slideOutRight 0.3s ease-in;
+    animation: toastSlideOut 0.25s cubic-bezier(0.4, 0, 1, 1) forwards;
+}
+
+/* Dark mode toasts */
+body.dark-mode .toast {
+    background: #1f1f1f;
+    border-color: rgba(255, 255, 255, 0.12);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+}
+
+body.dark-mode .toast-title {
+    color: #ffffff;
+}
+
+body.dark-mode .toast-message {
+    color: #a1a1aa;
+}
+
+body.dark-mode .toast-close {
+    color: #71717a;
+}
+
+body.dark-mode .toast-close:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+    color: #a1a1aa;
 }
 
 @media (max-width: 768px) {
     #toastContainer {
-        right: 10px;
-        left: 10px;
-        bottom: 10px;
+        right: 12px;
+        left: 12px;
+        bottom: 12px;
         max-width: none;
     }
     
     .toast {
         min-width: 0;
+        max-width: none;
+        border-radius: 12px;
     }
 }
 
@@ -15995,6 +16168,10 @@ body.dark-mode .activity-item:hover {
 }
 
 .bar-chart-v3-bar-wrap[data-tooltip]::after {
+    display: none;
+}
+
+.bar-chart-v4-bar-wrap[data-tooltip]::after {
     display: none;
 }
 
@@ -18522,6 +18699,110 @@ body.dark-mode .pill-toggle:hover .pill-toggle-slider {
 }
 
 /* ===================================
+   PDF EXPORT OPTIMIZATION
+   =================================== */
+
+/* Page break prevention for PDF export */
+.pdf-export-mode h1,
+.pdf-export-mode h2,
+.pdf-export-mode h3,
+.pdf-export-mode h4,
+.pdf-export-mode p,
+.pdf-export-mode li,
+.pdf-export-mode .doc-chip,
+.pdf-export-mode .chip,
+.pdf-export-mode .card,
+.pdf-export-mode blockquote,
+.pdf-export-mode pre,
+.pdf-export-mode table,
+.pdf-export-mode img {
+    break-inside: avoid;
+    page-break-inside: avoid;
+}
+
+/* Keep headings with their content */
+.pdf-export-mode h1,
+.pdf-export-mode h2,
+.pdf-export-mode h3 {
+    break-after: avoid;
+    page-break-after: avoid;
+}
+
+/* Chip styling for PDF */
+.pdf-export-mode .doc-chip {
+    display: inline-flex;
+    margin: 2px 0;
+}
+
+/* Clean background for PDF */
+.pdf-export-mode {
+    background: #ffffff !important;
+    color: #000000 !important;
+}
+
+/* Hide interactive elements in PDF mode */
+.pdf-export-mode .toolbar-btn,
+.pdf-export-mode .doc-panel-toolbar,
+.pdf-export-mode button:not(.doc-chip) {
+    display: none !important;
+}
+
+/* Export Dropdown */
+.export-dropdown {
+    background: var(--bg-surface, #ffffff);
+    border: 1px solid var(--border-subtle, rgba(0, 0, 0, 0.08));
+    border-radius: 10px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12), 0 2px 8px rgba(0, 0, 0, 0.06);
+    padding: 6px;
+    min-width: 180px;
+}
+
+.export-dropdown-option {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 10px 14px;
+    border: none;
+    background: transparent;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-main, #1a1a1a);
+    text-align: left;
+    transition: background 0.15s ease;
+}
+
+.export-dropdown-option:hover {
+    background: var(--bg-hover, rgba(0, 0, 0, 0.04));
+}
+
+.export-dropdown-option i {
+    width: 18px;
+    text-align: center;
+    color: var(--text-secondary, #666666);
+    font-size: 14px;
+}
+
+.export-dropdown-option:first-child i {
+    color: #6b7280;
+}
+
+.export-dropdown-option:last-child i {
+    color: #ef4444;
+}
+
+body.dark-mode .export-dropdown {
+    background: #2d2d30;
+    border-color: rgba(255, 255, 255, 0.1);
+}
+
+body.dark-mode .export-dropdown-option:hover {
+    background: rgba(255, 255, 255, 0.08);
+}
+
+/* ===================================
    DOC EDITOR
    =================================== */
 .doc-panel-body {
@@ -20758,7 +21039,7 @@ body.dark-mode .metrics-stat-card-danger .metrics-stat-icon {
 /* Tooltip - matches line chart tooltip styling */
 .bar-chart-v3-tooltip {
     position: absolute;
-    background: var(--bg-elevated);
+    background: #FFFFFF;
     border: 1px solid var(--border-subtle);
     border-radius: 8px;
     padding: 6px 10px;
@@ -20773,6 +21054,12 @@ body.dark-mode .metrics-stat-card-danger .metrics-stat-icon {
     margin-top: -8px;
     opacity: 0;
     transition: opacity 0.15s ease;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+}
+
+body.dark-mode .bar-chart-v3-tooltip {
+    background: #1C1C1E;
 }
 
 .bar-chart-v3-tooltip.visible {
@@ -20852,7 +21139,7 @@ body.dark-mode .metrics-stat-card-danger .metrics-stat-icon {
     inset: 0;
     display: grid;
     align-items: flex-end;
-    padding: 0 8px;
+    padding: 0 2% 0 5%;
     gap: 2px;
 }
 
@@ -20892,8 +21179,8 @@ body.dark-mode .metrics-stat-card-danger .metrics-stat-icon {
     grid-row: 2;
     display: flex;
     flex-direction: column;
-    padding: 4px 8px 0;
-    gap: 2px;
+    padding: 4px 0 0;
+    gap: 0;
 }
 
 /* Segment row: thin pills dividing months/years */
@@ -20908,7 +21195,7 @@ body.dark-mode .metrics-stat-card-danger .metrics-stat-icon {
     width: 100%;
     background: var(--segment-color-1, rgba(0,0,0,0.18));
     border-radius: 999px;
-    margin: 0 1px;
+    margin: 0;
     box-shadow: inset 0 0 0 1px var(--bg-surface, #fff);
 }
 
@@ -20919,7 +21206,7 @@ body.dark-mode .metrics-stat-card-danger .metrics-stat-icon {
 /* Each row uses CSS Grid - column count set via inline style or CSS variable */
 .bar-chart-x-row {
     display: grid;
-    gap: 2px;
+    gap: 0;
     width: 100%;
 }
 
@@ -20943,6 +21230,8 @@ body.dark-mode .metrics-stat-card-danger .metrics-stat-icon {
     overflow: hidden;
     text-overflow: ellipsis;
     line-height: 1.3;
+    padding: 0;
+    margin: 0;
 }
 
 .bar-chart-x-cell.hidden {
@@ -20956,6 +21245,87 @@ body.dark-mode .metrics-stat-card-danger .metrics-stat-icon {
     color: var(--text-tertiary);
     text-transform: uppercase;
     letter-spacing: 0.03em;
+}
+
+/* All-time year pills */
+.bar-chart-v4[data-view-mode="allTime"] .bar-chart-x-row-bottom .bar-chart-x-group-label,
+.line-chart-axis-wrap[data-view-mode="allTime"] .bar-chart-x-row-bottom .bar-chart-x-group-label {
+    text-transform: none;
+    letter-spacing: 0.02em;
+}
+
+.bar-chart-v4[data-view-mode="allTime"] .bar-chart-x-row-bottom .bar-chart-x-group-label-text,
+.line-chart-axis-wrap[data-view-mode="allTime"] .bar-chart-x-row-bottom .bar-chart-x-group-label-text {
+    background: rgba(0, 0, 0, 0.08);
+    color: var(--text-secondary);
+    padding: 2px 8px;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1.2;
+}
+
+body.dark-mode .bar-chart-v4[data-view-mode="allTime"] .bar-chart-x-row-bottom .bar-chart-x-group-label-text,
+body.dark-mode .line-chart-axis-wrap[data-view-mode="allTime"] .bar-chart-x-row-bottom .bar-chart-x-group-label-text {
+    background: rgba(255, 255, 255, 0.12);
+}
+
+/* Month pill styling for last7days and last30days views */
+.bar-chart-v4[data-view-mode="last7days"] .bar-chart-x-row-bottom .bar-chart-x-group-label-text,
+.bar-chart-v4[data-view-mode="last30days"] .bar-chart-x-row-bottom .bar-chart-x-group-label-text,
+.line-chart-axis-wrap[data-view-mode="last7days"] .bar-chart-x-row-bottom .bar-chart-x-group-label-text,
+.line-chart-axis-wrap[data-view-mode="last30days"] .bar-chart-x-row-bottom .bar-chart-x-group-label-text {
+    background: rgba(0, 0, 0, 0.08);
+    color: var(--text-secondary);
+    padding: 2px 8px;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1.2;
+}
+
+body.dark-mode .bar-chart-v4[data-view-mode="last7days"] .bar-chart-x-row-bottom .bar-chart-x-group-label-text,
+body.dark-mode .bar-chart-v4[data-view-mode="last30days"] .bar-chart-x-row-bottom .bar-chart-x-group-label-text,
+body.dark-mode .line-chart-axis-wrap[data-view-mode="last7days"] .bar-chart-x-row-bottom .bar-chart-x-group-label-text,
+body.dark-mode .line-chart-axis-wrap[data-view-mode="last30days"] .bar-chart-x-row-bottom .bar-chart-x-group-label-text {
+    background: rgba(255, 255, 255, 0.12);
+}
+
+/* Line chart axis row (reuse bar chart axis styles) */
+.line-chart-v2 {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0;
+}
+
+.line-chart-v2 svg {
+    width: 100%;
+    height: auto;
+}
+
+.line-chart-axis-wrap {
+    margin-top: 0;
+}
+
+.line-chart-axis-wrap .bar-chart-x-axis-v2 {
+    grid-column: auto;
+    grid-row: auto;
+    padding: 4px 0;
+}
+
+.line-chart-axis-wrap .bar-chart-x-row-top {
+    display: grid;
+}
+
+/* Line chart axis styling to match bar charts */
+.line-chart-y-labels text,
+.line-chart-y-labels.secondary text {
+    font-size: 0.72rem;
+    font-weight: 600;
+    fill: var(--text-secondary);
+    font-feature-settings: 'tnum' on;
 }
 
 /* Spacer cells for alignment */
@@ -21742,6 +22112,9 @@ body.dark-mode .metrics-stat-card-danger .metrics-stat-icon {
    =================================== */
 .line-chart-v2 {
     position: relative;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0;
 }
 
 .line-chart-v2 svg {
@@ -21796,14 +22169,14 @@ body.dark-mode .metrics-stat-card-danger .metrics-stat-icon {
 /* Line strokes - smooth with vibrant glow */
 .line-chart-stroke {
     fill: none;
-    stroke-width: 3;
+    stroke-width: 2;
     stroke-linecap: round;
     stroke-linejoin: round;
     filter: drop-shadow(0 2px 6px rgba(131, 58, 180, 0.35));
 }
 
 .line-chart-stroke.secondary {
-    stroke-width: 2;
+    stroke-width: 1.5;
     stroke-dasharray: 6 3;
     opacity: 0.85;
 }
@@ -21813,6 +22186,7 @@ body.dark-mode .metrics-stat-card-danger .metrics-stat-icon {
     opacity: 0;
     transition: all 0.2s ease;
     cursor: pointer;
+    pointer-events: all;
 }
 
 .line-chart-v2:hover .line-dot {
@@ -21820,11 +22194,12 @@ body.dark-mode .metrics-stat-card-danger .metrics-stat-icon {
 }
 
 .line-dot:hover {
-    r: 6;
+    r: 5;
     filter: drop-shadow(0 2px 8px rgba(0, 112, 243, 0.4));
 }
 
 .line-dot.secondary:hover {
+    r: 4;
     filter: drop-shadow(0 2px 8px rgba(52, 199, 89, 0.4));
 }
 
@@ -21839,7 +22214,7 @@ body.dark-mode .metrics-stat-card-danger .metrics-stat-icon {
 
 .line-chart-tooltip {
     position: absolute;
-    background: var(--bg-elevated);
+    background: #FFFFFF;
     border: 1px solid var(--border-subtle);
     border-radius: 8px;
     padding: 6px 10px;
@@ -21854,6 +22229,12 @@ body.dark-mode .metrics-stat-card-danger .metrics-stat-icon {
     margin-top: -8px;
     opacity: 0;
     transition: opacity 0.15s ease;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+}
+
+body.dark-mode .line-chart-tooltip {
+    background: #1C1C1E;
 }
 
 .line-chart-tooltip.visible {
@@ -21972,32 +22353,30 @@ body.dark-mode .line-dot:hover {
 
 .pie-segment {
     opacity: 0;
-    transform-origin: center;
     animation: pieSegmentIn 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
     cursor: pointer;
-    transition: filter 0.25s ease, transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s ease;
+    transition: filter 0.25s ease, opacity 0.2s ease, transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+    transform-origin: center;
+    transform-box: view-box;
 }
 
 @keyframes pieSegmentIn {
     from {
         opacity: 0;
-        transform: scale(0.8);
     }
     to {
         opacity: 1;
-        transform: scale(1);
     }
 }
 
 .pie-segment:hover {
-    filter: brightness(1.15) drop-shadow(0 2px 8px rgba(0, 0, 0, 0.15));
-    transform: scale(1.08);
+    filter: brightness(1.1) drop-shadow(0 3px 12px rgba(0, 0, 0, 0.25));
 }
 
 /* Dim other segments when one is hovered */
 .metrics-pie-chart:has(.pie-segment:hover) .pie-segment:not(:hover) {
-    opacity: 0.5;
-    filter: brightness(0.9);
+    opacity: 0.6;
+    filter: brightness(0.92);
 }
 
 .pie-total {
@@ -24144,6 +24523,10 @@ body.dark-mode .task-progress-value input {
     box-sizing: border-box;
 }
 
+body.dark-mode .unified-modal {
+    background: rgba(0, 0, 0, 0.6);
+}
+
 .unified-modal.active {
     display: flex;
 }
@@ -26013,6 +26396,7 @@ body.dark-mode .visibility-modal-content {
 
 body.dark-mode .create-doc-modal-content {
     background: var(--bg-elevated);
+    opacity: 1;
 }
 
 body.dark-mode .create-doc-input {
@@ -29890,6 +30274,76 @@ button span + i,
     gap: 10px;
     padding: 16px 24px;
     border-top: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.project-modal-footer .modal-footer-spacer {
+    flex: 1;
+}
+
+.unified-btn-danger-outline {
+    background: transparent;
+    color: #ef4444;
+    border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.unified-btn-danger-outline:hover {
+    background: rgba(239, 68, 68, 0.08);
+    border-color: rgba(239, 68, 68, 0.5);
+}
+
+/* Project Edit Button in Header */
+.project-edit-btn {
+    background: transparent;
+    border: none;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: #8e8e93;
+    transition: all 0.2s ease;
+    margin-left: 8px;
+    vertical-align: middle;
+}
+
+.project-edit-btn:hover {
+    background: rgba(0, 0, 0, 0.06);
+    color: #3c3c43;
+}
+
+body.dark-mode .project-edit-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: #ffffff;
+}
+
+/* Project Title Icon with Color */
+.project-title-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    background: var(--project-color, #6366f1);
+    color: #ffffff;
+    margin-right: 10px;
+    vertical-align: middle;
+}
+
+.project-title-icon svg {
+    width: 16px;
+    height: 16px;
+}
+
+.project-title-text {
+    vertical-align: middle;
+}
+
+#projectViewTitle {
+    display: flex;
+    align-items: center;
 }
 
 /* ===================================
