@@ -18535,7 +18535,7 @@ function renderXAxis(data, viewMode, primaryColor = '#2563EB') {
     }
     
     // Decide if we should render segment bars (avoid for 7-day and very tight layouts)
-    const shouldRenderSegments = hasDates && !isLast7 && count >= 2 && monthSegments.length > 0;
+    const shouldRenderSegments = hasDates && !isLast7 && viewMode !== 'last30days' && count >= 2 && monthSegments.length > 0;
     const segmentPalette = [
         '#d8b4fe', // muted lavender
         '#f3c6f0', // soft pink
@@ -18550,9 +18550,11 @@ function renderXAxis(data, viewMode, primaryColor = '#2563EB') {
     
     // Row 0: Thin segment bars dividing months/years (optional)
     if (shouldRenderSegments) {
-        html += `<div class="bar-chart-x-row bar-chart-x-row-segments" style="grid-template-columns: repeat(${count}, 1fr);">`;
+        html += `<div class="bar-chart-x-row bar-chart-x-row-segments" style="grid-template-columns: 5% repeat(${count}, 1fr) 2%; gap: 2px;">`;
         let segmentsProcessed = 0;
         let segIndex = 0;
+        // Add left padding spacer
+        html += `<span class="bar-chart-x-cell bar-chart-x-segment-spacer"></span>`;
         monthSegments.forEach((group) => {
             while (segmentsProcessed < group.startIndex) {
                 html += `<span class="bar-chart-x-cell bar-chart-x-segment-spacer"></span>`;
@@ -18567,13 +18569,15 @@ function renderXAxis(data, viewMode, primaryColor = '#2563EB') {
             html += `<span class="bar-chart-x-cell bar-chart-x-segment-spacer"></span>`;
             segmentsProcessed++;
         }
+        // Add right padding spacer
+        html += `<span class="bar-chart-x-cell bar-chart-x-segment-spacer"></span>`;
         html += `</div>`;
     }
     
     // Row 1: Top labels
     if (viewMode === 'allTime' && !shouldGroupByYear) {
         // Render one label per month as spanning cells
-        html += `<div class="bar-chart-x-row bar-chart-x-row-top" style="grid-template-columns: repeat(${count}, 1fr);">`;
+        html += `<div class="bar-chart-x-row bar-chart-x-row-top" style="grid-template-columns: 5% repeat(${count}, 1fr) 2%; gap: 2px;">`;
         let processed = 0;
         let currentMonthKey = null;
         let spanStart = 0;
@@ -18590,6 +18594,8 @@ function renderXAxis(data, viewMode, primaryColor = '#2563EB') {
                 spanStart = i;
             }
         }
+        // Add left padding spacer
+        html += `<span class="bar-chart-x-cell bar-chart-x-group-spacer"></span>`;
         monthLabels.forEach((m) => {
             while (processed < m.start) {
                 html += `<span class="bar-chart-x-cell bar-chart-x-group-spacer"></span>`;
@@ -18602,19 +18608,27 @@ function renderXAxis(data, viewMode, primaryColor = '#2563EB') {
             html += `<span class="bar-chart-x-cell bar-chart-x-group-spacer"></span>`;
             processed++;
         }
+        // Add right padding spacer
+        html += `<span class="bar-chart-x-cell bar-chart-x-group-spacer"></span>`;
         html += `</div>`;
     } else {
         // Default per-slot labels
-        html += `<div class="bar-chart-x-row bar-chart-x-row-top" style="grid-template-columns: repeat(${count}, 1fr);">`;
+        html += `<div class="bar-chart-x-row bar-chart-x-row-top" style="grid-template-columns: 5% repeat(${count}, 1fr) 2%; gap: 2px;">`;
+        // Add left padding spacer
+        html += `<span class="bar-chart-x-cell bar-chart-x-group-spacer"></span>`;
         topLabels.forEach((label, index) => {
             const visibleClass = label.visible ? '' : 'hidden';
             html += `<span class="bar-chart-x-cell ${visibleClass}" data-index="${index}">${escapeHtml(label.text)}</span>`;
         });
+        // Add right padding spacer
+        html += `<span class="bar-chart-x-cell bar-chart-x-group-spacer"></span>`;
         html += `</div>`;
     }
     
     // Row 2: Bottom labels (grouped month or year) - spans across groups
-    html += `<div class="bar-chart-x-row bar-chart-x-row-bottom" style="grid-template-columns: repeat(${count}, 1fr);">`;
+    html += `<div class="bar-chart-x-row bar-chart-x-row-bottom" style="grid-template-columns: 5% repeat(${count}, 1fr) 2%; gap: 2px;">`;
+    // Add left padding spacer
+    html += `<span class="bar-chart-x-cell bar-chart-x-group-spacer"></span>`;
     
     // We need to create cells that span the correct number of columns
     let processedIndex = 0;
@@ -18625,7 +18639,7 @@ function renderXAxis(data, viewMode, primaryColor = '#2563EB') {
             processedIndex++;
         }
         // Render the group label spanning its columns
-        html += `<span class="bar-chart-x-cell bar-chart-x-group-label" style="grid-column: span ${group.span};">${escapeHtml(group.text)}</span>`;
+        html += `<span class="bar-chart-x-cell bar-chart-x-group-label" style="grid-column: span ${group.span};"><span class="bar-chart-x-group-label-text">${escapeHtml(group.text)}</span></span>`;
         processedIndex = group.endIndex + 1;
     });
     // Fill remaining empty cells
@@ -18633,6 +18647,8 @@ function renderXAxis(data, viewMode, primaryColor = '#2563EB') {
         html += `<span class="bar-chart-x-cell bar-chart-x-group-spacer"></span>`;
         processedIndex++;
     }
+    // Add right padding spacer
+    html += `<span class="bar-chart-x-cell bar-chart-x-group-spacer"></span>`;
     
     html += `</div>`;
     html += `</div>`;
@@ -19275,13 +19291,13 @@ function createLineChart(data, options = {}) {
         yAxisMin = 0,
         yAxisMax = null,
         yAxisStep = null,
-        tickCount = 4 // Default tick count, can be overridden by tickDensity
+        tickCount = 6 // Default tick count, can be overridden by tickDensity
     } = options;
     
     // Chart dimensions
     const width = 400;
     const chartHeight = height;
-    const padding = { top: 16, right: showSecondaryAxis ? 45 : 16, bottom: 32, left: 40 };
+    const padding = { top: 16, right: showSecondaryAxis ? 45 : 8, bottom: 8, left: 20 };
     const drawWidth = width - padding.left - padding.right;
     const drawHeight = chartHeight - padding.top - padding.bottom;
     
@@ -19320,7 +19336,12 @@ function createLineChart(data, options = {}) {
     }
     
     // Generate points - using the effective range for Y positioning
-    const getX = (index, len) => padding.left + (len === 1 ? drawWidth / 2 : (index / (len - 1)) * drawWidth);
+    // Align dot centers with x-axis grid cells
+    const getX = (index, len) => {
+        if (len === 1) return padding.left + drawWidth / 2;
+        const step = drawWidth / len;
+        return padding.left + (index + 0.5) * step;
+    };
     const getY = (value, maxVal, minVal = 0) => {
         const range = maxVal - minVal;
         const clampedValue = Math.max(minVal, Math.min(maxVal, value));
@@ -19375,10 +19396,15 @@ function createLineChart(data, options = {}) {
     const xStep = data.length > 1 ? (getX(1, data.length) - getX(0, data.length)) : drawWidth;
     const segmentY = chartHeight - 22; // sits above x-labels
     const segmentH = 6;
+
+    const viewModeMap = { '7days': 'last7days', '30days': 'last30days', 'all': 'allTime' };
+    const resolvedViewMode = options.viewMode
+        || (typeof metricsTimeFilter !== 'undefined' ? (viewModeMap[metricsTimeFilter] || 'last7days') : 'last30days');
+    const yLabelOffset = resolvedViewMode === 'last7days' ? 2 : 8;
     
     return `
         <div class="line-chart-v2">
-            <svg viewBox="0 0 ${width} ${chartHeight}" preserveAspectRatio="xMidYMid meet">
+            <svg viewBox="0 0 ${width} ${chartHeight}" preserveAspectRatio="xMinYMid meet">
                 <defs>
                     <linearGradient id="${gradientId}" x1="0%" y1="0%" x2="0%" y2="100%">
                         <stop offset="0%" stop-color="${primaryColor}" stop-opacity="0.25" />
@@ -19402,7 +19428,7 @@ function createLineChart(data, options = {}) {
                 <g class="line-chart-y-labels">
                     ${primaryTicks.map((val, i) => {
                         const y = padding.top + (i / Math.max(primaryTicks.length - 1, 1)) * drawHeight;
-                        return `<text x="${padding.left - 8}" y="${y}" text-anchor="end" dominant-baseline="middle">${formatAxisValue(val)}</text>`;
+                        return `<text x="${padding.left - yLabelOffset}" y="${y}" text-anchor="end" dominant-baseline="middle">${formatAxisValue(val)}</text>`;
                     }).join('')}
                 </g>
                 
@@ -19432,17 +19458,17 @@ function createLineChart(data, options = {}) {
                     <g class="line-chart-dots">
                         ${primaryPoints.map((p, i) => `
                             <circle 
-                                cx="${p.x}" cy="${p.y}" r="4" 
+                                cx="${p.x}" cy="${p.y}" r="2.5" 
                                 fill="var(--bg-surface)" 
                                 stroke="${primaryColor}" 
-                                stroke-width="2"
+                                stroke-width="1.5"
                                 class="line-dot"
                                 data-tooltip="${escapeHtml(p.label)}: ${formatAxisValue(p.value)}"
                             />
                         `).join('')}
                         ${secondaryPoints.map((p, i) => `
                             <circle 
-                                cx="${p.x}" cy="${p.y}" r="3.5" 
+                                cx="${p.x}" cy="${p.y}" r="2" 
                                 fill="var(--bg-surface)" 
                                 stroke="${secondaryColor}" 
                                 stroke-width="2"
@@ -19452,37 +19478,14 @@ function createLineChart(data, options = {}) {
                         `).join('')}
                     </g>
                 ` : ''}
-                
-                <!-- Time segment bars (months/years) -->
-                ${timeSegments.length && xStep >= 8 ? `
-                    <g class="line-chart-segments">
-                        ${timeSegments.map((seg, idx) => {
-                            const startX = seg.startIndex === 0 
-                                ? padding.left 
-                                : getX(seg.startIndex, data.length) - xStep / 2;
-                            const endX = seg.endIndex === data.length - 1 
-                                ? padding.left + drawWidth 
-                                : getX(seg.endIndex, data.length) + xStep / 2;
-                            const width = Math.max(6, endX - startX);
-                            const clampedX = Math.max(padding.left, startX);
-                            const maxWidth = (padding.left + drawWidth) - clampedX;
-                            const finalWidth = Math.max(6, Math.min(width, maxWidth));
-                            const fill = idx % 2 === 0 ? 'var(--border-strong, rgba(0,0,0,0.18))' : 'var(--border-card, rgba(0,0,0,0.10))';
-                            return `<rect class="line-chart-segment-bar" x="${clampedX}" y="${segmentY}" rx="3" ry="3" width="${finalWidth}" height="${segmentH}" fill="${fill}" />`;
-                        }).join('')}
-                    </g>
-                ` : ''}
-                
-                <!-- X-axis labels -->
-                <g class="line-chart-x-labels">
-                    ${data.map((item, i) => {
-                        if (!labelIndices.has(i)) return '';
-                        const x = getX(i, data.length);
-                        return `<text x="${x}" y="${chartHeight - 8}" text-anchor="middle">${escapeHtml(item.label)}</text>`;
-                    }).join('')}
-                </g>
             </svg>
             
+            ${renderXAxis(data, resolvedViewMode, primaryColor) ? `
+                <div class="line-chart-axis-wrap" data-view-mode="${resolvedViewMode}">
+                    ${renderXAxis(data, resolvedViewMode, primaryColor)}
+                </div>
+            ` : ''}
+
             ${primaryLabel || secondaryLabel ? `
                 <div class="line-chart-legend">
                     ${primaryLabel ? `<span class="legend-item"><span class="legend-dot" style="background: ${primaryColor}"></span>${escapeHtml(primaryLabel)}</span>` : ''}
@@ -19607,11 +19610,14 @@ function createPieChart(data, options = {}) {
         // Use assigned color or default based on index (ensures distinct colors)
         const color = item.color || defaultColors[index % defaultColors.length];
         
+        // Calculate center angle for hover expansion (midpoint between start and end)
+        const centerAngle = (startAngle + endAngle) / 2;
+        
         currentAngle = endAngle;
         
         const path = `M ${x1.toFixed(2)} ${y1.toFixed(2)} A ${radius} ${radius} 0 ${largeArc} 1 ${x2.toFixed(2)} ${y2.toFixed(2)} L ${x3.toFixed(2)} ${y3.toFixed(2)} A ${innerRadius} ${innerRadius} 0 ${largeArc} 0 ${x4.toFixed(2)} ${y4.toFixed(2)} Z`;
         
-        return { path, color, label: item.label, value: item.value, percentage: percentage.toFixed(1) };
+        return { path, color, label: item.label, value: item.value, percentage: percentage.toFixed(1), centerAngle };
     }).filter(seg => seg !== null); // Remove skipped segments
     
     if (segments.length === 0) {
@@ -19627,6 +19633,7 @@ function createPieChart(data, options = {}) {
                         d="${seg.path}" 
                         fill="${seg.color}"
                         data-tooltip="${escapeHtml(seg.label)}: ${formatAxisValue(seg.value)} (${seg.percentage}%)"
+                        data-angle="${seg.centerAngle}"
                         style="animation-delay: ${i * 0.05}s"
                     />
                 `).join('')}
@@ -20326,6 +20333,7 @@ async function renderMetrics() {
         } else if (!personalTrendHidden || metricsEditMode) {
             // Ensure dailyCompletions has proper structure for chart rendering
             const trendData = personalMetrics.trends.dailyCompletions.map(d => ({
+                date: d.date,
                 label: d.label,
                 value: d.count,
                 count: d.count
@@ -20448,6 +20456,7 @@ async function renderMetrics() {
                     
                     // Ensure proper data structure for trend chart
                     const teamTrendData = teamMetrics.trends.dailyCompletions.map(d => ({
+                        date: d.date,
                         label: d.label,
                         value: d.count,
                         count: d.count
@@ -20630,12 +20639,14 @@ async function renderMetrics() {
  * Initialize trend bar tooltips (reuse line chart tooltip pattern)
  */
 function initTrendBarTooltips(container) {
-    // Support both old v2 charts and new v3 charts
-    const charts = container.querySelectorAll('.bar-chart-v3, .metrics-trend-chart-v2');
+    // Support v2, v3, and v4 charts
+    const charts = container.querySelectorAll('.bar-chart-v3, .metrics-trend-chart-v2, .bar-chart-v4');
     
     charts.forEach(chart => {
-        // Find chart area (different class names for v2 vs v3)
-        const chartArea = chart.querySelector('.bar-chart-v3-area') || chart.querySelector('.trend-chart-area');
+        // Find chart area (different class names for v2/v3/v4)
+        const chartArea = chart.querySelector('.bar-chart-v3-area')
+            || chart.querySelector('.bar-chart-v4-area')
+            || chart.querySelector('.trend-chart-area');
         if (!chartArea) return;
         
         // Reuse a single tooltip per chart to avoid duplicates
@@ -20647,8 +20658,10 @@ function initTrendBarTooltips(container) {
         }
         tooltip.classList.remove('visible');
         
-        // Find bar wrappers (different class names for v2 vs v3)
-        const barWrappers = chart.querySelectorAll('.bar-chart-v3-bar-wrap[data-tooltip], .trend-bar-wrapper[data-tooltip]');
+        // Find bar wrappers (different class names for v2/v3/v4)
+        const barWrappers = chart.querySelectorAll(
+            '.bar-chart-v3-bar-wrap[data-tooltip], .bar-chart-v4-bar-wrap[data-tooltip], .trend-bar-wrapper[data-tooltip]'
+        );
         
         barWrappers.forEach(wrapper => {
             wrapper.addEventListener('mouseenter', (e) => {
@@ -20658,16 +20671,22 @@ function initTrendBarTooltips(container) {
                 tooltip.textContent = tooltipText;
                 
                 // Position tooltip above the bar, centered on bar width
-                const bar = wrapper.querySelector('.bar-chart-v3-bar') || wrapper.querySelector('.trend-bar-primary');
+                const bar = wrapper.querySelector('.bar-chart-v3-bar')
+                    || wrapper.querySelector('.bar-chart-v4-bar')
+                    || wrapper.querySelector('.trend-bar-primary');
                 if (!bar) return;
                 
                 const barRect = bar.getBoundingClientRect();
                 const chartAreaRect = chartArea.getBoundingClientRect();
+                const barsContainer = chartArea.querySelector('.bar-chart-v4-bars')
+                    || chartArea.querySelector('.bar-chart-v3-bars')
+                    || chartArea.querySelector('.trend-chart-bars');
+                const containerRect = barsContainer ? barsContainer.getBoundingClientRect() : chartAreaRect;
                 
                 // Center tooltip horizontally on bar
-                const x = barRect.left - chartAreaRect.left + barRect.width / 2;
+                const x = barRect.left - containerRect.left + barRect.width / 2;
                 // Position tooltip at top of bar
-                const y = barRect.top - chartAreaRect.top;
+                const y = barRect.top - containerRect.top;
                 
                 tooltip.style.left = x + 'px';
                 tooltip.style.top = y + 'px';
@@ -20705,12 +20724,15 @@ function initLineChartTooltips(container) {
                 
                 tooltip.textContent = tooltipText;
                 
-                // Position tooltip above the dot
-                const cx = parseFloat(dot.getAttribute('cx'));
-                const cy = parseFloat(dot.getAttribute('cy'));
+                // Position tooltip above the dot using actual screen coordinates
+                const dotRect = dot.getBoundingClientRect();
+                const chartRect = chart.getBoundingClientRect();
                 
-                tooltip.style.left = cx + 'px';
-                tooltip.style.top = cy + 'px';
+                const x = dotRect.left - chartRect.left + dotRect.width / 2;
+                const y = dotRect.top - chartRect.top;
+                
+                tooltip.style.left = x + 'px';
+                tooltip.style.top = y + 'px';
                 tooltip.classList.add('visible');
             });
             
@@ -20726,16 +20748,51 @@ function initLineChartTooltips(container) {
 /**
  * Initialize pie chart hover interactions
  * Highlights corresponding legend item when a segment is hovered
+ * Expands segment outward by scaling from pie center
  */
 function initPieChartHoverEffects(container) {
     const pieCharts = container.querySelectorAll('.metrics-pie-chart');
+    const expandScale = 1.08; // Scale factor for expansion
     
     pieCharts.forEach(pieChart => {
         const segments = pieChart.querySelectorAll('.pie-segment');
         const legendItems = pieChart.querySelectorAll('.pie-legend-item');
         
+        // Helper function to expand a segment outward using scale
+        function expandSegment(segment) {
+            segment.style.transform = `scale(${expandScale})`;
+            segment.style.filter = 'brightness(1.1) drop-shadow(0 3px 12px rgba(0, 0, 0, 0.25))';
+        }
+        
+        // Helper function to reset a segment
+        function resetSegment(segment) {
+            segment.style.transform = '';
+            segment.style.filter = '';
+        }
+        
+        // Helper function to dim other segments
+        function dimOtherSegments(activeIndex) {
+            segments.forEach((seg, i) => {
+                if (i !== activeIndex) {
+                    seg.style.opacity = '0.6';
+                    seg.style.filter = 'brightness(0.92)';
+                }
+            });
+        }
+        
+        // Helper function to restore all segments
+        function restoreAllSegments() {
+            segments.forEach(seg => {
+                seg.style.opacity = '';
+                seg.style.filter = '';
+                seg.style.transform = '';
+            });
+        }
+        
         segments.forEach((segment, index) => {
             segment.addEventListener('mouseenter', () => {
+                expandSegment(segment);
+                dimOtherSegments(index);
                 // Highlight corresponding legend item
                 if (legendItems[index]) {
                     legendItems[index].classList.add('highlighted');
@@ -20743,6 +20800,7 @@ function initPieChartHoverEffects(container) {
             });
             
             segment.addEventListener('mouseleave', () => {
+                restoreAllSegments();
                 // Remove highlight from legend item
                 if (legendItems[index]) {
                     legendItems[index].classList.remove('highlighted');
@@ -20750,33 +20808,18 @@ function initPieChartHoverEffects(container) {
             });
         });
         
-        // Also allow legend items to highlight segments
+        // Also allow legend items to highlight and expand segments
         legendItems.forEach((legendItem, index) => {
             legendItem.addEventListener('mouseenter', () => {
                 if (segments[index]) {
-                    segments[index].style.transform = 'scale(1.08)';
-                    segments[index].style.filter = 'brightness(1.15) drop-shadow(0 2px 8px rgba(0, 0, 0, 0.15))';
-                    // Dim other segments
-                    segments.forEach((seg, i) => {
-                        if (i !== index) {
-                            seg.style.opacity = '0.5';
-                            seg.style.filter = 'brightness(0.9)';
-                        }
-                    });
+                    expandSegment(segments[index]);
+                    dimOtherSegments(index);
                 }
                 legendItem.classList.add('highlighted');
             });
             
             legendItem.addEventListener('mouseleave', () => {
-                if (segments[index]) {
-                    segments[index].style.transform = '';
-                    segments[index].style.filter = '';
-                    // Restore other segments
-                    segments.forEach(seg => {
-                        seg.style.opacity = '';
-                        seg.style.filter = '';
-                    });
-                }
+                restoreAllSegments();
                 legendItem.classList.remove('highlighted');
             });
         });
