@@ -1598,7 +1598,7 @@ body.dark-mode .search-highlight {
     min-width: 20px;
     text-align: center;
     box-shadow: 0 2px 4px rgba(255, 59, 48, 0.3);
-    z-index: 10;
+    z-index: 100;
 }
 
 /* ===================================
@@ -6421,6 +6421,20 @@ body.dark-mode .btn-primary:hover {
     flex-shrink: 0;
 }
 
+/* Panel header buttons: pill for text+icon, circle for icon-only */
+.panel-header-right .icon-btn {
+    width: auto;
+    height: 36px;
+    padding: 8px 14px;
+    border-radius: 999px;
+}
+
+.panel-header-right .icon-btn.icon-only {
+    width: 36px;
+    padding: 0;
+    border-radius: 50%;
+}
+
 /* Icon Button - compact style */
 .icon-btn {
     width: 36px;
@@ -8346,16 +8360,16 @@ body.dark-mode .modal-content::-webkit-scrollbar-thumb:hover {
     max-width: 480px;
     width: 94%;
     max-height: 90vh;
-    background: white;
+    background: var(--bg-surface);
     border-radius: 16px;
-    box-shadow: 0 24px 80px rgba(0, 0, 0, 0.18);
+    box-shadow: var(--shadow-soft);
     display: flex;
     flex-direction: column;
 }
 
 body.dark-mode .task-modal-content {
-    background: #2c2c2e;
-    box-shadow: 0 24px 80px rgba(0, 0, 0, 0.5);
+    background: var(--bg-surface);
+    box-shadow: var(--shadow-soft);
 }
 
 .task-modal-content .modal-header {
@@ -24533,14 +24547,14 @@ body.dark-mode .unified-modal {
 
 /* Modal Container - Clean, solid background */
 .unified-modal-container {
-    background: #ffffff;
+    background: var(--bg-surface);
     border-radius: 14px;
     width: 100%;
     max-width: 540px;
     max-height: calc(100vh - 40px);
     display: flex;
     flex-direction: column;
-    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.12);
+    box-shadow: var(--shadow-soft);
     overflow: hidden;
 }
 
@@ -24558,8 +24572,8 @@ body.dark-mode .unified-modal {
 }
 
 body.dark-mode .unified-modal-container {
-    background: #1c1c1e;
-    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+    background: var(--bg-surface);
+    box-shadow: var(--shadow-soft);
 }
 
 /* Modal Header - Minimal */
@@ -24568,12 +24582,12 @@ body.dark-mode .unified-modal-container {
     align-items: center;
     justify-content: space-between;
     padding: 20px 24px 16px;
-    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+    border-bottom: 1px solid var(--border-subtle);
     flex-shrink: 0;
 }
 
 body.dark-mode .unified-modal-header {
-    border-bottom-color: rgba(255, 255, 255, 0.08);
+    border-bottom-color: var(--border-subtle);
 }
 
 .unified-modal-title {
@@ -24585,7 +24599,7 @@ body.dark-mode .unified-modal-header {
 .unified-modal-title h2 {
     font-size: 17px;
     font-weight: 600;
-    color: #000000;
+    color: var(--text-main);
     margin: 0;
     display: flex;
     align-items: center;
@@ -24594,7 +24608,7 @@ body.dark-mode .unified-modal-header {
 }
 
 body.dark-mode .unified-modal-title h2 {
-    color: #ffffff;
+    color: var(--text-main);
 }
 
 .unified-modal-title h2 i {
@@ -24611,8 +24625,8 @@ body.dark-mode .unified-modal-title h2 {
     height: 28px;
     border-radius: 50%;
     border: none;
-    background: rgba(0, 0, 0, 0.05);
-    color: rgba(0, 0, 0, 0.5);
+    background: var(--bg-body);
+    color: var(--text-muted);
     cursor: pointer;
     display: flex;
     align-items: center;
@@ -24627,8 +24641,8 @@ body.dark-mode .unified-modal-title h2 {
 }
 
 body.dark-mode .unified-modal-close {
-    background: rgba(255, 255, 255, 0.1);
-    color: rgba(255, 255, 255, 0.6);
+    background: var(--bg-surface-soft);
+    color: var(--text-muted);
 }
 
 /* Modal Body */
@@ -24666,7 +24680,7 @@ body.dark-mode .unified-modal-body::-webkit-scrollbar-thumb {
     background: var(--bg-surface);
     border-radius: 16px;
     overflow: hidden;
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+    box-shadow: var(--shadow-soft);
 }
 
 .create-item-body {
@@ -26538,6 +26552,53 @@ body.dark-mode .unified-segmented-option.active {
     color: #ffffff;
 }
 
+/* Spreadsheet type selector - match calendar view toggle */
+#typeSelectRow {
+    display: inline-flex;
+    width: fit-content;
+    background: var(--bg-surface);
+    border-radius: 999px;
+    padding: 4px;
+    gap: 4px;
+    border: 1px solid var(--border-subtle);
+}
+
+body.dark-mode #typeSelectRow {
+    background: var(--bg-surface);
+    border-color: var(--border-subtle);
+}
+
+#typeSelectRow .unified-segmented-option {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    border: none;
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 13px;
+    font-weight: 600;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+#typeSelectRow .unified-segmented-option:hover {
+    color: var(--text-main);
+    background: var(--bg-body);
+}
+
+#typeSelectRow .unified-segmented-option.active {
+    background: rgb(183, 183, 183);
+    color: white;
+    box-shadow: 0 2px 8px rgba(0, 122, 255, 0.25);
+}
+
+body.dark-mode #typeSelectRow .unified-segmented-option.active {
+    background: var(--accent);
+    box-shadow: 0 2px 8px rgba(0, 122, 255, 0.3);
+}
+
 /* ===================================
    MINIMAL CONFIRMATION BOXES
    =================================== */
@@ -27003,7 +27064,7 @@ body.dark-mode .unified-feature-list li.muted {
     font-variant-numeric: tabular-nums;
     padding: 4px 10px;
     background: rgba(34, 197, 94, 0.1);
-    border-radius: 6px;
+    border-radius: 999px;
 }
 
 .column-total.expense {
@@ -27015,7 +27076,7 @@ body.dark-mode .unified-feature-list li.muted {
     width: 36px;
     height: 36px;
     border: none;
-    border-radius: 10px;
+    border-radius: 50%;
     font-size: 16px;
     cursor: pointer;
     display: flex;
@@ -27639,7 +27700,7 @@ body.dark-mode .unified-feature-list li.muted {
 }
 
 .amount-input-wrapper .amount-input {
-    padding-left: 36px;
+    padding-left: 44px;
     font-size: 18px;
     font-weight: 600;
 }
@@ -27932,7 +27993,7 @@ body.dark-mode .toggle-slider {
 .btn-add-subscription {
     width: 36px;
     height: 36px;
-    border-radius: 10px;
+    border-radius: 50%;
     background: var(--accent);
     color: white;
     border: none;
@@ -27942,6 +28003,7 @@ body.dark-mode .toggle-slider {
     justify-content: center;
     font-size: 14px;
     transition: all var(--transition-fast);
+    flex-shrink: 0;
 }
 
 .btn-add-subscription:hover {
@@ -27953,11 +28015,33 @@ body.dark-mode .toggle-slider {
 .subscriptions-tabs {
     display: inline-flex;
     gap: 6px;
-    margin-bottom: 16px;
+    margin-bottom: 0;
     padding: 4px;
     background: var(--bg-surface);
     border-radius: 999px;
     border: 1px solid var(--border-subtle);
+}
+
+.subscriptions-tabs-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+}
+
+.subscriptions-tabs {
+    display: inline-flex;
+    width: fit-content;
+    background: var(--bg-surface);
+    border-radius: 999px;
+    padding: 4px;
+    gap: 4px;
+    border: 1px solid var(--border-subtle);
+}
+
+body.dark-mode .subscriptions-tabs {
+    background: var(--bg-surface);
+    border-color: var(--border-subtle);
 }
 
 .sub-tab {
@@ -27965,15 +28049,15 @@ body.dark-mode .toggle-slider {
     align-items: center;
     justify-content: center;
     gap: 8px;
-    padding: 10px 20px;
+    padding: 8px 16px;
     border: none;
     background: transparent;
     border-radius: 999px;
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 600;
     color: var(--text-muted);
     cursor: pointer;
-    transition: all var(--transition-fast);
+    transition: all 0.2s ease;
 }
 
 .sub-tab:hover {
@@ -27982,13 +28066,18 @@ body.dark-mode .toggle-slider {
 }
 
 .sub-tab.active {
-    background: var(--accent);
+    background: rgb(183, 183, 183);
     color: white;
     box-shadow: 0 2px 8px rgba(0, 122, 255, 0.25);
 }
 
+body.dark-mode .sub-tab.active {
+    background: var(--accent);
+    box-shadow: 0 2px 8px rgba(0, 122, 255, 0.3);
+}
+
 .sub-tab-count {
-    background: var(--bg-muted);
+    background: transparent;
     padding: 2px 7px;
     border-radius: 999px;
     font-size: 11px;
@@ -29905,20 +29994,22 @@ button span + i,
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 6px;
-    padding: 8px 14px;
-    background: #007aff;
-    color: white;
-    border: none;
-    border-radius: 999px;
-    font-size: 13px;
-    font-weight: 500;
+    gap: 0;
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    border-radius: 50%;
+    color: var(--text-muted);
     cursor: pointer;
-    transition: opacity 0.15s ease;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .project-tile-add:hover {
-    opacity: 0.85;
+    background: var(--accent-soft);
+    border-color: var(--accent);
+    color: var(--accent);
 }
 
 .project-tile-add svg {

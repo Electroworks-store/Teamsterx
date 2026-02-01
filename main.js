@@ -10018,14 +10018,14 @@ function initTasks() {
                                         <i class="fas fa-palette"></i> Color
                                     </label>
                                     <div class="unified-color-grid" id="colorSelectGrid">
-                                        <button type="button" class="unified-color-option selected" data-color="#0070f3" style="background: #0070f3;"></button>
-                                        <button type="button" class="unified-color-option" data-color="#34c759" style="background: #34c759;"></button>
-                                        <button type="button" class="unified-color-option" data-color="#ff9500" style="background: #ff9500;"></button>
                                         <button type="button" class="unified-color-option" data-color="#ff3b30" style="background: #ff3b30;"></button>
+                                        <button type="button" class="unified-color-option" data-color="#ff9500" style="background: #ff9500;"></button>
+                                        <button type="button" class="unified-color-option" data-color="#ff2d55" style="background: #ff2d55;"></button>
                                         <button type="button" class="unified-color-option" data-color="#af52de" style="background: #af52de;"></button>
                                         <button type="button" class="unified-color-option" data-color="#5856d6" style="background: #5856d6;"></button>
+                                        <button type="button" class="unified-color-option selected" data-color="#0070f3" style="background: #0070f3;"></button>
                                         <button type="button" class="unified-color-option" data-color="#00c7be" style="background: #00c7be;"></button>
-                                        <button type="button" class="unified-color-option" data-color="#ff2d55" style="background: #ff2d55;"></button>
+                                        <button type="button" class="unified-color-option" data-color="#34c759" style="background: #34c759;"></button>
                                     </div>
                                     <input type="hidden" id="spreadsheetColor" value="#0070f3">
                                 </div>
@@ -14231,9 +14231,8 @@ function initTasks() {
             <div class="project-tile-header">
                 <span class="project-tile-title">Projects</span>
                 ${projects.length > 0 ? `
-                    <button class="project-tile-add" onclick="openCreateProjectModal()">
+                    <button class="project-tile-add" onclick="openCreateProjectModal()" title="New project">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                        New
                     </button>
                 ` : ''}
             </div>
@@ -14284,7 +14283,7 @@ function initTasks() {
     /**
      * Create the project modal if it doesn't exist
      */
-    const PROJECT_COLOR_PALETTE = ['#6d5dfc', '#0ea5e9', '#22c55e', '#f59e0b', '#ef4444', '#14b8a6', '#a855f7', '#475569'];
+    const PROJECT_COLOR_PALETTE = ['#ef4444', '#f59e0b', '#22c55e', '#14b8a6', '#0ea5e9', '#6d5dfc', '#a855f7', '#475569'];
 
     // SVG icon definitions for projects (monochromatic, clean design)
     const PROJECT_ICONS = {
@@ -34046,9 +34045,56 @@ function openSubscriptionModal(subscription = null) {
         document.getElementById('subscriptionType').value = subscription.type;
         document.getElementById('subscriptionName').value = subscription.name || '';
         document.getElementById('subscriptionAmount').value = subscription.amount || '';
+        
+        // Set currency dropdown
         document.getElementById('subscriptionCurrency').value = subscription.currency || 'USD';
+        const currencyLabel = document.getElementById('subscriptionCurrencyLabel');
+        if (currencyLabel) {
+            const currencyOptions = {
+                'USD': 'USD ($)',
+                'EUR': 'EUR (€)',
+                'GBP': 'GBP (£)',
+                'CAD': 'CAD ($)',
+                'AUD': 'AUD ($)',
+                'JPY': 'JPY (¥)',
+                'ILS': 'ILS (₪)'
+            };
+            currencyLabel.textContent = currencyOptions[subscription.currency || 'USD'];
+        }
+        
+        // Set frequency dropdown
         document.getElementById('subscriptionFrequency').value = subscription.frequency || 'monthly';
+        const frequencyLabel = document.getElementById('subscriptionFrequencyLabel');
+        if (frequencyLabel) {
+            const frequencyOptions = {
+                'weekly': 'Weekly',
+                'monthly': 'Monthly',
+                'quarterly': 'Quarterly',
+                'yearly': 'Yearly'
+            };
+            frequencyLabel.textContent = frequencyOptions[subscription.frequency || 'monthly'];
+        }
+        
+        // Set category dropdown
         document.getElementById('subscriptionCategory').value = subscription.category || '';
+        const categoryLabel = document.getElementById('subscriptionCategoryLabel');
+        if (categoryLabel) {
+            const categoryOptions = {
+                '': 'Select category...',
+                'software': 'Software & Tools',
+                'streaming': 'Streaming & Entertainment',
+                'cloud': 'Cloud Services',
+                'productivity': 'Productivity',
+                'communication': 'Communication',
+                'design': 'Design & Creative',
+                'marketing': 'Marketing',
+                'storage': 'Storage & Backup',
+                'security': 'Security',
+                'other': 'Other'
+            };
+            categoryLabel.textContent = categoryOptions[subscription.category || ''];
+        }
+        
         document.getElementById('subscriptionCancelLink').value = subscription.cancelLink || '';
         document.getElementById('subscriptionNotes').value = subscription.notes || '';
         
@@ -34074,6 +34120,118 @@ function openSubscriptionModal(subscription = null) {
     }
     
     modal.classList.add('active');
+    
+    // Initialize subscription dropdown handlers
+    initSubscriptionModalDropdowns(subscription);
+}
+
+/**
+ * Initialize subscription modal dropdown handlers
+ */
+function initSubscriptionModalDropdowns(subscription = null) {
+    const modal = document.getElementById('subscriptionModal');
+    if (!modal) return;
+    
+    // Set selected states
+    const currencyMenu = modal.querySelector('#subscriptionCurrencyMenu');
+    if (currencyMenu) {
+        const currencyValue = subscription?.currency || 'USD';
+        currencyMenu.querySelectorAll('.unified-dropdown-option').forEach(opt => {
+            opt.classList.toggle('selected', opt.dataset.value === currencyValue);
+        });
+    }
+    
+    const frequencyMenu = modal.querySelector('#subscriptionFrequencyMenu');
+    if (frequencyMenu) {
+        const frequencyValue = subscription?.frequency || 'monthly';
+        frequencyMenu.querySelectorAll('.unified-dropdown-option').forEach(opt => {
+            opt.classList.toggle('selected', opt.dataset.value === frequencyValue);
+        });
+    }
+    
+    const categoryMenu = modal.querySelector('#subscriptionCategoryMenu');
+    if (categoryMenu) {
+        const categoryValue = subscription?.category || '';
+        categoryMenu.querySelectorAll('.unified-dropdown-option').forEach(opt => {
+            opt.classList.toggle('selected', opt.dataset.value === categoryValue);
+        });
+    }
+    
+    // Setup dropdowns
+    setupSubscriptionDropdown('subscriptionCurrency');
+    setupSubscriptionDropdown('subscriptionFrequency');
+    setupSubscriptionDropdown('subscriptionCategory');
+}
+
+/**
+ * Setup a subscription modal dropdown
+ */
+function setupSubscriptionDropdown(inputId) {
+    const trigger = document.getElementById(inputId + 'Trigger');
+    const menu = document.getElementById(inputId + 'Menu');
+    const hiddenInput = document.getElementById(inputId);
+    const label = document.getElementById(inputId + 'Label');
+    
+    if (!trigger || !menu || !hiddenInput) return;
+    
+    // Remove old listeners
+    trigger.onclick = null;
+    
+    // Toggle dropdown on trigger click
+    trigger.addEventListener('click', (e) => {
+        e.stopPropagation();
+        
+        // Close other dropdowns in this modal
+        document.querySelectorAll('#subscriptionModal .unified-dropdown-menu').forEach(m => {
+            if (m !== menu) {
+                m.classList.remove('visible');
+                m.style.display = 'none';
+            }
+        });
+        
+        const isOpen = menu.classList.contains('visible');
+        menu.classList.toggle('visible', !isOpen);
+        menu.style.display = isOpen ? 'none' : 'block';
+    });
+    
+    // Handle option selection
+    menu.querySelectorAll('.unified-dropdown-option').forEach(option => {
+        // Remove old listeners
+        option.onclick = null;
+        
+        option.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const value = option.dataset.value;
+            const text = option.textContent.trim();
+            
+            // Update hidden input
+            hiddenInput.value = value;
+            
+            // Update label if it exists
+            if (label) {
+                label.textContent = text;
+            }
+            
+            // Update selected state
+            menu.querySelectorAll('.unified-dropdown-option').forEach(opt => {
+                opt.classList.remove('selected');
+            });
+            option.classList.add('selected');
+            
+            // Close dropdown
+            menu.classList.remove('visible');
+            menu.style.display = 'none';
+        });
+    });
+    
+    // Close dropdown when clicking outside
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('#subscriptionModal')) return;
+        if (e.target.closest('.unified-dropdown-trigger')) return;
+        
+        menu.classList.remove('visible');
+        menu.style.display = 'none';
+    });
 }
 
 /**
@@ -34083,6 +34241,11 @@ function closeSubscriptionModalFn() {
     const modal = document.getElementById('subscriptionModal');
     if (modal) {
         modal.classList.remove('active');
+        // Close any open dropdowns
+        document.querySelectorAll('#subscriptionModal .unified-dropdown-menu').forEach(m => {
+            m.classList.remove('visible');
+            m.style.display = 'none';
+        });
     }
 }
 

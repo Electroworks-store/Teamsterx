@@ -764,7 +764,7 @@
                                 <i class="fas fa-eye"></i>
                                 <span id="toggleCompletedText">See all</span>
                             </button>
-                            <button class="icon-btn primary" id="addTaskPanelBtn">
+                            <button class="icon-btn icon-only primary" id="addTaskPanelBtn">
                                 <i class="fas fa-plus"></i>
                             </button>
                         </div>
@@ -1121,20 +1121,22 @@
                             <h2>Subscriptions</h2>
                             <span class="subscriptions-count" id="subscriptionsCount">0</span>
                         </div>
-                        <button class="btn-add-subscription" id="addSubscriptionBtn" title="Add Subscription">
-                            <i class="fas fa-plus"></i>
-                        </button>
                     </div>
                     
                     <!-- Subscriptions Tabs -->
-                    <div class="subscriptions-tabs" id="subscriptionsTabs">
-                        <button class="sub-tab active" data-tab="company">
-                            <i class="fas fa-building"></i> Company
-                            <span class="sub-tab-count" id="companySubsCount">0</span>
-                        </button>
-                        <button class="sub-tab" data-tab="private">
-                            <i class="fas fa-user-secret"></i> Private
-                            <span class="sub-tab-count" id="privateSubsCount">0</span>
+                    <div class="subscriptions-tabs-row">
+                        <div class="subscriptions-tabs" id="subscriptionsTabs">
+                            <button class="sub-tab active" data-tab="company">
+                                <i class="fas fa-building"></i> Company
+                                <span class="sub-tab-count" id="companySubsCount">0</span>
+                            </button>
+                            <button class="sub-tab" data-tab="private">
+                                <i class="fas fa-user-secret"></i> Private
+                                <span class="sub-tab-count" id="privateSubsCount">0</span>
+                            </button>
+                        </div>
+                        <button class="btn-add-subscription" id="addSubscriptionBtn" title="Add Subscription">
+                            <i class="fas fa-plus"></i>
                         </button>
                     </div>
                     
@@ -1278,12 +1280,12 @@
                                     <div class="settings-field-minimal">
                                         <label>Accent Color</label>
                                         <div class="accent-color-picker-minimal" id="accentColorPicker">
+                                            <div class="accent-dot" data-accent="orange" data-color="#FF9500" data-hover="#E68600" data-soft="rgba(255, 149, 0, 0.12)" data-dark="#FF9F0A" data-dark-hover="#FF9500" data-dark-soft="rgba(255, 159, 10, 0.15)"></div>
+                                            <div class="accent-dot" data-accent="green" data-color="#34C759" data-hover="#2DB04E" data-soft="rgba(52, 199, 89, 0.12)" data-dark="#32D74B" data-dark-hover="#34C759" data-dark-soft="rgba(50, 215, 75, 0.15)"></div>
+                                            <div class="accent-dot" data-accent="teal" data-color="#00C7BE" data-hover="#00ADA6" data-soft="rgba(0, 199, 190, 0.12)" data-dark="#64D2FF" data-dark-hover="#00C7BE" data-dark-soft="rgba(100, 210, 255, 0.15)"></div>
                                             <div class="accent-dot selected" data-accent="blue" data-color="#0070F3" data-hover="#0051CC" data-soft="rgba(0, 112, 243, 0.12)" data-dark="#0A84FF" data-dark-hover="#0070F3" data-dark-soft="rgba(10, 132, 255, 0.15)"></div>
                                             <div class="accent-dot" data-accent="purple" data-color="#AF52DE" data-hover="#9340C7" data-soft="rgba(175, 82, 222, 0.12)" data-dark="#BF5AF2" data-dark-hover="#AF52DE" data-dark-soft="rgba(191, 90, 242, 0.15)"></div>
-                                            <div class="accent-dot" data-accent="green" data-color="#34C759" data-hover="#2DB04E" data-soft="rgba(52, 199, 89, 0.12)" data-dark="#32D74B" data-dark-hover="#34C759" data-dark-soft="rgba(50, 215, 75, 0.15)"></div>
-                                            <div class="accent-dot" data-accent="orange" data-color="#FF9500" data-hover="#E68600" data-soft="rgba(255, 149, 0, 0.12)" data-dark="#FF9F0A" data-dark-hover="#FF9500" data-dark-soft="rgba(255, 159, 10, 0.15)"></div>
                                             <div class="accent-dot" data-accent="pink" data-color="#FF2D55" data-hover="#E6264D" data-soft="rgba(255, 45, 85, 0.12)" data-dark="#FF375F" data-dark-hover="#FF2D55" data-dark-soft="rgba(255, 55, 95, 0.15)"></div>
-                                            <div class="accent-dot" data-accent="teal" data-color="#00C7BE" data-hover="#00ADA6" data-soft="rgba(0, 199, 190, 0.12)" data-dark="#64D2FF" data-dark-hover="#00C7BE" data-dark-soft="rgba(100, 210, 255, 0.15)"></div>
                                         </div>
                                     </div>
 
@@ -1896,14 +1898,14 @@
                             </label>
                             <input type="hidden" id="eventColor" value="#007AFF">
                             <div class="unified-color-grid">
-                                <button type="button" class="unified-color-option selected" data-color="#007AFF" style="background: #007AFF;" title="Blue"></button>
-                                <button type="button" class="unified-color-option" data-color="#5856D6" style="background: #5856D6;" title="Purple"></button>
-                                <button type="button" class="unified-color-option" data-color="#32ADE6" style="background: #32ADE6;" title="Teal"></button>
                                 <button type="button" class="unified-color-option" data-color="#FF3B30" style="background: #FF3B30;" title="Red"></button>
-                                <button type="button" class="unified-color-option" data-color="#34C759" style="background: #34C759;" title="Green"></button>
                                 <button type="button" class="unified-color-option" data-color="#FF9500" style="background: #FF9500;" title="Orange"></button>
                                 <button type="button" class="unified-color-option" data-color="#FF2D55" style="background: #FF2D55;" title="Pink"></button>
                                 <button type="button" class="unified-color-option" data-color="#AF52DE" style="background: #AF52DE;" title="Magenta"></button>
+                                <button type="button" class="unified-color-option" data-color="#5856D6" style="background: #5856D6;" title="Purple"></button>
+                                <button type="button" class="unified-color-option selected" data-color="#007AFF" style="background: #007AFF;" title="Blue"></button>
+                                <button type="button" class="unified-color-option" data-color="#32ADE6" style="background: #32ADE6;" title="Teal"></button>
+                                <button type="button" class="unified-color-option" data-color="#34C759" style="background: #34C759;" title="Green"></button>
                             </div>
                         </div>
                         
@@ -3275,15 +3277,24 @@
                             <label class="unified-form-label">
                                 <i class="fas fa-coins"></i> Currency
                             </label>
-                            <select class="unified-input" id="subscriptionCurrency">
-                                <option value="USD">USD ($)</option>
-                                <option value="EUR">EUR (€)</option>
-                                <option value="GBP">GBP (£)</option>
-                                <option value="CAD">CAD ($)</option>
-                                <option value="AUD">AUD ($)</option>
-                                <option value="JPY">JPY (¥)</option>
-                                <option value="ILS">ILS (₪)</option>
-                            </select>
+                            <div class="unified-dropdown" id="subscriptionCurrencyDropdown">
+                                <div class="unified-dropdown-trigger" id="subscriptionCurrencyTrigger">
+                                    <div class="unified-dropdown-value">
+                                        <span id="subscriptionCurrencyLabel">USD ($)</span>
+                                    </div>
+                                    <i class="fas fa-chevron-down unified-dropdown-arrow"></i>
+                                </div>
+                                <div class="unified-dropdown-menu" id="subscriptionCurrencyMenu">
+                                    <div class="unified-dropdown-option selected" data-value="USD">USD ($)</div>
+                                    <div class="unified-dropdown-option" data-value="EUR">EUR (€)</div>
+                                    <div class="unified-dropdown-option" data-value="GBP">GBP (£)</div>
+                                    <div class="unified-dropdown-option" data-value="CAD">CAD ($)</div>
+                                    <div class="unified-dropdown-option" data-value="AUD">AUD ($)</div>
+                                    <div class="unified-dropdown-option" data-value="JPY">JPY (¥)</div>
+                                    <div class="unified-dropdown-option" data-value="ILS">ILS (₪)</div>
+                                </div>
+                                <input type="hidden" id="subscriptionCurrency" name="subscriptionCurrency" value="USD">
+                            </div>
                         </div>
 
                         <!-- Frequency -->
@@ -3291,12 +3302,21 @@
                             <label class="unified-form-label">
                                 <i class="fas fa-redo"></i> Billing Cycle <span class="required">*</span>
                             </label>
-                            <select class="unified-input" id="subscriptionFrequency" required>
-                                <option value="weekly">Weekly</option>
-                                <option value="monthly" selected>Monthly</option>
-                                <option value="quarterly">Quarterly</option>
-                                <option value="yearly">Yearly</option>
-                            </select>
+                            <div class="unified-dropdown" id="subscriptionFrequencyDropdown">
+                                <div class="unified-dropdown-trigger" id="subscriptionFrequencyTrigger">
+                                    <div class="unified-dropdown-value">
+                                        <span id="subscriptionFrequencyLabel">Monthly</span>
+                                    </div>
+                                    <i class="fas fa-chevron-down unified-dropdown-arrow"></i>
+                                </div>
+                                <div class="unified-dropdown-menu" id="subscriptionFrequencyMenu">
+                                    <div class="unified-dropdown-option" data-value="weekly">Weekly</div>
+                                    <div class="unified-dropdown-option selected" data-value="monthly">Monthly</div>
+                                    <div class="unified-dropdown-option" data-value="quarterly">Quarterly</div>
+                                    <div class="unified-dropdown-option" data-value="yearly">Yearly</div>
+                                </div>
+                                <input type="hidden" id="subscriptionFrequency" name="subscriptionFrequency" value="monthly">
+                            </div>
                         </div>
 
                         <!-- Next Payment Date -->
@@ -3312,19 +3332,28 @@
                             <label class="unified-form-label">
                                 <i class="fas fa-folder"></i> Category
                             </label>
-                            <select class="unified-input" id="subscriptionCategory">
-                                <option value="">Select category...</option>
-                                <option value="software">Software & Tools</option>
-                                <option value="streaming">Streaming & Entertainment</option>
-                                <option value="cloud">Cloud Services</option>
-                                <option value="productivity">Productivity</option>
-                                <option value="communication">Communication</option>
-                                <option value="design">Design & Creative</option>
-                                <option value="marketing">Marketing</option>
-                                <option value="storage">Storage & Backup</option>
-                                <option value="security">Security</option>
-                                <option value="other">Other</option>
-                            </select>
+                            <div class="unified-dropdown" id="subscriptionCategoryDropdown">
+                                <div class="unified-dropdown-trigger" id="subscriptionCategoryTrigger">
+                                    <div class="unified-dropdown-value">
+                                        <span id="subscriptionCategoryLabel">Select category...</span>
+                                    </div>
+                                    <i class="fas fa-chevron-down unified-dropdown-arrow"></i>
+                                </div>
+                                <div class="unified-dropdown-menu" id="subscriptionCategoryMenu">
+                                    <div class="unified-dropdown-option selected" data-value="">Select category...</div>
+                                    <div class="unified-dropdown-option" data-value="software">Software & Tools</div>
+                                    <div class="unified-dropdown-option" data-value="streaming">Streaming & Entertainment</div>
+                                    <div class="unified-dropdown-option" data-value="cloud">Cloud Services</div>
+                                    <div class="unified-dropdown-option" data-value="productivity">Productivity</div>
+                                    <div class="unified-dropdown-option" data-value="communication">Communication</div>
+                                    <div class="unified-dropdown-option" data-value="design">Design & Creative</div>
+                                    <div class="unified-dropdown-option" data-value="marketing">Marketing</div>
+                                    <div class="unified-dropdown-option" data-value="storage">Storage & Backup</div>
+                                    <div class="unified-dropdown-option" data-value="security">Security</div>
+                                    <div class="unified-dropdown-option" data-value="other">Other</div>
+                                </div>
+                                <input type="hidden" id="subscriptionCategory" name="subscriptionCategory" value="">
+                            </div>
                         </div>
 
                         <!-- Cancellation Link (Optional) -->
