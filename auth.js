@@ -69,42 +69,42 @@ function hideAllForms() {
 // EVENT LISTENERS
 // ===================================
 function initializeFormListeners() {
-    // Toggle between forms
-    document.getElementById('showSignUpBtn').addEventListener('click', (e) => {
+    // Toggle between forms - use optional chaining to avoid null errors
+    document.getElementById('showSignUpBtn')?.addEventListener('click', (e) => {
         e.preventDefault();
         showSignUpForm();
     });
 
-    document.getElementById('showSignInBtn').addEventListener('click', (e) => {
+    document.getElementById('showSignInBtn')?.addEventListener('click', (e) => {
         e.preventDefault();
         showSignInForm();
     });
 
-    document.getElementById('forgotPasswordLink').addEventListener('click', (e) => {
+    document.getElementById('forgotPasswordLink')?.addEventListener('click', (e) => {
         e.preventDefault();
         showResetForm();
     });
 
-    document.getElementById('backToSignInBtn').addEventListener('click', (e) => {
+    document.getElementById('backToSignInBtn')?.addEventListener('click', (e) => {
         e.preventDefault();
         showSignInForm();
     });
 
     // Sign In Form
-    document.getElementById('emailSignInForm').addEventListener('submit', handleEmailSignIn);
+    document.getElementById('emailSignInForm')?.addEventListener('submit', handleEmailSignIn);
 
     // Sign Up Form
-    document.getElementById('emailSignUpForm').addEventListener('submit', handleEmailSignUp);
+    document.getElementById('emailSignUpForm')?.addEventListener('submit', handleEmailSignUp);
 
     // Password Reset Form
-    document.getElementById('emailResetForm').addEventListener('submit', handlePasswordReset);
+    document.getElementById('emailResetForm')?.addEventListener('submit', handlePasswordReset);
 
     // Google Sign In
-    document.getElementById('googleSignInBtn').addEventListener('click', handleGoogleSignIn);
-    document.getElementById('googleSignUpBtn').addEventListener('click', handleGoogleSignIn);
+    document.getElementById('googleSignInBtn')?.addEventListener('click', handleGoogleSignIn);
+    document.getElementById('googleSignUpBtn')?.addEventListener('click', handleGoogleSignIn);
 
     // Alert close button
-    document.getElementById('alertClose').addEventListener('click', hideAlert);
+    document.getElementById('alertClose')?.addEventListener('click', hideAlert);
 }
 
 // ===================================
@@ -124,7 +124,6 @@ async function handleEmailSignIn(e) {
         return;
     }
 
-    showLoading(true);
     let keepLoader = false;
 
     try {
@@ -144,6 +143,8 @@ async function handleEmailSignIn(e) {
         // Save user info to localStorage
         saveUserToStorage(user);
 
+        // Show loader only after successful sign-in
+        showLoading(true);
         // Keep loader visible through redirect to app
         keepLoader = true;
 
@@ -154,7 +155,16 @@ async function handleEmailSignIn(e) {
 
     } catch (error) {
         console.error('Sign in error:', error);
-        showAlert(getErrorMessage(error.code), 'error');
+        keepLoader = false;
+        showLoading(false);
+        const passwordField = document.getElementById('signInPassword');
+        if (passwordField) {
+            passwordField.value = '';
+            passwordField.focus();
+        }
+        const errorCode = error?.code || '';
+        const message = getErrorMessage(errorCode) || 'Sign-in failed. Please check your details and try again.';
+        showAlert(message, 'error');
     } finally {
         if (!keepLoader) {
             showLoading(false);
@@ -179,7 +189,7 @@ async function handleEmailSignUp(e) {
     }
 
     if (password !== confirmPassword) {
-        showAlert('Passwords do not match', 'error');
+        showAlert('Passwords do not match. Please re-enter them.', 'error');
         return;
     }
 
@@ -197,7 +207,7 @@ async function handleEmailSignUp(e) {
     }
 
     if (!agreeTerms) {
-        showAlert('Please agree to the Terms & Conditions', 'error');
+        showAlert('Please accept the Terms of Service to continue.', 'error');
         return;
     }
 
@@ -235,7 +245,13 @@ async function handleEmailSignUp(e) {
 
     } catch (error) {
         console.error('Sign up error:', error);
-        showAlert(getErrorMessage(error.code), 'error');
+        const errorCode = error?.code || '';
+        if (errorCode === 'auth/email-already-in-use') {
+            showAlert('An account with this email already exists. Please sign in instead.', 'error');
+        } else {
+            const message = getErrorMessage(errorCode) || 'Sign up failed. Please try again.';
+            showAlert(message, 'error');
+        }
     } finally {
         if (!keepLoader) {
             showLoading(false);
@@ -387,28 +403,49 @@ function showLoading(show) {
 function showAlert(message, type = 'info') {
     const alertBox = document.getElementById('alertBox');
     const alertMessage = document.getElementById('alertMessage');
+    
+    if (!alertBox || !alertMessage) {
+        // Fallback: log to console and use browser alert
+        console.error('Auth error:', message);
+        alert(message);
+        return;
+    }
+    
     const alertIcon = alertBox.querySelector('i');
 
     // Set message
     alertMessage.textContent = message;
 
     // Set icon based on type
-    alertIcon.className = 'fas';
+    if (alertIcon) {
+        alertIcon.className = 'fas';
+        switch (type) {
+            case 'success':
+                alertIcon.classList.add('fa-check-circle');
+                break;
+            case 'error':
+                alertIcon.classList.add('fa-exclamation-circle');
+                break;
+            case 'warning':
+                alertIcon.classList.add('fa-exclamation-triangle');
+                break;
+            default:
+                alertIcon.classList.add('fa-info-circle');
+        }
+    }
+    
+    // Set alert box class based on type
     switch (type) {
         case 'success':
-            alertIcon.classList.add('fa-check-circle');
             alertBox.className = 'alert alert-success';
             break;
         case 'error':
-            alertIcon.classList.add('fa-exclamation-circle');
             alertBox.className = 'alert alert-error';
             break;
         case 'warning':
-            alertIcon.classList.add('fa-exclamation-triangle');
             alertBox.className = 'alert alert-warning';
             break;
         default:
-            alertIcon.classList.add('fa-info-circle');
             alertBox.className = 'alert alert-info';
     }
 
@@ -435,7 +472,7 @@ function getErrorMessage(errorCode) {
         'auth/operation-not-allowed': 'This sign-in method is not enabled.',
         'auth/weak-password': 'Password is too weak. Please use at least 6 characters.',
         'auth/user-disabled': 'This account has been disabled.',
-        'auth/user-not-found': 'No account found with this email.',
+        'auth/user-not-found': 'Invalid email or password. Please try again.',
         'auth/wrong-password': 'Incorrect password. Please try again.',
         'auth/invalid-credential': 'Invalid email or password. Please try again.',
         'auth/too-many-requests': 'Too many failed attempts. Please try again later.',
@@ -445,7 +482,7 @@ function getErrorMessage(errorCode) {
         'auth/popup-blocked': 'Popup blocked. Please allow popups for this site.'
     };
 
-    return errorMessages[errorCode] || 'An error occurred. Please try again.';
+    return errorMessages[errorCode] || '';
 }
 
 // ===================================
