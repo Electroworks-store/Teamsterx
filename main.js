@@ -2049,8 +2049,8 @@ window.switchTab = function(sectionName) {
     
     // Render metrics when navigating to metrics tab
     if (sectionName === 'metrics') {
-        // Load subscriptions first for MRR chart data
-        loadSubscriptions().then(() => renderMetrics());
+        // Load subscriptions and transactions for finance metrics
+        Promise.all([loadSubscriptions(), loadTransactions()]).then(() => renderMetrics());
     }
     
     // Render finances when navigating to finances tab
@@ -2120,7 +2120,8 @@ function initNavigation() {
                     window.switchTab('activity');
                     return;
                 }
-                renderMetrics();
+                // Load subscriptions and transactions for finance metrics
+                Promise.all([loadSubscriptions(), loadTransactions()]).then(() => renderMetrics());
             } else if (sectionName === 'finances') {
                 // Check access before rendering finances
                 if (!appState.financesAccess?.canAccess) {
@@ -5835,8 +5836,8 @@ const spreadsheetState = {
     showCompleted: localStorage.getItem('showCompletedTasks') === 'true' // Default: hide completed
 };
 
-const TASK_FETCH_LIMIT = 500;
-const TASK_COMPLETED_FETCH_LIMIT = 300;
+const TASK_FETCH_LIMIT = 2000;
+const TASK_COMPLETED_FETCH_LIMIT = 1000;
 let tasksActiveUnsubscribe = null;
 let tasksCompletedUnsubscribe = null;
 appState.completedTasksCount = 0;
@@ -7071,12 +7072,12 @@ function initTasks() {
 
         // Type selector - supports both old and new class names
         if (typeSelector) {
-            typeSelector.querySelectorAll('.type-option, .unified-segmented-option').forEach(btn => {
+            typeSelector.querySelectorAll('.type-option, .unified-segmented-option, .view-toggle-btn').forEach(btn => {
                 btn.addEventListener('click', () => {
                     // Don't allow type change for assignee column (its options are teammates)
                     if (editingColumnIsBuiltIn && editingColumnId === 'assignee') return;
                     
-                    typeSelector.querySelectorAll('.type-option, .unified-segmented-option').forEach(b => b.classList.remove('active'));
+                    typeSelector.querySelectorAll('.type-option, .unified-segmented-option, .view-toggle-btn').forEach(b => b.classList.remove('active'));
                     btn.classList.add('active');
                     selectedType = btn.dataset.type;
 
@@ -7341,7 +7342,7 @@ function initTasks() {
             // Reset type selector - supports both old and new class names
             selectedType = 'dropdown';
             if (typeSelector) {
-                typeSelector.querySelectorAll('.type-option, .unified-segmented-option').forEach(b => b.classList.remove('active'));
+                typeSelector.querySelectorAll('.type-option, .unified-segmented-option, .view-toggle-btn').forEach(b => b.classList.remove('active'));
                 typeSelector.querySelector('[data-type="dropdown"]')?.classList.add('active');
             }
             if (dropdownGroup) dropdownGroup.style.display = 'flex';
@@ -10826,7 +10827,8 @@ function initTasks() {
                     <span class="project-title-icon" style="--project-color: ${activeProject.color || '#6366f1'}">${iconSVG}</span>
                     <span class="project-title-text">${escapeHtml(activeProject.name)}</span>
                     <button class="project-edit-btn" onclick="openEditProjectModal('${activeProject.id}')" title="Edit project">
-                        <i class="fas fa-ellipsis-h"></i>
+                        <i class="fas fa-pen"></i>
+                        <span>Edit</span>
                     </button>
                 `;
             }
@@ -14178,12 +14180,15 @@ function initTasks() {
 
     /**
      * Build the project tile HTML for grid views
+     * Supports 2x2 grid with pagination (4 projects per page, max 15 pages = 60 projects)
      */
     function buildProjectTile() {
         const projects = appState.projects || [];
-        const maxVisible = 4;
-        const visibleProjects = projects.slice(0, maxVisible);
-        const overflow = projects.length - maxVisible;
+        const projectsPerPage = 4;
+        const maxPages = 15;
+        const maxProjects = projectsPerPage * maxPages; // 60 projects max
+        const limitedProjects = projects.slice(0, maxProjects);
+        const totalPages = Math.ceil(limitedProjects.length / projectsPerPage);
         
         let listHTML = '';
         
@@ -14199,33 +14204,47 @@ function initTasks() {
                 </div>
             `;
         } else {
-            // Simple project list
-            visibleProjects.forEach(project => {
-                const activeClass = project.id === appState.activeProjectId ? 'active' : '';
-                const iconSVG = getProjectIconSVG(project.icon);
-                const accent = project.color || '#007aff';
-                listHTML += `
-                    <button class="project-badge ${activeClass}" 
-                         data-project-id="${project.id}"
-                         onclick="toggleProjectFilter('${project.id}')"
-                         title="${escapeHtml(project.name)}"
-                         style="--project-color: ${accent};">
-                        <span class="project-badge-icon">${iconSVG}</span>
-                        <span class="project-badge-name">${escapeHtml(project.name)}</span>
-                        ${project.id === appState.activeProjectId ? '<svg class="project-badge-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>' : ''}
-                    </button>
-                `;
-            });
-            
-            // Overflow badge
-            if (overflow > 0) {
-                listHTML += `
-                    <button class="project-badge project-overflow" onclick="openProjectOverflowMenu(event)">
-                        <span class="project-badge-name">+${overflow} more</span>
-                    </button>
-                `;
+            // Build paginated pages with 2x2 grid
+            for (let page = 0; page < totalPages; page++) {
+                const pageProjects = limitedProjects.slice(page * projectsPerPage, (page + 1) * projectsPerPage);
+                const activeClass = page === 0 ? 'active' : '';
+                
+                let pageHTML = `<div class="project-tile-page ${activeClass}" data-page="${page}">`;
+                pageProjects.forEach(project => {
+                    const isActive = project.id === appState.activeProjectId ? 'active' : '';
+                    const iconSVG = getProjectIconSVG(project.icon);
+                    const accent = project.color || '#007aff';
+                    pageHTML += `
+                        <button class="project-badge ${isActive}" 
+                             data-project-id="${project.id}"
+                             onclick="toggleProjectFilter('${project.id}')"
+                             title="${escapeHtml(project.name)}"
+                             style="--project-color: ${accent};">
+                            <span class="project-badge-icon">${iconSVG}</span>
+                            <span class="project-badge-name">${escapeHtml(project.name)}</span>
+                            ${project.id === appState.activeProjectId ? '<svg class="project-badge-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>' : ''}
+                        </button>
+                    `;
+                });
+                pageHTML += '</div>';
+                listHTML += pageHTML;
             }
         }
+        
+        // Navigation arrows (only shown if more than 1 page)
+        const navHTML = totalPages > 1 ? `
+            <div class="project-tile-nav">
+                <button class="project-tile-nav-btn project-tile-prev" onclick="navigateProjectPage(-1)" disabled>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+                </button>
+                <span class="project-tile-nav-dots">
+                    ${Array.from({length: totalPages}, (_, i) => `<span class="project-tile-dot ${i === 0 ? 'active' : ''}" data-page="${i}"></span>`).join('')}
+                </span>
+                <button class="project-tile-nav-btn project-tile-next" onclick="navigateProjectPage(1)" ${totalPages <= 1 ? 'disabled' : ''}>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+                </button>
+            </div>
+        ` : '';
         
         return `
             <div class="project-tile-header">
@@ -14236,11 +14255,45 @@ function initTasks() {
                     </button>
                 ` : ''}
             </div>
-            <div class="project-tile-list">
+            <div class="project-tile-list" data-current-page="0" data-total-pages="${totalPages}">
                 ${listHTML}
             </div>
+            ${navHTML}
         `;
     }
+    
+    /**
+     * Navigate between project pages
+     */
+    window.navigateProjectPage = function(direction) {
+        const list = document.querySelector('.project-tile-list');
+        if (!list) return;
+        
+        const currentPage = parseInt(list.dataset.currentPage || '0');
+        const totalPages = parseInt(list.dataset.totalPages || '1');
+        const newPage = Math.max(0, Math.min(totalPages - 1, currentPage + direction));
+        
+        if (newPage === currentPage) return;
+        
+        // Update active page
+        list.dataset.currentPage = newPage;
+        
+        // Show/hide pages
+        list.querySelectorAll('.project-tile-page').forEach((page, i) => {
+            page.classList.toggle('active', i === newPage);
+        });
+        
+        // Update navigation buttons
+        const prevBtn = document.querySelector('.project-tile-prev');
+        const nextBtn = document.querySelector('.project-tile-next');
+        if (prevBtn) prevBtn.disabled = newPage === 0;
+        if (nextBtn) nextBtn.disabled = newPage === totalPages - 1;
+        
+        // Update dots
+        document.querySelectorAll('.project-tile-dot').forEach((dot, i) => {
+            dot.classList.toggle('active', i === newPage);
+        });
+    };
 
     /**
      * Toggle project filter (click on badge)
@@ -14580,7 +14633,7 @@ function initTasks() {
 
     /**
      * Show project assign modal for docs/spreadsheets
-     * Redesigned with action type selection at top
+     * Simplified design - uses existing unified modal styles
      */
     function showProjectAssignModal(item, itemType) {
         let modal = document.getElementById('projectAssignModal');
@@ -14595,72 +14648,51 @@ function initTasks() {
             return;
         }
 
-        // Build project options
+        // Build project options using theme-btn style
         const projects = appState.projects || [];
         const projectOptionsHTML = projects.map(project => {
             const iconSVG = getProjectIconSVG(project.icon);
-            const checked = project.id === currentProjectId ? 'checked' : '';
+            const isActive = project.id === currentProjectId;
             return `
-                <label class="project-select-row ${checked ? 'active' : ''}" style="--project-color: ${project.color || '#007aff'};">
-                    <input type="radio" name="projectAssignOption" value="${project.id}" ${checked}>
-                    <span class="project-select-icon">${iconSVG}</span>
-                    <span class="project-select-name">${escapeHtml(project.name)}</span>
-                    <span class="project-select-check"><i class="fas fa-check"></i></span>
+                <label class="theme-btn ${isActive ? 'active' : ''}" style="--project-color: ${project.color || '#007aff'};">
+                    <input type="radio" name="projectAssignOption" value="${project.id}" ${isActive ? 'checked' : ''} style="display:none;">
+                    <span class="project-icon-mini" style="background: ${project.color || '#007aff'};">${iconSVG}</span>
+                    ${escapeHtml(project.name)}
                 </label>
             `;
         }).join('');
 
         const modalHTML = `
-            <div class="unified-modal active project-assign-modal" id="projectAssignModal" data-item-id="${itemId}" data-item-type="${itemType}">
+            <div class="unified-modal active" id="projectAssignModal" data-item-id="${itemId}" data-item-type="${itemType}">
                 <div class="unified-modal-container modal-sm">
                     <div class="unified-modal-header">
                         <div class="unified-modal-title">
-                            <h2>Add to Project</h2>
-                            <p class="project-assign-intro">Choose visibility, then select a project.</p>
+                            <h2>Move to Project</h2>
                         </div>
                         <button class="unified-modal-close" onclick="closeProjectAssignModal()">
                             <i class="fas fa-times"></i>
                         </button>
                     </div>
 
-                    <div class="unified-modal-body project-assign-body">
-                        <div class="project-assign-section">
-                            <div class="project-assign-section-title">Visibility</div>
-                            <div class="project-assign-section-subtitle">Where should this item appear?</div>
-                            <div class="project-action-section">
-                            <div class="project-action-cards">
-                                <label class="project-action-card ${currentVisibility === 'both' || !currentProjectId ? 'active' : ''}" data-action="link">
-                                    <input type="radio" name="projectVisibility" value="both" ${currentVisibility === 'both' || !currentProjectId ? 'checked' : ''}>
-                                    <div class="action-card-icon">
-                                        <i class="fas fa-link"></i>
-                                    </div>
-                                    <div class="action-card-content">
-                                        <span class="action-card-text">Link <span class="action-card-muted">(Visible everywhere)</span></span>
-                                    </div>
-                                </label>
-                                <label class="project-action-card ${currentVisibility === 'projectOnly' ? 'active' : ''}" data-action="move">
-                                    <input type="radio" name="projectVisibility" value="projectOnly" ${currentVisibility === 'projectOnly' ? 'checked' : ''}>
-                                    <div class="action-card-icon">
-                                        <i class="fas fa-folder-open"></i>
-                                    </div>
-                                    <div class="action-card-content">
-                                        <span class="action-card-text">Move <span class="action-card-muted">(Project only)</span></span>
-                                    </div>
-                                </label>
-                            </div>
+                    <div class="unified-modal-body" style="padding: 16px 20px;">
+                        <div class="unified-form-field" style="margin-bottom: 16px;">
+                            <label class="unified-form-label">Visibility</label>
+                            <div class="calendar-view-toggle" style="width: 100%; margin: 0;">
+                                <button type="button" class="view-toggle-btn ${currentVisibility === 'both' || !currentProjectId ? 'active' : ''}" data-visibility="both">
+                                    <i class="fas fa-link"></i> Link
+                                </button>
+                                <button type="button" class="view-toggle-btn ${currentVisibility === 'projectOnly' ? 'active' : ''}" data-visibility="projectOnly">
+                                    <i class="fas fa-folder"></i> Move
+                                </button>
                             </div>
                         </div>
 
-                        <div class="project-assign-section">
-                            <div class="project-assign-section-title">Project</div>
-                            <div class="project-assign-section-subtitle">Pick a destination for this item.</div>
-                            <p class="project-select-label">Choose project</p>
-                            <div class="project-select-list">
-                                <label class="project-select-row remove-option ${!currentProjectId ? 'active' : ''}">
-                                    <input type="radio" name="projectAssignOption" value="" ${!currentProjectId ? 'checked' : ''}>
-                                    <span class="project-select-icon remove-icon"><i class="fas fa-times-circle"></i></span>
-                                    <span class="project-select-name">Remove from project</span>
-                                    <span class="project-select-check"><i class="fas fa-check"></i></span>
+                        <div class="unified-form-field">
+                            <label class="unified-form-label">Project</label>
+                            <div class="theme-selector-minimal" style="flex-wrap: wrap;">
+                                <label class="theme-btn ${!currentProjectId ? 'active' : ''}">
+                                    <input type="radio" name="projectAssignOption" value="" ${!currentProjectId ? 'checked' : ''} style="display:none;">
+                                    <i class="fas fa-times" style="font-size: 11px;"></i> None
                                 </label>
                                 ${projectOptionsHTML}
                             </div>
@@ -14678,28 +14710,24 @@ function initTasks() {
         if (modal) modal.remove();
         document.body.insertAdjacentHTML('beforeend', modalHTML);
 
-        // Handle action card selection
-        const actionCards = document.querySelectorAll('#projectAssignModal .project-action-card');
-        actionCards.forEach(card => {
-            const input = card.querySelector('input[type="radio"]');
-            if (input) {
-                input.addEventListener('change', () => {
-                    actionCards.forEach(c => c.classList.remove('active'));
-                    card.classList.add('active');
-                });
-            }
+        // Handle visibility toggle
+        const visibilityBtns = document.querySelectorAll('#projectAssignModal .view-toggle-btn');
+        visibilityBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                visibilityBtns.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+            });
         });
 
         // Handle project selection
-        const projectRows = document.querySelectorAll('#projectAssignModal .project-select-row');
-        projectRows.forEach(row => {
-            const input = row.querySelector('input[type="radio"]');
-            if (input) {
-                input.addEventListener('change', () => {
-                    projectRows.forEach(r => r.classList.remove('active'));
-                    row.classList.add('active');
-                });
-            }
+        const projectBtns = document.querySelectorAll('#projectAssignModal .theme-btn');
+        projectBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                projectBtns.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                const input = btn.querySelector('input[type="radio"]');
+                if (input) input.checked = true;
+            });
         });
     }
 
@@ -14712,10 +14740,10 @@ function initTasks() {
         const modal = document.getElementById('projectAssignModal');
         const itemId = modal?.dataset.itemId;
         const itemType = modal?.dataset.itemType;
-        const selectedProject = document.querySelector('input[name="projectAssignOption"]:checked');
-        const selectedVisibility = document.querySelector('input[name="projectVisibility"]:checked');
+        const selectedProject = document.querySelector('#projectAssignModal input[name="projectAssignOption"]:checked');
+        const activeVisibilityBtn = document.querySelector('#projectAssignModal .view-toggle-btn.active');
         const projectId = selectedProject?.value || null;
-        const visibility = projectId ? (selectedVisibility?.value || 'both') : null;
+        const visibility = projectId ? (activeVisibilityBtn?.dataset.visibility || 'both') : null;
         
         console.log('DEBUG: confirmProjectAssignFromModal - itemId:', itemId, 'itemType:', itemType, 'projectId:', projectId, 'visibility:', visibility);
         
@@ -14913,6 +14941,30 @@ function initTasks() {
     window.submitEditProject = submitEditProject;
     window.confirmDeleteProject = confirmDeleteProject;
     window.getProjectIconSVG = getProjectIconSVG;
+    
+    /**
+     * Toggle color grid expansion
+     * @param {HTMLElement} btn - The expand button element
+     */
+    window.toggleColorGrid = function(btn) {
+        const grid = btn.previousElementSibling;
+        if (!grid) return;
+        
+        const isExpanded = grid.getAttribute('data-expanded') === 'true';
+        grid.setAttribute('data-expanded', isExpanded ? 'false' : 'true');
+    };
+    
+    /**
+     * Toggle pie chart legend expansion
+     * @param {HTMLElement} btn - The expand button element
+     */
+    window.togglePieLegend = function(btn) {
+        const legend = btn.closest('.pie-legend');
+        if (!legend) return;
+        
+        const isExpanded = legend.getAttribute('data-expanded') === 'true';
+        legend.setAttribute('data-expanded', isExpanded ? 'false' : 'true');
+    };
 
     // Show task details in a clean modal
     window.showTaskDetails = function(task) {
@@ -15110,6 +15162,11 @@ async function updateTaskStatus(taskId, newStatus) {
                     entityName: task.title,
                     sheetId: task.spreadsheetId || task.sheetId
                 });
+            }
+            
+            // Check for task completion milestones
+            if (newStatus === 'done') {
+                checkAndAwardMilestone();
             }
             
         } catch (error) {
@@ -15863,6 +15920,200 @@ async function addActivity(activity) {
     }
 }
 
+// ===================================
+// TASK COMPLETION MILESTONES
+// ===================================
+
+/**
+ * Milestone definitions for task completions
+ * Each milestone has a threshold, name, icon, and color
+ */
+const TASK_MILESTONES = [
+    { threshold: 1, name: 'First Task', icon: 'fa-seedling', color: '#34C759', description: 'Completed your first task!' },
+    { threshold: 10, name: 'Getting Started', icon: 'fa-rocket', color: '#007AFF', description: 'Completed 10 tasks' },
+    { threshold: 50, name: 'On a Roll', icon: 'fa-fire', color: '#FF9500', description: 'Completed 50 tasks' },
+    { threshold: 100, name: 'Centurion', icon: 'fa-medal', color: '#AF52DE', description: 'Completed 100 tasks' },
+    { threshold: 200, name: 'Task Master', icon: 'fa-crown', color: '#FFD700', description: 'Completed 200 tasks' },
+    { threshold: 300, name: 'Productivity Pro', icon: 'fa-gem', color: '#00C7BE', description: 'Completed 300 tasks' },
+    { threshold: 500, name: 'Legend', icon: 'fa-trophy', color: '#FF2D55', description: 'Completed 500 tasks' },
+    { threshold: 1000, name: 'Grandmaster', icon: 'fa-star', color: '#5856D6', description: 'Completed 1000 tasks' }
+];
+
+/**
+ * Check if user has reached a new milestone and award it
+ * Also performs retroactive check for backward compatibility
+ * @param {boolean} retroactive - If true, awards all missed milestones silently
+ */
+async function checkAndAwardMilestone(retroactive = false) {
+    if (!currentAuthUser) return;
+    
+    // Count completed tasks for current user
+    const userId = currentAuthUser.uid;
+    const completedTasks = appState.tasks.filter(t => 
+        (t.status === 'done' || t.status === 'won') && 
+        (t.assigneeId === userId || t.createdBy === userId || (!t.assigneeId && t.createdBy === userId))
+    ).length;
+    
+    // Get user's earned milestones from local storage
+    const earnedMilestones = JSON.parse(localStorage.getItem(`milestones_${userId}`) || '[]');
+    
+    // Track newly awarded milestones
+    let newMilestones = [];
+    
+    // Check each milestone threshold
+    for (const milestone of TASK_MILESTONES) {
+        if (completedTasks >= milestone.threshold && !earnedMilestones.includes(milestone.threshold)) {
+            // Award new milestone
+            earnedMilestones.push(milestone.threshold);
+            newMilestones.push(milestone);
+        }
+    }
+    
+    // Save updated milestones if any were awarded
+    if (newMilestones.length > 0) {
+        localStorage.setItem(`milestones_${userId}`, JSON.stringify(earnedMilestones));
+        
+        if (retroactive) {
+            // Retroactive mode: only show one combined notification
+            debugLog('🏆 Retroactively awarded milestones:', newMilestones.map(m => m.name).join(', '));
+            if (newMilestones.length === 1) {
+                showToast(`🎉 Badge Unlocked: ${newMilestones[0].name}!`, 'success', 3000);
+            } else {
+                showToast(`🎉 ${newMilestones.length} Badges Unlocked!`, 'success', 3000);
+            }
+        } else {
+            // Normal mode: notify for the first new milestone
+            const milestone = newMilestones[0];
+            
+            // Add special milestone activity
+            addActivity({
+                type: 'milestone',
+                description: `🏆 earned the "${milestone.name}" badge for completing ${milestone.threshold} task${milestone.threshold > 1 ? 's' : ''}!`,
+                entityType: 'milestone',
+                entityId: `milestone_${milestone.threshold}`,
+                entityName: milestone.name
+            });
+            
+            // Show celebratory toast
+            showToast(`🎉 Badge Unlocked: ${milestone.name}!`, 'success', 4000);
+            debugLog('🏆 Milestone awarded:', milestone.name);
+        }
+        
+        // Update badges display if visible
+        renderProfileBadges();
+    }
+}
+
+/**
+ * Perform backward compatibility check for badges
+ * Awards any milestones the user should have based on completed task count
+ */
+function checkRetroactiveMilestones() {
+    if (!currentAuthUser) return;
+    checkAndAwardMilestone(true);
+}
+
+/**
+ * Get all earned milestones for current user
+ */
+function getEarnedMilestones() {
+    if (!currentAuthUser) return [];
+    const userId = currentAuthUser.uid;
+    const earnedThresholds = JSON.parse(localStorage.getItem(`milestones_${userId}`) || '[]');
+    return TASK_MILESTONES.filter(m => earnedThresholds.includes(m.threshold));
+}
+
+/**
+ * Get current user's completed task count
+ */
+function getCompletedTaskCount() {
+    if (!currentAuthUser) return 0;
+    const userId = currentAuthUser.uid;
+    return appState.tasks.filter(t => 
+        (t.status === 'done' || t.status === 'won') && 
+        (t.assigneeId === userId || t.createdBy === userId || (!t.assigneeId && t.createdBy === userId))
+    ).length;
+}
+
+/**
+ * Render badges section in profile settings
+ */
+function renderProfileBadges() {
+    const badgesContainer = document.getElementById('profileBadgesContainer');
+    if (!badgesContainer) return;
+    
+    const earnedMilestones = getEarnedMilestones();
+    const completedCount = getCompletedTaskCount();
+    
+    // Find next milestone
+    const nextMilestone = TASK_MILESTONES.find(m => !earnedMilestones.some(e => e.threshold === m.threshold));
+    const progress = nextMilestone ? Math.min((completedCount / nextMilestone.threshold) * 100, 100) : 100;
+    
+    let html = '';
+    
+    // Progress to next badge
+    if (nextMilestone) {
+        html += `
+            <div class="badges-progress">
+                <div class="badges-progress-info">
+                    <span class="badges-progress-label">Next badge: ${nextMilestone.name}</span>
+                    <span class="badges-progress-count">${completedCount}/${nextMilestone.threshold}</span>
+                </div>
+                <div class="badges-progress-bar">
+                    <div class="badges-progress-fill" style="width: ${progress}%; background: ${nextMilestone.color}"></div>
+                </div>
+            </div>
+        `;
+    }
+    
+    // Earned badges
+    if (earnedMilestones.length > 0) {
+        html += '<div class="badges-grid">';
+        earnedMilestones.forEach(m => {
+            html += `
+                <div class="badge-item" data-tooltip="${m.description}">
+                    <div class="badge-icon" style="background: ${m.color}">
+                        <i class="fas ${m.icon}"></i>
+                    </div>
+                    <span class="badge-name">${m.name}</span>
+                </div>
+            `;
+        });
+        html += '</div>';
+    } else {
+        html += `
+            <div class="badges-empty">
+                <i class="fas fa-medal"></i>
+                <span>Complete tasks to earn badges!</span>
+            </div>
+        `;
+    }
+    
+    // Locked badges preview
+    const lockedMilestones = TASK_MILESTONES.filter(m => !earnedMilestones.some(e => e.threshold === m.threshold));
+    if (lockedMilestones.length > 0) {
+        html += '<div class="badges-locked">';
+        lockedMilestones.slice(0, 4).forEach(m => {
+            html += `
+                <div class="badge-item badge-locked" data-tooltip="${m.threshold} tasks to unlock">
+                    <div class="badge-icon">
+                        <i class="fas fa-lock"></i>
+                    </div>
+                    <span class="badge-name">${m.name}</span>
+                </div>
+            `;
+        });
+        html += '</div>';
+    }
+    
+    badgesContainer.innerHTML = html;
+}
+
+// Expose milestone functions
+window.renderProfileBadges = renderProfileBadges;
+window.checkAndAwardMilestone = checkAndAwardMilestone;
+window.checkRetroactiveMilestones = checkRetroactiveMilestones;
+
 // Track whether all activities are shown
 let showAllActivities = false;
 const MAX_VISIBLE_ACTIVITIES = 5;
@@ -16412,22 +16663,6 @@ const CUSTOM_METRICS_CATALOG = {
         hasChart: true,
         chartData: () => generateMRRTrendData()
     },
-    topCustomer: {
-        id: 'topCustomer',
-        name: 'Top Customer',
-        description: 'Your highest-revenue customer',
-        icon: 'fa-crown',
-        color: 'warning',
-        getValue: () => {
-            const financeData = getFinanceMetricsData();
-            return {
-                value: financeData.mainCustomer || 'N/A',
-                subtitle: financeData.mainCustomer ? formatCurrency(financeData.mainCustomerTotal) : 'No customers yet',
-                tooltip: 'Customer with highest total revenue'
-            };
-        },
-        hasChart: false
-    },
     customers: {
         id: 'customers',
         name: 'Number of Customers',
@@ -16564,6 +16799,82 @@ const CUSTOM_METRICS_CATALOG = {
             };
         },
         hasChart: false
+    },
+    expenseBreakdown: {
+        id: 'expenseBreakdown',
+        name: 'Expenses by Category',
+        description: 'See where your money goes',
+        icon: 'fa-chart-pie',
+        color: 'danger',
+        getValue: () => {
+            const financeData = getFinanceMetricsData();
+            const categoryCount = Object.keys(getExpensesByCategory()).length;
+            return {
+                value: formatCurrency(financeData.totalExpenses),
+                subtitle: `${categoryCount} categories`,
+                tooltip: 'Expense breakdown by category'
+            };
+        },
+        hasChart: true,
+        chartDataType: 'breakdown',
+        chartData: () => generateExpensesByCategoryData()
+    },
+    revenueBreakdown: {
+        id: 'revenueBreakdown',
+        name: 'Revenue by Category',
+        description: 'Track income sources',
+        icon: 'fa-chart-pie',
+        color: 'success',
+        getValue: () => {
+            const financeData = getFinanceMetricsData();
+            const categoryCount = Object.keys(getRevenueByCategory()).length;
+            return {
+                value: formatCurrency(financeData.totalIncome),
+                subtitle: `${categoryCount} sources`,
+                tooltip: 'Revenue breakdown by category'
+            };
+        },
+        hasChart: true,
+        chartDataType: 'breakdown',
+        chartData: () => generateRevenueByCategoryData()
+    },
+    topVendors: {
+        id: 'topVendors',
+        name: 'Top Vendors',
+        description: 'Your biggest expense sources',
+        icon: 'fa-store',
+        color: 'danger',
+        getValue: () => {
+            const vendors = getTopVendors();
+            const topVendor = vendors[0];
+            return {
+                value: topVendor ? topVendor.name : 'N/A',
+                subtitle: topVendor ? formatCurrency(topVendor.total) : 'No vendors yet',
+                tooltip: 'Vendor with highest total expenses'
+            };
+        },
+        hasChart: true,
+        chartDataType: 'breakdown',
+        chartData: () => generateTopVendorsData()
+    },
+    topCustomers: {
+        id: 'topCustomers',
+        name: 'Top Customers',
+        description: 'Your highest-paying customers',
+        icon: 'fa-users',
+        color: 'success',
+        getValue: () => {
+            const customers = getTopCustomers();
+            const topCustomer = customers[0];
+            return {
+                value: topCustomer ? topCustomer.name : 'N/A',
+                subtitle: topCustomer ? formatCurrency(topCustomer.total) : 'No customers yet',
+                tooltip: 'Customer with highest total revenue'
+            };
+        },
+        hasChart: true,
+        chartDataType: 'breakdown',
+        chartData: () => generateTopCustomersData()
     }
 };
 
@@ -16583,36 +16894,66 @@ function getUniqueCustomerCount() {
 
 /**
  * Generate trend data from actual finance transactions
+ * Respects the metrics time filter (7 days, 30 days, all time)
  */
 function generateFinanceTrendData(type = 'income') {
-    if (!appState.transactions || appState.transactions.length === 0) {
-        return generatePlaceholderTrendData(30, 0, 0);
+    const timeBounds = getMetricsTimeBoundaries();
+    const filteredTransactions = getFilteredTransactions(type);
+    
+    if (!filteredTransactions || filteredTransactions.length === 0) {
+        // Return placeholder data matching the current timeframe
+        const days = metricsTimeFilter === '7days' ? 7 : metricsTimeFilter === '30days' ? 30 : 30;
+        return generatePlaceholderTrendData(days, 0, 0);
     }
     
     const now = new Date();
     const data = [];
     
-    // Use last 30 days to ensure recent transactions appear in charts
-    for (let i = 29; i >= 0; i--) {
+    // Determine number of days based on timeframe
+    let numDays;
+    if (metricsTimeFilter === '7days') {
+        numDays = 7;
+    } else if (metricsTimeFilter === '30days') {
+        numDays = 30;
+    } else {
+        // For 'all' time, find the range from earliest transaction to now
+        let earliestDate = now;
+        filteredTransactions.forEach(t => {
+            const transDate = t.date?.toDate?.() || new Date(t.date);
+            if (transDate < earliestDate) {
+                earliestDate = transDate;
+            }
+        });
+        const daysDiff = Math.ceil((now - earliestDate) / (1000 * 60 * 60 * 24));
+        numDays = Math.max(daysDiff, 30); // At least 30 days for all time
+    }
+    
+    // Generate data points for each day in the range
+    for (let i = numDays - 1; i >= 0; i--) {
         const date = new Date(now);
         date.setDate(date.getDate() - i);
-        const dayStart = new Date(date.setHours(0, 0, 0, 0));
-        const dayEnd = new Date(date.setHours(23, 59, 59, 999));
+        const dayStart = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 0, 0, 0, 0);
+        const dayEnd = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59, 999);
         
         let dayTotal = 0;
-        appState.transactions.forEach(t => {
-            if (t.type === type) {
-                const transDate = t.date?.toDate?.() || new Date(t.date);
-                if (transDate >= dayStart && transDate <= dayEnd) {
-                    dayTotal += t.amount || 0;
-                }
+        filteredTransactions.forEach(t => {
+            const transDate = t.date?.toDate?.() || new Date(t.date);
+            if (transDate >= dayStart && transDate <= dayEnd) {
+                dayTotal += t.amount || 0;
             }
         });
         
         data.push({
+            date: dayStart,
             label: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
             count: dayTotal
         });
+    }
+    
+    // Return empty array if no transactions recorded (will show empty state)
+    const hasAnyData = data.some(d => d.count > 0);
+    if (!hasAnyData) {
+        return [];
     }
     
     return data;
@@ -16641,58 +16982,79 @@ function generatePlaceholderTrendData(days, min, max) {
 
 /**
  * Generate MRR trend data (monthly view)
- * Uses both subscriptions and recurring transactions for comprehensive MRR data
+ * Shows cumulative MRR growth from active subscriptions and recurring income
+ * Only counts subscriptions that were active during each month
  */
 function generateMRRTrendData() {
     const now = new Date();
     const data = [];
     
-    // Get last 6 months of MRR data
-    for (let i = 5; i >= 0; i--) {
+    // Get last 12 months of MRR data for better trend visibility
+    const numMonths = 12;
+    
+    for (let i = numMonths - 1; i >= 0; i--) {
         const monthDate = new Date(now.getFullYear(), now.getMonth() - i, 1);
         const monthEnd = new Date(now.getFullYear(), now.getMonth() - i + 1, 0);
         const monthLabel = monthDate.toLocaleDateString('en-US', { month: 'short' });
         
         let monthlyMrr = 0;
         
-        // Calculate MRR from subscriptions
+        // Calculate MRR from subscriptions that were active during this month
         const subs = appState.subscriptions || [];
         subs.forEach(sub => {
-            const startDate = sub.startDate?.toDate?.() || new Date(sub.startDate || 0);
-            if (startDate <= monthEnd) {
+            // Get start date
+            const startDate = sub.startDate?.toDate?.() || sub.createdAt?.toDate?.() || new Date(sub.startDate || sub.createdAt || 0);
+            // Get cancel/end date if exists
+            const cancelDate = sub.cancelledAt?.toDate?.() || sub.endDate?.toDate?.() || null;
+            
+            // Only count if subscription started before or during this month
+            // and hasn't been cancelled before this month
+            const wasActiveInMonth = startDate <= monthEnd && 
+                (!cancelDate || cancelDate >= monthDate);
+            
+            if (wasActiveInMonth && sub.type !== 'private') {
                 const amount = sub.amount || 0;
                 switch (sub.frequency) {
                     case 'monthly': monthlyMrr += amount; break;
                     case 'quarterly': monthlyMrr += amount / 3; break;
                     case 'yearly': monthlyMrr += amount / 12; break;
+                    case 'weekly': monthlyMrr += amount * 4; break;
                     default: monthlyMrr += amount;
                 }
             }
         });
         
-        // Also include recurring transactions if no subscriptions
-        if (subs.length === 0) {
-            const transactions = appState.transactions || [];
-            transactions.forEach(t => {
-                if (t.type === 'income' && t.isRecurring) {
-                    const transDate = t.date?.toDate?.() || new Date(t.date || 0);
-                    if (transDate <= monthEnd) {
-                        const amount = t.amount || 0;
-                        switch (t.frequency) {
-                            case 'monthly': monthlyMrr += amount; break;
-                            case 'quarterly': monthlyMrr += amount / 3; break;
-                            case 'yearly': monthlyMrr += amount / 12; break;
-                            default: monthlyMrr += amount;
-                        }
+        // Also include recurring income transactions
+        const transactions = appState.transactions || [];
+        transactions.forEach(t => {
+            if (t.type === 'income' && t.isRecurring) {
+                const transDate = t.date?.toDate?.() || new Date(t.date || 0);
+                // Only count if the recurring transaction was created before or during this month
+                if (transDate <= monthEnd) {
+                    const amount = t.amount || 0;
+                    switch (t.frequency) {
+                        case 'monthly': monthlyMrr += amount; break;
+                        case 'quarterly': monthlyMrr += amount / 3; break;
+                        case 'yearly': monthlyMrr += amount / 12; break;
+                        case 'weekly': monthlyMrr += amount * 4; break;
+                        default: monthlyMrr += amount;
                     }
                 }
-            });
-        }
+            }
+        });
         
         data.push({
+            date: monthDate,
             label: monthLabel,
+            count: monthlyMrr,
             value: monthlyMrr
         });
+    }
+    
+    // Return empty if no MRR data at all
+    const hasAnyMRR = data.some(d => d.value > 0);
+    if (!hasAnyMRR) {
+        return [];
     }
     
     return data;
@@ -16724,18 +17086,48 @@ function generateCustomerGrowthData() {
         
         data.push({
             label: monthLabel,
+            count: customers.size,
             value: customers.size
         });
+    }
+    
+    // Return empty if no customers at all
+    const hasAnyCustomers = data.some(d => d.value > 0);
+    if (!hasAnyCustomers) {
+        return [];
     }
     
     return data;
 }
 
 /**
+ * Get transactions filtered by current metrics time filter
+ * @param {string} type - Optional: 'expense' or 'income' to filter by type
+ * @returns {Array} Filtered transactions
+ */
+function getFilteredTransactions(type = null) {
+    const timeBounds = getMetricsTimeBoundaries();
+    let transactions = appState.transactions || [];
+    
+    // Filter by time range
+    transactions = transactions.filter(t => {
+        const transDate = t.date?.toDate?.() || new Date(t.date);
+        return transDate >= timeBounds.start && transDate <= timeBounds.end;
+    });
+    
+    // Filter by type if specified
+    if (type) {
+        transactions = transactions.filter(t => t.type === type);
+    }
+    
+    return transactions;
+}
+
+/**
  * Generate expenses by category data
  */
 function generateExpensesByCategoryData() {
-    const expenses = (appState.transactions || []).filter(t => t.type === 'expense');
+    const expenses = getFilteredTransactions('expense');
     const byCategory = {};
     
     expenses.forEach(exp => {
@@ -16744,16 +17136,120 @@ function generateExpensesByCategoryData() {
         byCategory[category] = (byCategory[category] || 0) + amount;
     });
     
-    // Convert to chart data format
+    // Convert to chart data format - use expense-specific category labels
     const data = Object.entries(byCategory)
         .sort((a, b) => b[1] - a[1])
         .slice(0, 6)
         .map(([label, value]) => ({
-            label: label,
+            label: getExpenseCategoryLabel(label),
             value: value
         }));
     
-    return data.length > 0 ? data : [{ label: 'No data', value: 0 }];
+    return data.length > 0 ? data : [{ label: 'No expenses', value: 0 }];
+}
+
+/**
+ * Get expenses grouped by category
+ */
+function getExpensesByCategory() {
+    const expenses = getFilteredTransactions('expense');
+    const byCategory = {};
+    expenses.forEach(exp => {
+        const category = exp.category || 'other';
+        byCategory[category] = (byCategory[category] || 0) + (exp.amount || 0);
+    });
+    return byCategory;
+}
+
+/**
+ * Get revenue grouped by category
+ */
+function getRevenueByCategory() {
+    const income = getFilteredTransactions('income');
+    const byCategory = {};
+    income.forEach(inc => {
+        const category = inc.category || 'other';
+        byCategory[category] = (byCategory[category] || 0) + (inc.amount || 0);
+    });
+    return byCategory;
+}
+
+/**
+ * Generate revenue by category data for charts
+ */
+function generateRevenueByCategoryData() {
+    const byCategory = getRevenueByCategory();
+    
+    // Use income-specific category labels
+    const data = Object.entries(byCategory)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 6)
+        .map(([label, value]) => ({
+            label: getIncomeCategoryLabel(label),
+            value: value
+        }));
+    
+    return data.length > 0 ? data : [{ label: 'No revenue', value: 0 }];
+}
+
+/**
+ * Get top vendors by expense amount
+ */
+function getTopVendors() {
+    const expenses = getFilteredTransactions('expense');
+    const vendorTotals = {};
+    
+    expenses.forEach(exp => {
+        const vendor = exp.party || 'Unknown';
+        if (vendor !== 'Unknown') {
+            vendorTotals[vendor] = (vendorTotals[vendor] || 0) + (exp.amount || 0);
+        }
+    });
+    
+    return Object.entries(vendorTotals)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 5)
+        .map(([name, total]) => ({ name, total }));
+}
+
+/**
+ * Generate top vendors data for charts
+ */
+function generateTopVendorsData() {
+    const vendors = getTopVendors();
+    return vendors.length > 0 
+        ? vendors.map(v => ({ label: v.name, value: v.total }))
+        : [{ label: 'No vendors', value: 0 }];
+}
+
+/**
+ * Get top customers by revenue amount
+ */
+function getTopCustomers() {
+    const income = getFilteredTransactions('income');
+    const customerTotals = {};
+    
+    income.forEach(inc => {
+        const customer = inc.party || 'Unknown';
+        if (customer !== 'Unknown') {
+            customerTotals[customer] = (customerTotals[customer] || 0) + (inc.amount || 0);
+        }
+    });
+    
+    return Object.entries(customerTotals)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 5)
+        .map(([name, total]) => ({ name, total }));
+}
+
+/**
+ * Generate top customers data for charts
+ */
+function generateTopCustomersData() {
+    const customers = getTopCustomers();
+    return customers.length > 0 
+        ? customers.map(c => ({ label: c.name, value: c.total }))
+        : [{ label: 'No customers', value: 0 }];
 }
 
 /**
@@ -16950,7 +17446,8 @@ let metricsHiddenSections = {
     teamStats: false,
     personalTrend: false,
     teamCharts: false,
-    businessMetrics: false
+    businessMetrics: false,
+    financeAnalytics: false
 };
 
 /**
@@ -16969,7 +17466,8 @@ function loadMetricsSectionVisibility() {
         teamStats: visibility.teamStats === false,
         personalTrend: visibility.personalTrend === false,
         teamCharts: visibility.teamCharts === false,
-        businessMetrics: visibility.businessMetrics === false
+        businessMetrics: visibility.businessMetrics === false,
+        financeAnalytics: visibility.financeAnalytics === false
     };
     
     // Load hidden metrics
@@ -17043,7 +17541,8 @@ async function toggleMetricsSectionVisibility(sectionId) {
             teamStats: !metricsHiddenSections.teamStats,
             personalTrend: !metricsHiddenSections.personalTrend,
             teamCharts: !metricsHiddenSections.teamCharts,
-            businessMetrics: !metricsHiddenSections.businessMetrics
+            businessMetrics: !metricsHiddenSections.businessMetrics,
+            financeAnalytics: !metricsHiddenSections.financeAnalytics
         };
         
         await updateDoc(teamRef, {
@@ -17327,8 +17826,50 @@ function rerenderSingleChart(chartId) {
             container.style.opacity = '1';
             container.style.transform = 'scale(1)';
         }, 150);
+        
+        // Also update the settings panel if it's open
+        updateSettingsPanelContent(chartId, config, type);
+        
+        // Update the graph menu button icon
+        updateGraphMenuIcon(chartId, type);
     } catch (e) {
         console.error('Error re-rendering chart:', e);
+    }
+}
+
+/**
+ * Update the settings panel content without closing it
+ * Called when chart type changes to show/hide relevant options
+ * @param {string} chartId - Unique chart identifier
+ * @param {Object} config - Current chart configuration
+ * @param {string} currentType - Current chart type
+ */
+function updateSettingsPanelContent(chartId, config, currentType) {
+    const panel = document.querySelector(`[data-settings-chart="${chartId}"]`);
+    if (!panel) return;
+    
+    const contentContainer = panel.querySelector('.graph-settings-content');
+    if (!contentContainer) return;
+    
+    // Get the new content HTML (without the panel wrapper)
+    const newPanelHTML = createGraphSettingsPanel(chartId, config, currentType);
+    
+    // Create a temp element to extract just the content
+    const temp = document.createElement('div');
+    temp.innerHTML = newPanelHTML;
+    const newContent = temp.querySelector('.graph-settings-content');
+    
+    if (newContent) {
+        // Preserve the open state
+        const wasOpen = panel.classList.contains('open');
+        
+        // Update the content
+        contentContainer.innerHTML = newContent.innerHTML;
+        
+        // Ensure panel stays open if it was open
+        if (wasOpen) {
+            panel.classList.add('open');
+        }
     }
 }
 
@@ -17417,38 +17958,31 @@ function openAddMetricModal() {
         return;
     }
     
-    // Build modal HTML
+    // Build metrics list using create-item-option pattern
     let metricsListHTML = availableMetrics.map(m => `
-        <div class="add-metric-option" data-metric-id="${m.id}" onclick="addCustomMetric('${m.id}')">
-            <div class="add-metric-option-icon">
-                <i class="fas ${m.icon}"></i>
+        <button class="create-item-option" onclick="addCustomMetric('${m.id}')">
+            <span class="create-item-icon" aria-hidden="true"><i class="fas ${m.icon}"></i></span>
+            <div class="create-item-text">
+                <span class="create-item-title">${m.name}</span>
+                <span class="create-item-subtitle">${m.description}</span>
             </div>
-            <div class="add-metric-option-content">
-                <div class="add-metric-option-name">${m.name}</div>
-                <div class="add-metric-option-desc">${m.description}</div>
-            </div>
-            <div class="add-metric-option-action">
-                <i class="fas fa-plus"></i>
-            </div>
-        </div>
+        </button>
     `).join('');
     
     const modalHTML = `
-        <div class="modal active" id="addMetricModal">
-            <div class="modal-content" style="max-width: 500px;">
-                <div class="modal-header">
-                    <h2>Add Metric</h2>
-                    <button class="modal-close" onclick="closeModal('addMetricModal')">
+        <div class="unified-modal active" id="addMetricModal">
+            <div class="unified-modal-content create-item-content" style="max-width: 480px;">
+                <div class="unified-modal-header">
+                    <div class="unified-modal-title">
+                        <h2><i class="fas fa-plus-circle"></i> Add Metric</h2>
+                        <p class="subtitle">Select a metric for your dashboard</p>
+                    </div>
+                    <button class="unified-modal-close" onclick="closeModal('addMetricModal')">
                         <i class="fas fa-times"></i>
                     </button>
                 </div>
-                <div class="modal-body" style="padding: 16px 24px; max-height: 400px; overflow-y: auto;">
-                    <p style="color: var(--text-muted); margin-bottom: 16px;">
-                        Select a metric to add to your dashboard. These are placeholder metrics that will connect to real data in the future.
-                    </p>
-                    <div class="add-metric-list">
-                        ${metricsListHTML}
-                    </div>
+                <div class="unified-modal-body create-item-body" style="max-height: 400px; overflow-y: auto;">
+                    ${metricsListHTML}
                 </div>
             </div>
         </div>
@@ -18183,6 +18717,7 @@ function createProgressRing(percent, size = 60, strokeWidth = 5, color = '#833AB
  * Clean, minimal design - solid colors, no gradients, no hover animations
  * Bars with value 0 are NOT shown (no visible bar segment)
  * Values are displayed clearly next to each bar
+ * Shows max 5 rows by default with "show more" toggle
  */
 function createBarChart(data, maxValue = null, options = {}) {
     // Handle empty data with styled empty state
@@ -18193,7 +18728,8 @@ function createBarChart(data, maxValue = null, options = {}) {
     // Show chart even if all values are 0 - this lets users see categories
     const {
         primaryColor = '#2563EB',
-        secondaryColor = '#34C759'
+        secondaryColor = '#34C759',
+        maxRows = 5 // Default limit for visible rows
     } = options;
 
     // Sanitize values to avoid NaN widths and keep zero categories visible
@@ -18210,12 +18746,15 @@ function createBarChart(data, maxValue = null, options = {}) {
         ? providedMax
         : (computedMax > 0 ? computedMax : 1);
     
-    let html = '<div class="bar-chart-clean">';
+    const hasExtra = normalizedData.length > maxRows;
+    const visibleData = hasExtra ? normalizedData.slice(0, maxRows) : normalizedData;
+    const extraData = hasExtra ? normalizedData.slice(maxRows) : [];
     
-    normalizedData.forEach((item) => {
+    let html = '<div class="bar-chart-clean" data-expanded="false">';
+    
+    // Render visible rows
+    visibleData.forEach((item) => {
         const value = item.value || 0;
-        // For value 0: width is exactly 0 (no bar shown)
-        // For value > 0: calculate percentage, minimum 2% for very small values
         const percentage = value === 0 ? 0 : Math.max((value / max) * 100, 2);
         const barColor = item.color || primaryColor;
         const hasBar = value > 0;
@@ -18231,9 +18770,57 @@ function createBarChart(data, maxValue = null, options = {}) {
         `;
     });
     
+    // Add toggle and extra rows if there are more
+    if (hasExtra) {
+        html += `
+            <span class="bar-chart-toggle" onclick="toggleBarChartRows(this)">
+                <span class="bar-chart-toggle-text">+${extraData.length} more</span>
+            </span>
+            <div class="bar-chart-extra">
+        `;
+        
+        extraData.forEach((item) => {
+            const value = item.value || 0;
+            const percentage = value === 0 ? 0 : Math.max((value / max) * 100, 2);
+            const barColor = item.color || primaryColor;
+            const hasBar = value > 0;
+            
+            html += `
+                <div class="bar-row-clean">
+                    <div class="bar-label-clean" title="${escapeHtml(item.label)}">${escapeHtml(item.label)}</div>
+                    <div class="bar-track-clean">
+                        ${hasBar ? `<div class="bar-fill-clean" style="width: ${percentage}%; background-color: ${barColor};"></div>` : ''}
+                    </div>
+                    <div class="bar-value-clean">${formatAxisValue(value)}</div>
+                </div>
+            `;
+        });
+        
+        html += '</div>';
+    }
+    
     html += '</div>';
     return html;
 }
+
+/**
+ * Toggle horizontal bar chart row expansion
+ * @param {HTMLElement} btn - The toggle button element
+ */
+window.toggleBarChartRows = function(btn) {
+    const chart = btn.closest('.bar-chart-clean');
+    if (!chart) return;
+    
+    const isExpanded = chart.getAttribute('data-expanded') === 'true';
+    chart.setAttribute('data-expanded', isExpanded ? 'false' : 'true');
+    
+    // Update toggle text
+    const toggleText = btn.querySelector('.bar-chart-toggle-text');
+    if (toggleText) {
+        const extraRows = chart.querySelectorAll('.bar-chart-extra .bar-row-clean').length;
+        toggleText.textContent = isExpanded ? `+${extraRows} more` : 'Show less';
+    }
+};
 
 /**
  * Create a styled empty state for charts
@@ -18287,6 +18874,12 @@ function createTrendChart(data, options = {}, timePeriod = '7days') {
     // Handle empty data
     if (!data || data.length === 0) {
         return createChartEmptyState('No trend data');
+    }
+    
+    // Check if all values are zero (no real data)
+    const hasNonZeroData = data.some(d => (d.count || d.value || 0) > 0);
+    if (!hasNonZeroData) {
+        return createChartEmptyState('No trend data yet');
     }
     
     const {
@@ -18836,19 +19429,91 @@ function createBarChartWithAxis(data, options = {}, viewMode = 'last30days') {
  * @param {string} colorClass - CSS color class (optional: 'success', 'warning', 'danger')
  * @param {string} tooltip - Tooltip text on hover (optional)
  */
-function createStatCard(icon, value, label, subtitle = '', colorClass = '', tooltip = '') {
+function createStatCard(icon, value, label, subtitle = '', colorClass = '', tooltip = '', sparklineCompleted = null, sparklineTotal = null) {
     const tooltipAttr = tooltip ? `data-tooltip="${tooltip}"` : '';
     const colorStyle = colorClass ? `metrics-stat-card-${colorClass}` : '';
+    
+    // Generate mini circular progress if completed/total provided
+    let sparklineHtml = '';
+    if (sparklineCompleted !== null && sparklineTotal !== null) {
+        sparklineHtml = createMiniSparkline(sparklineCompleted, sparklineTotal, colorClass);
+    }
+    
     return `
-        <div class="metrics-stat-card ${colorStyle}" ${tooltipAttr}>
+        <div class="metrics-stat-card ${colorStyle} ${sparklineCompleted !== null ? 'has-sparkline' : ''}" ${tooltipAttr}>
+            ${sparklineCompleted !== null ? sparklineHtml : `
             <div class="metrics-stat-icon">
                 <i class="fas ${icon}"></i>
-            </div>
+            </div>`}
             <div class="metrics-stat-content">
                 <div class="metrics-stat-value">${value}</div>
                 <div class="metrics-stat-label">${label}</div>
                 ${subtitle ? `<div class="metrics-stat-subtitle">${subtitle}</div>` : ''}
             </div>
+        </div>
+    `;
+}
+
+/**
+ * Create a mini circular progress chart for stat cards
+ * @param {number} completed - Number of completed tasks in period
+ * @param {number} total - Total tasks assigned in period
+ * @param {string} colorClass - 'success', 'warning', 'danger'
+ */
+function createMiniSparkline(completed, total, colorClass = '') {
+    const size = 40;
+    const strokeWidth = 4;
+    const radius = (size - strokeWidth) / 2;
+    const centerX = size / 2;
+    const centerY = size / 2;
+    
+    // Calculate percentage based on completed vs total
+    const percentage = total > 0 ? Math.min((completed / total) * 100, 100) : 0;
+    
+    // Calculate circle path
+    const circumference = 2 * Math.PI * radius;
+    const fillAmount = (percentage / 100) * circumference;
+    const emptyAmount = circumference - fillAmount;
+    
+    // Determine color based on colorClass
+    const colorMap = {
+        'success': '#34C759',
+        'warning': '#FF9F0A',
+        'danger': '#FF3B30'
+    };
+    const strokeColor = colorMap[colorClass] || '#007AFF';
+    const bgColor = colorClass === 'success' ? 'rgba(52, 199, 89, 0.15)' : 
+                    colorClass === 'warning' ? 'rgba(255, 159, 10, 0.15)' :
+                    colorClass === 'danger' ? 'rgba(255, 59, 48, 0.15)' : 
+                    'rgba(0, 122, 255, 0.15)';
+    
+    return `
+        <div class="metrics-sparkline" data-tooltip="${Math.round(percentage)}% complete">
+            <svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
+                <!-- Background circle -->
+                <circle
+                    cx="${centerX}"
+                    cy="${centerY}"
+                    r="${radius}"
+                    fill="none"
+                    stroke="${bgColor}"
+                    stroke-width="${strokeWidth}"
+                />
+                <!-- Progress circle -->
+                <circle
+                    cx="${centerX}"
+                    cy="${centerY}"
+                    r="${radius}"
+                    fill="none"
+                    stroke="${strokeColor}"
+                    stroke-width="${strokeWidth}"
+                    stroke-dasharray="${fillAmount} ${emptyAmount}"
+                    stroke-dashoffset="0"
+                    stroke-linecap="round"
+                    transform="rotate(-90 ${centerX} ${centerY})"
+                    style="transition: stroke-dasharray 0.6s ease;"
+                />
+            </svg>
         </div>
     `;
 }
@@ -18967,6 +19632,7 @@ function switchGraphType(graphId, type) {
 function updateGraphMenuIcon(graphId, type) {
     const iconMap = {
         'bar': 'fa-chart-bar',
+        'hbar': 'fa-align-left',
         'line': 'fa-chart-line',
         'pie': 'fa-chart-pie'
     };
@@ -18977,7 +19643,7 @@ function updateGraphMenuIcon(graphId, type) {
         const icon = menuBtn.querySelector('i');
         if (icon) {
             // Remove all chart icons
-            icon.classList.remove('fa-chart-bar', 'fa-chart-line', 'fa-chart-pie');
+            icon.classList.remove('fa-chart-bar', 'fa-align-left', 'fa-chart-line', 'fa-chart-pie');
             // Add the current type icon
             icon.classList.add(iconMap[type] || 'fa-chart-bar');
         }
@@ -19071,6 +19737,9 @@ function renderGraphByTypeWithConfig(data, type, dataType = 'trend', config = {}
             return dataType === 'breakdown'
                 ? createPieChart(data, options)
                 : createPieChartFromTrend(data, options);
+        case 'hbar':
+            // Horizontal bar chart - always uses createBarChart regardless of dataType
+            return createBarChart(data, null, options);
         case 'bar':
         default:
             return dataType === 'breakdown'
@@ -19639,7 +20308,7 @@ function createPieChart(data, options = {}) {
                 <circle cx="${center}" cy="${center}" r="${innerRadius - 2}" fill="var(--bg-surface)" />
                 <text x="${center}" y="${center}" text-anchor="middle" dominant-baseline="middle" class="pie-total">${formatAxisValue(total)}</text>
             </svg>
-            <div class="pie-legend">
+            <div class="pie-legend" data-expanded="false">
                 ${segments.slice(0, 5).map(seg => `
                     <div class="pie-legend-item">
                         <span class="pie-legend-color" style="background: ${seg.color}"></span>
@@ -19647,7 +20316,20 @@ function createPieChart(data, options = {}) {
                         <span class="pie-legend-value">${formatAxisValue(seg.value)}</span>
                     </div>
                 `).join('')}
-                ${segments.length > 5 ? `<div class="pie-legend-more">+${segments.length - 5} more</div>` : ''}
+                ${segments.length > 5 ? `
+                    <span class="pie-legend-toggle" onclick="togglePieLegend(this)">
+                        <span class="pie-legend-toggle-text">+${segments.length - 5} more</span>
+                    </span>
+                    <div class="pie-legend-extra">
+                        ${segments.slice(5).map(seg => `
+                            <div class="pie-legend-item">
+                                <span class="pie-legend-color" style="background: ${seg.color}"></span>
+                                <span class="pie-legend-label">${escapeHtml(seg.label)}</span>
+                                <span class="pie-legend-value">${formatAxisValue(seg.value)}</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                ` : ''}
             </div>
         </div>
     `;
@@ -19659,10 +20341,9 @@ function createPieChart(data, options = {}) {
  * @param {Object} options - Chart options (palette, etc.)
  */
 function createPieChartFromTrend(data, options = {}) {
-    // Aggregate trend data into segments
+    // Aggregate trend data into segments (show all data, no limit)
     const pieData = data
         .filter(item => item.count > 0)
-        .slice(0, 8)
         .map(item => ({
             label: item.label,
             value: item.count
@@ -19708,6 +20389,7 @@ function createSwitchableGraphCard(graphId, title, icon, data, dataType = 'trend
     // Get the icon for the current graph type
     const graphTypeIcons = {
         'bar': 'fa-chart-bar',
+        'hbar': 'fa-align-left',
         'line': 'fa-chart-line',
         'pie': 'fa-chart-pie'
     };
@@ -19728,7 +20410,11 @@ function createSwitchableGraphCard(graphId, title, icon, data, dataType = 'trend
                             <div class="graph-menu-title">Graph Type</div>
                             <button class="graph-menu-option ${currentType === 'bar' ? 'active' : ''}" data-type="bar" onclick="switchGraphType('${graphId}', 'bar')">
                                 <i class="fas fa-chart-bar"></i>
-                                <span>Bar Graph</span>
+                                <span>Vertical Bar</span>
+                            </button>
+                            <button class="graph-menu-option ${currentType === 'hbar' ? 'active' : ''}" data-type="hbar" onclick="switchGraphType('${graphId}', 'hbar')">
+                                <i class="fas fa-align-left"></i>
+                                <span>Horizontal Bar</span>
                             </button>
                             <button class="graph-menu-option ${currentType === 'line' ? 'active' : ''}" data-type="line" onclick="switchGraphType('${graphId}', 'line')">
                                 <i class="fas fa-chart-line"></i>
@@ -19788,14 +20474,18 @@ function createGraphSettingsPanel(graphId, config, currentType) {
         </button>
     `).join('');
     
-    // Build tick density options
-    const tickDensityOptions = TICK_DENSITY_OPTIONS.map(t => `
-        <button class="density-option ${tickDensity === t.id ? 'active' : ''}"
-                onclick="handleChartConfigChange('${graphId}', 'tickDensity', '${t.id}')"
-                title="${t.label} (${t.ticks} ticks)">
-            ${t.label}
-        </button>
-    `).join('');
+    // Build tick density toggle (using calendar-view-toggle pattern)
+    const tickDensityToggle = `
+        <div class="calendar-view-toggle density-toggle">
+            ${TICK_DENSITY_OPTIONS.map(t => `
+                <button class="view-toggle-btn ${tickDensity === t.id ? 'active' : ''}"
+                        onclick="handleChartConfigChange('${graphId}', 'tickDensity', '${t.id}')"
+                        title="${t.label} (${t.ticks} ticks)">
+                    ${t.label}
+                </button>
+            `).join('')}
+        </div>
+    `;
     
     // Build pie palette options
     const paletteOptions = PIE_PALETTE_OPTIONS.map(p => `
@@ -19814,9 +20504,15 @@ function createGraphSettingsPanel(graphId, config, currentType) {
         <div class="graph-type-options">
             <button class="graph-type-option ${currentType === 'bar' ? 'active' : ''}"
                     onclick="handleChartConfigChange('${graphId}', 'type', 'bar')"
-                    title="Bar Chart">
+                    title="Vertical Bar Chart">
                 <i class="fas fa-chart-bar"></i>
-                <span>Bar</span>
+                <span>Vertical</span>
+            </button>
+            <button class="graph-type-option ${currentType === 'hbar' ? 'active' : ''}"
+                    onclick="handleChartConfigChange('${graphId}', 'type', 'hbar')"
+                    title="Horizontal Bar Chart">
+                <i class="fas fa-align-left"></i>
+                <span>Horizontal</span>
             </button>
             <button class="graph-type-option ${currentType === 'line' ? 'active' : ''}"
                     onclick="handleChartConfigChange('${graphId}', 'type', 'line')"
@@ -19833,10 +20529,25 @@ function createGraphSettingsPanel(graphId, config, currentType) {
         </div>
     `;
     
-    // Build data source dropdown
-    const dataSourceOptions = DATA_SOURCE_OPTIONS.map(s => 
-        `<option value="${s.id}" ${(sourceType + '-' + metricKey) === s.id ? 'selected' : ''}>${s.label}</option>`
-    ).join('');
+    // Build data source dropdown (custom dropdown instead of native select)
+    const currentSourceId = sourceType + '-' + metricKey;
+    const currentSource = DATA_SOURCE_OPTIONS.find(s => s.id === currentSourceId) || DATA_SOURCE_OPTIONS[0];
+    const dataSourceDropdown = `
+        <div class="settings-custom-dropdown" data-dropdown-for="${graphId}">
+            <button class="settings-dropdown-trigger" onclick="toggleSettingsDropdown('${graphId}')">
+                <span>${currentSource.label}</span>
+                <i class="fas fa-chevron-down"></i>
+            </button>
+            <div class="settings-dropdown-menu">
+                ${DATA_SOURCE_OPTIONS.map(s => `
+                    <button class="settings-dropdown-option ${s.id === currentSourceId ? 'selected' : ''}" 
+                            onclick="selectDataSource('${graphId}', '${s.id}')">
+                        ${s.label}
+                    </button>
+                `).join('')}
+            </div>
+        </div>
+    `;
     
     // Only show Y-axis settings for line and bar charts
     const showYAxisSettings = currentType === 'line' || currentType === 'bar';
@@ -19864,18 +20575,16 @@ function createGraphSettingsPanel(graphId, config, currentType) {
                 <!-- Y-Axis Section (for line/bar only) -->
                 ${showYAxisSettings ? `
                 <div class="settings-section">
-                    <div class="settings-section-title">
-                        Scale
-                        <div class="settings-toggle-group">
-                            <button class="settings-toggle ${yAxisMode === 'auto' ? 'active' : ''}"
-                                    onclick="handleChartConfigChange('${graphId}', 'yAxisMode', 'auto')">
-                                Auto
-                            </button>
-                            <button class="settings-toggle ${yAxisMode === 'custom' ? 'active' : ''}"
-                                    onclick="handleChartConfigChange('${graphId}', 'yAxisMode', 'custom')">
-                                Custom
-                            </button>
-                        </div>
+                    <div class="settings-section-title">Scale</div>
+                    <div class="sheets-docs-toggle scale-mode-toggle">
+                        <button class="toggle-btn ${yAxisMode === 'auto' ? 'active' : ''}"
+                                onclick="handleChartConfigChange('${graphId}', 'yAxisMode', 'auto')">
+                            Auto
+                        </button>
+                        <button class="toggle-btn ${yAxisMode === 'custom' ? 'active' : ''}"
+                                onclick="handleChartConfigChange('${graphId}', 'yAxisMode', 'custom')">
+                            Custom
+                        </button>
                     </div>
                     
                     <div class="settings-row y-axis-inputs ${yAxisMode === 'auto' ? 'disabled' : ''}">
@@ -19912,9 +20621,7 @@ function createGraphSettingsPanel(graphId, config, currentType) {
                     
                     <div class="settings-subsection">
                         <label class="settings-label-small">Tick Density</label>
-                        <div class="density-options">
-                            ${tickDensityOptions}
-                        </div>
+                        ${tickDensityToggle}
                     </div>
                 </div>
                 ` : ''}
@@ -19951,9 +20658,7 @@ function createGraphSettingsPanel(graphId, config, currentType) {
                 <div class="settings-section">
                     <div class="settings-section-title">Data Source</div>
                     <div class="settings-subsection">
-                        <select class="settings-select" onchange="handleDataSourceChange('${graphId}', this.value)">
-                            ${dataSourceOptions}
-                        </select>
+                        ${dataSourceDropdown}
                         <p class="settings-hint">Connect this chart to a different data source. More options coming soon.</p>
                     </div>
                 </div>
@@ -19984,8 +20689,70 @@ function handleDataSourceChange(graphId, sourceId) {
     }
 }
 
+/**
+ * Toggle the custom settings dropdown
+ * @param {string} graphId - Chart identifier
+ */
+function toggleSettingsDropdown(graphId) {
+    const dropdown = document.querySelector(`.settings-custom-dropdown[data-dropdown-for="${graphId}"]`);
+    if (!dropdown) return;
+    
+    const isOpen = dropdown.classList.contains('open');
+    
+    // Close all other dropdowns first
+    document.querySelectorAll('.settings-custom-dropdown.open').forEach(d => {
+        if (d !== dropdown) d.classList.remove('open');
+    });
+    
+    dropdown.classList.toggle('open', !isOpen);
+    
+    // Add click-outside handler to close
+    if (!isOpen) {
+        const closeHandler = (e) => {
+            if (!dropdown.contains(e.target)) {
+                dropdown.classList.remove('open');
+                document.removeEventListener('click', closeHandler);
+            }
+        };
+        // Delay to prevent immediate closure
+        setTimeout(() => {
+            document.addEventListener('click', closeHandler);
+        }, 0);
+    }
+}
+
+/**
+ * Select a data source from the custom dropdown
+ * @param {string} graphId - Chart identifier
+ * @param {string} sourceId - Selected source ID
+ */
+function selectDataSource(graphId, sourceId) {
+    // Close the dropdown
+    const dropdown = document.querySelector(`.settings-custom-dropdown[data-dropdown-for="${graphId}"]`);
+    if (dropdown) {
+        dropdown.classList.remove('open');
+        
+        // Update the trigger text
+        const source = DATA_SOURCE_OPTIONS.find(s => s.id === sourceId);
+        if (source) {
+            const trigger = dropdown.querySelector('.settings-dropdown-trigger span');
+            if (trigger) trigger.textContent = source.label;
+            
+            // Update selected state
+            dropdown.querySelectorAll('.settings-dropdown-option').forEach(opt => {
+                opt.classList.toggle('selected', opt.textContent.trim() === source.label);
+            });
+        }
+    }
+    
+    // Apply the change
+    handleDataSourceChange(graphId, sourceId);
+}
+
 // Expose to window
 window.handleDataSourceChange = handleDataSourceChange;
+window.toggleSettingsDropdown = toggleSettingsDropdown;
+window.selectDataSource = selectDataSource;
 
 /**
  * METRICS RENDERING FUNCTIONS
@@ -20278,15 +21045,19 @@ async function renderMetrics() {
                 </div>
             `;
             
-            // Time-filtered completed tasks
+            // Time-filtered completed tasks with mini circular progress
             const tasksTooltip = `Completed: ${personalMetrics.tasks.completedLast7Days} this week, ${personalMetrics.tasks.completedLast30Days} this month`;
+            const completedInPeriod = personalMetrics.tasks.completedInPeriod;
+            const totalInPeriod = personalMetrics.tasks.completedInPeriod + personalMetrics.tasks.open;
             html += createStatCard(
                 'fa-check-circle', 
                 personalMetrics.tasks.completedInPeriod, 
                 `Completed ${periodLabel}`, 
                 `${personalMetrics.tasks.open} open`, 
                 'success',
-                tasksTooltip
+                tasksTooltip,
+                completedInPeriod,
+                totalInPeriod
             );
             
             const eventsTooltip = `${personalMetrics.events.total} total events created by you`;
@@ -20567,6 +21338,7 @@ async function renderMetrics() {
                     const metric = CUSTOM_METRICS_CATALOG[metricId];
                     if (metric && metric.hasChart) {
                         const chartData = metric.chartData();
+                        const chartDataType = metric.chartDataType || 'trend';
                         const metricIsHidden = isMetricHidden(metricId);
                         const hiddenClass = metricIsHidden ? 'metric-hidden' : '';
                         
@@ -20584,7 +21356,7 @@ async function renderMetrics() {
                             `${metric.name}`,
                             metric.icon,
                             chartData,
-                            'trend',
+                            chartDataType,
                             { hideToggle: graphHideToggle, hiddenClass }
                         );
                     }
@@ -26737,6 +27509,9 @@ async function loadAccountSettings() {
         // Select the color option
         selectColorOption(userData.avatarColor);
         
+        // Render profile badges
+        renderProfileBadges();
+        
     } catch (error) {
         console.error('Error loading account settings:', error.code || error.message);
         debugError('Full error:', error);
@@ -30242,6 +31017,9 @@ async function loadTasksFromFirestore() {
 
             // Update lightweight counts for completed tasks (documents not loaded)
             loadCompletedTaskCounts();
+            
+            // Check for backward-compatible milestone awards
+            checkRetroactiveMilestones();
 
             debugLog(`✅ Loaded ${activeTasks.length} active tasks (plus ${completedTasks.length} completed in snapshot)`);
         }, (error) => {
@@ -32801,6 +33579,33 @@ function initFinances() {
             }
         });
     }
+    
+    // Mobile Revenue/Expenses toggle
+    const financeMobileToggle = document.getElementById('financeMobileToggle');
+    if (financeMobileToggle) {
+        const toggleBtns = financeMobileToggle.querySelectorAll('.toggle-btn');
+        const financesContent = document.getElementById('financesContent');
+        
+        toggleBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                // Update active state
+                toggleBtns.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                
+                // Toggle visibility classes
+                const view = btn.dataset.view;
+                if (financesContent) {
+                    financesContent.classList.remove('show-revenue', 'show-expenses');
+                    financesContent.classList.add(`show-${view}`);
+                }
+            });
+        });
+        
+        // Set initial state to revenue
+        if (financesContent) {
+            financesContent.classList.add('show-revenue');
+        }
+    }
 }
 
 /**
@@ -33292,11 +34097,28 @@ function formatCurrency(amount) {
 
 /**
  * Get category label from value
+ * Searches both income and expense categories
  */
 function getCategoryLabel(value) {
     const allCategories = [...FINANCE_CATEGORIES.income, ...FINANCE_CATEGORIES.expense];
     const cat = allCategories.find(c => c.value === value);
     return cat?.label || value || 'Uncategorized';
+}
+
+/**
+ * Get income category label - only searches income categories
+ */
+function getIncomeCategoryLabel(value) {
+    const cat = FINANCE_CATEGORIES.income.find(c => c.value === value);
+    return cat?.label || value || 'Other Income';
+}
+
+/**
+ * Get expense category label - only searches expense categories
+ */
+function getExpenseCategoryLabel(value) {
+    const cat = FINANCE_CATEGORIES.expense.find(c => c.value === value);
+    return cat?.label || value || 'Other Expense';
 }
 
 /**

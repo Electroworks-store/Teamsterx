@@ -5,20 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Teamsterx - Account</title>
     <script>
-        // Early theme detection to prevent loader flicker
-        (function() {
-            const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-            let themePref = localStorage.getItem('themePreference');
-            if (!themePref) {
-                const legacy = localStorage.getItem('darkMode');
-                themePref = legacy === 'true' ? 'dark' : legacy === 'false' ? 'light' : 'system';
-            }
-            const isDark = themePref === 'dark' || (themePref === 'system' && prefersDark);
-            window.__isDarkPreferred = isDark;
-            if (isDark) {
-                document.documentElement.classList.add('dark-mode');
-            }
-        })();
+        // Force light mode on auth page
+        window.__isDarkPreferred = false;
     </script>
     <script>
         // Localhost safety: static servers (e.g., VS Code Live Server) don't rewrite /account to /account.html
@@ -34,10 +22,9 @@
 </head>
 <body>
     <script>
-        // Apply dark mode to body immediately using early preference
-        if (window.__isDarkPreferred) {
-            document.body.classList.add('dark-mode');
-        }
+        // Ensure light mode only
+        document.documentElement.classList.remove('dark-mode');
+        document.body.classList.remove('dark-mode');
     </script>
     <!-- Teamsterx Loader Overlay -->
     <div id="teamsterxLoader" class="teamsterx-loader hidden">
@@ -180,9 +167,9 @@
                         </div>
 
                         <div class="form-options">
-                            <label class="remember-me">
+                            <label class="terms-checkbox">
                                 <input type="checkbox" id="agreeTerms" required>
-                                <span>I agree to the <a href="#" class="link">Terms & Conditions</a></span>
+                                <span>I agree to the <a href="#" class="link">Terms of Service</a></span>
                             </label>
                         </div>
 

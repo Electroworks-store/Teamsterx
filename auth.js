@@ -189,7 +189,7 @@ async function handleEmailSignUp(e) {
     }
 
     if (password !== confirmPassword) {
-        showAlert('Passwords do not match', 'error');
+        showAlert('Passwords do not match. Please re-enter them.', 'error');
         return;
     }
 
@@ -207,7 +207,7 @@ async function handleEmailSignUp(e) {
     }
 
     if (!agreeTerms) {
-        showAlert('Please agree to the Terms & Conditions', 'error');
+        showAlert('Please accept the Terms of Service to continue.', 'error');
         return;
     }
 
@@ -245,7 +245,13 @@ async function handleEmailSignUp(e) {
 
     } catch (error) {
         console.error('Sign up error:', error);
-        showAlert(getErrorMessage(error.code), 'error');
+        const errorCode = error?.code || '';
+        if (errorCode === 'auth/email-already-in-use') {
+            showAlert('An account with this email already exists. Please sign in instead.', 'error');
+        } else {
+            const message = getErrorMessage(errorCode) || 'Sign up failed. Please try again.';
+            showAlert(message, 'error');
+        }
     } finally {
         if (!keepLoader) {
             showLoading(false);

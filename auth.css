@@ -307,7 +307,7 @@ body::after {
    =================================== */
 .form-options {
     display: flex;
-    justify-content: flex-end;
+    justify-content: flex-start;
     align-items: center;
     margin-bottom: 18px;
     font-size: 13px;
@@ -315,6 +315,45 @@ body::after {
 
 .remember-me {
     display: none;
+}
+
+.terms-checkbox {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--gray);
+    font-weight: 500;
+    cursor: pointer;
+    user-select: none;
+}
+
+.terms-checkbox input {
+    width: 18px;
+    height: 18px;
+    accent-color: var(--primary-blue);
+    cursor: pointer;
+    border-radius: 4px;
+    transition: all 0.2s ease;
+}
+
+.terms-checkbox input:hover {
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.terms-checkbox input:checked {
+    background-color: var(--primary-blue);
+    border-color: var(--primary-blue);
+}
+
+.terms-checkbox .link {
+    color: var(--primary-blue);
+    text-decoration: none;
+    transition: color 0.2s ease;
+}
+
+.terms-checkbox .link:hover {
+    color: var(--primary-light);
+    text-decoration: underline;
 }
 
 .forgot-password {
@@ -356,16 +395,6 @@ body::after {
 
 .btn-primary i {
     display: none;
-}
-
-#signUpForm .btn-primary {
-    background: var(--white);
-    color: var(--dark-gray);
-    border: 1px solid var(--border-color);
-}
-
-#signUpForm .btn-primary:hover {
-    background: var(--light-gray);
 }
 
 /* ===================================
