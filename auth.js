@@ -22,11 +22,17 @@ document.addEventListener('DOMContentLoaded', async () => {
     auth = window.firebaseAuth;
     googleProvider = window.googleProvider;
     
+    // Check for Firebase Auth redirect (password reset, email verification, etc.)
+    const handled = await handleAuthRedirect();
+    
     // Initialize all event listeners
     initializeFormListeners();
     
-    // Check if user is already logged in
-    checkAuthState();
+    // If we handled a redirect, don't check auth state (user is resetting password)
+    if (!handled) {
+        // Check if user is already logged in
+        checkAuthState();
+    }
 });
 
 // Wait for Firebase to initialize
@@ -39,6 +45,191 @@ function waitForFirebase() {
             }
         }, 100);
     });
+}
+
+// ===================================
+// FIREBASE AUTH REDIRECT HANDLER
+// Handles password reset, email verification links
+// ===================================
+
+/**
+ * Handle Firebase Auth redirects (password reset, email verification, etc.)
+ * Called when the page loads to check for action codes in URL
+ * @returns {boolean} True if a redirect was handled
+ */
+async function handleAuthRedirect() {
+    const params = new URLSearchParams(window.location.search);
+    const mode = params.get('mode');
+    const actionCode = params.get('oobCode');
+    
+    // If no mode or actionCode, nothing to handle
+    if (!mode || !actionCode) {
+        return false;
+    }
+    
+    console.log('[Auth] Detected auth redirect:', mode);
+    
+    // Handle password reset
+    if (mode === 'resetPassword') {
+        await handlePasswordResetRedirect(actionCode);
+        return true;
+    }
+    
+    // Handle email verification (optional - can be expanded later)
+    if (mode === 'verifyEmail') {
+        await handleEmailVerificationRedirect(actionCode);
+        return true;
+    }
+    
+    // Handle email recovery (optional - can be expanded later)
+    if (mode === 'recoverEmail') {
+        console.log('[Auth] Email recovery detected - not yet implemented');
+        return false;
+    }
+    
+    return false;
+}
+
+/**
+ * Handle password reset redirect
+ * Shows the "Set New Password" form and handles submission
+ * @param {string} actionCode - The oobCode from the URL
+ */
+async function handlePasswordResetRedirect(actionCode) {
+    try {
+        const { verifyPasswordResetCode, confirmPasswordReset } = await import('https://www.gstatic.com/firebasejs/10.5.0/firebase-auth.js');
+        
+        // Verify the action code is valid
+        const email = await verifyPasswordResetCode(auth, actionCode);
+        console.log('[Auth] Password reset code verified for:', email);
+        
+        // Hide all forms and show the new password form
+        hideAllForms();
+        const setNewPasswordForm = document.getElementById('setNewPasswordForm');
+        if (setNewPasswordForm) {
+            setNewPasswordForm.classList.add('active');
+        }
+        
+        // Setup the form submit handler
+        const newPasswordForm = document.getElementById('newPasswordForm');
+        if (newPasswordForm) {
+            newPasswordForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                
+                const newPassword = document.getElementById('newPassword').value;
+                const confirmPassword = document.getElementById('confirmNewPassword').value;
+                
+                // Validate passwords match
+                if (newPassword !== confirmPassword) {
+                    showAlert('Passwords do not match. Please try again.', 'error');
+                    return;
+                }
+                
+                // Validate password strength
+                if (newPassword.length < 6) {
+                    showAlert('Password must be at least 6 characters.', 'error');
+                    return;
+                }
+                
+                // Check password complexity
+                const strength = checkPasswordStrength(newPassword);
+                if (strength < 3) {
+                    showAlert('Password needs more complexity: use uppercase, lowercase, numbers, or special characters.', 'error');
+                    return;
+                }
+                
+                showLoading(true);
+                
+                try {
+                    // Confirm the password reset with Firebase
+                    await confirmPasswordReset(auth, actionCode, newPassword);
+                    
+                    showAlert('Password changed successfully! Please sign in with your new password.', 'success');
+                    
+                    // Clear URL params and redirect to sign in
+                    setTimeout(() => {
+                        // Remove query params from URL
+                        window.history.replaceState({}, document.title, window.location.pathname);
+                        showSignInForm();
+                    }, 2000);
+                    
+                } catch (error) {
+                    console.error('[Auth] Password reset confirmation failed:', error);
+                    
+                    if (error.code === 'auth/expired-action-code') {
+                        showAlert('This reset link has expired. Please request a new one.', 'error');
+                    } else if (error.code === 'auth/invalid-action-code') {
+                        showAlert('This reset link is invalid or has already been used.', 'error');
+                    } else if (error.code === 'auth/weak-password') {
+                        showAlert('Password is too weak. Please use a stronger password.', 'error');
+                    } else {
+                        showAlert('Failed to reset password. Please try again.', 'error');
+                    }
+                } finally {
+                    showLoading(false);
+                }
+            });
+        }
+        
+        // Setup back to sign in link
+        const backToSignInFromReset = document.getElementById('backToSignInFromReset');
+        if (backToSignInFromReset) {
+            backToSignInFromReset.addEventListener('click', (e) => {
+                e.preventDefault();
+                // Clear URL params
+                window.history.replaceState({}, document.title, window.location.pathname);
+                showSignInForm();
+            });
+        }
+        
+    } catch (error) {
+        console.error('[Auth] Password reset code verification failed:', error);
+        
+        if (error.code === 'auth/expired-action-code') {
+            showAlert('This reset link has expired. Please request a new one.', 'error');
+        } else if (error.code === 'auth/invalid-action-code') {
+            showAlert('This reset link is invalid or has already been used.', 'error');
+        } else {
+            showAlert('Invalid reset link. Please request a new password reset.', 'error');
+        }
+        
+        // Show the reset password form so user can request a new link
+        showResetForm();
+    }
+}
+
+/**
+ * Handle email verification redirect
+ * @param {string} actionCode - The oobCode from the URL
+ */
+async function handleEmailVerificationRedirect(actionCode) {
+    try {
+        const { applyActionCode } = await import('https://www.gstatic.com/firebasejs/10.5.0/firebase-auth.js');
+        
+        // Apply the email verification code
+        await applyActionCode(auth, actionCode);
+        
+        showAlert('Email verified successfully! You can now sign in.', 'success');
+        
+        // Clear URL params and show sign in
+        setTimeout(() => {
+            window.history.replaceState({}, document.title, window.location.pathname);
+            showSignInForm();
+        }, 2000);
+        
+    } catch (error) {
+        console.error('[Auth] Email verification failed:', error);
+        
+        if (error.code === 'auth/expired-action-code') {
+            showAlert('This verification link has expired.', 'error');
+        } else if (error.code === 'auth/invalid-action-code') {
+            showAlert('This verification link is invalid or has already been used.', 'error');
+        } else {
+            showAlert('Email verification failed. Please try again.', 'error');
+        }
+        
+        showSignInForm();
+    }
 }
 
 // ===================================
@@ -314,15 +505,25 @@ async function handlePasswordReset(e) {
         return;
     }
 
+    if (!isValidEmail(email)) {
+        showAlert('Please enter a valid email address', 'error');
+        return;
+    }
+
     showLoading(true);
 
     try {
         // Import Firebase Auth functions
         const { sendPasswordResetEmail } = await import('https://www.gstatic.com/firebasejs/10.5.0/firebase-auth.js');
 
-        await sendPasswordResetEmail(auth, email);
+        // Send password reset email
+        await sendPasswordResetEmail(auth, email, {
+            url: window.location.origin + '/account.html',
+            handleCodeInApp: true
+        });
 
-        showAlert('Password reset email sent! Check your inbox.', 'success');
+        console.log('Password reset email sent successfully to:', email);
+        showAlert('Password reset email sent! Please check your inbox and spam folder.', 'success');
 
         // Clear form and go back to sign in after delay
         setTimeout(() => {
@@ -332,7 +533,18 @@ async function handlePasswordReset(e) {
 
     } catch (error) {
         console.error('Password reset error:', error);
-        showAlert(getErrorMessage(error.code), 'error');
+        
+        // Handle specific errors
+        if (error.code === 'auth/user-not-found') {
+            showAlert('No account found with this email address.', 'error');
+        } else if (error.code === 'auth/invalid-email') {
+            showAlert('Please enter a valid email address.', 'error');
+        } else if (error.code === 'auth/too-many-requests') {
+            showAlert('Too many reset attempts. Please try again later.', 'error');
+        } else {
+            const message = getErrorMessage(error.code) || 'Failed to send reset email. Please try again.';
+            showAlert(message, 'error');
+        }
     } finally {
         showLoading(false);
     }

@@ -93,6 +93,14 @@ function unloadHomeBundle() {
  * Called BEFORE Firebase auth to properly show homepage without auth redirect
  */
 function initializeRouting() {
+    // SAFETY CHECK: Preserve Firebase Auth action URLs (reset/verify/recover)
+    const urlParams = new URLSearchParams(window.location.search);
+    const firebaseMode = urlParams.get('mode');
+    if (firebaseMode === 'resetPassword' || firebaseMode === 'verifyEmail' || firebaseMode === 'recoverEmail') {
+        console.log('[Routing] Firebase action detected, skipping routing to preserve query params.');
+        return 'auth-action';
+    }
+
     const path = window.location.pathname;
     const hash = window.location.hash;
     
@@ -161,7 +169,6 @@ function initializeRouting() {
     
     // IMPORTANT: Extract join parameter BEFORE any early returns
     // This ensures join links work on all hosts including static hosts
-    const urlParams = new URLSearchParams(window.location.search);
     const joinCode = urlParams.get('join');
     if (joinCode) {
         console.log('📨 Join code detected:', joinCode);
