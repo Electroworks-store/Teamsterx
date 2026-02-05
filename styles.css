@@ -7,6 +7,182 @@
     box-sizing: border-box;
 }
 
+/* ===================================
+   SKELETON LOADING
+   =================================== */
+@keyframes skeletonShimmer {
+    0% {
+        background-position: -200% 0;
+    }
+    100% {
+        background-position: 200% 0;
+    }
+}
+
+.skeleton {
+    background: linear-gradient(
+        90deg,
+        var(--bg-tertiary, #f0f0f0) 25%,
+        var(--bg-secondary, #e8e8e8) 50%,
+        var(--bg-tertiary, #f0f0f0) 75%
+    );
+    background-size: 200% 100%;
+    animation: skeletonShimmer 1.5s ease-in-out infinite;
+    border-radius: var(--radius-md, 8px);
+}
+
+.skeleton-text {
+    height: 14px;
+    margin-bottom: 8px;
+    border-radius: 4px;
+}
+
+.skeleton-text.short {
+    width: 60%;
+}
+
+.skeleton-text.medium {
+    width: 80%;
+}
+
+.skeleton-text.long {
+    width: 100%;
+}
+
+.skeleton-title {
+    height: 24px;
+    width: 40%;
+    margin-bottom: 12px;
+}
+
+.skeleton-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.skeleton-card {
+    padding: 16px;
+    border-radius: var(--radius-lg, 12px);
+    background: var(--bg-primary, #fff);
+    border: 1px solid var(--border-subtle, #eee);
+}
+
+.skeleton-stat-card {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 20px;
+    border-radius: var(--radius-lg, 12px);
+    background: var(--bg-primary, #fff);
+    border: 1px solid var(--border-subtle, #eee);
+}
+
+.skeleton-stat-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: var(--radius-md, 8px);
+}
+
+.skeleton-stat-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.skeleton-stat-number {
+    height: 28px;
+    width: 50px;
+}
+
+.skeleton-stat-label {
+    height: 14px;
+    width: 80px;
+}
+
+.skeleton-message {
+    display: flex;
+    gap: 12px;
+    padding: 12px 0;
+}
+
+.skeleton-message-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.skeleton-spreadsheet-card {
+    padding: 20px;
+    border-radius: var(--radius-lg, 12px);
+    background: var(--bg-primary, #fff);
+    border: 1px solid var(--border-subtle, #eee);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.skeleton-spreadsheet-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.skeleton-spreadsheet-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: var(--radius-md, 8px);
+}
+
+.skeleton-calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 4px;
+}
+
+.skeleton-calendar-day {
+    aspect-ratio: 1;
+    border-radius: var(--radius-sm, 6px);
+}
+
+.skeleton-section {
+    display: none;
+}
+
+.skeleton-section.loading {
+    display: block;
+}
+
+/* Hide real content when skeleton is loading */
+.content-loading .real-content {
+    display: none !important;
+}
+
+.content-loading .skeleton-section {
+    display: block;
+}
+
+/* Dark mode skeleton */
+body.dark-mode .skeleton {
+    background: linear-gradient(
+        90deg,
+        var(--bg-secondary, #2a2a2a) 25%,
+        var(--bg-tertiary, #333) 50%,
+        var(--bg-secondary, #2a2a2a) 75%
+    );
+    background-size: 200% 100%;
+}
+
+body.dark-mode .skeleton-card,
+body.dark-mode .skeleton-stat-card,
+body.dark-mode .skeleton-spreadsheet-card {
+    background: var(--bg-secondary, #1e1e1e);
+    border-color: var(--border-subtle, #333);
+}
+
 /* Subtle thin scrollbars */
 ::-webkit-scrollbar {
     width: 6px;
@@ -2740,6 +2916,27 @@ body.dark-mode .chat-filter-toggle .filter-btn.active {
     animation: replyTextHighlight 2s ease-out;
 }
 
+/* Search highlight - only highlights message-text with accent color */
+.message.search-highlight .message-text {
+    animation: searchTextHighlight 2.5s ease-out;
+    border-radius: var(--radius-sm);
+}
+
+@keyframes searchTextHighlight {
+    0% {
+        background: color-mix(in srgb, var(--accent) 30%, transparent);
+        box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 35%, transparent);
+    }
+    50% {
+        background: color-mix(in srgb, var(--accent) 20%, transparent);
+        box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 25%, transparent);
+    }
+    100% {
+        background: transparent;
+        box-shadow: none;
+    }
+}
+
 @keyframes replyHighlightPulse {
     0% {
         background: rgba(0, 122, 255, 0.08);
@@ -2807,6 +3004,22 @@ body.dark-mode .message-reply-context:hover {
 
 body.dark-mode .message.reply-highlight {
     animation: replyHighlightPulseDark 2s ease-out;
+}
+
+body.dark-mode .message.search-highlight {
+    animation: searchHighlightPulseDark 3s ease-out;
+}
+
+@keyframes searchHighlightPulseDark {
+    0% {
+        background: rgba(255, 149, 0, 0.2);
+    }
+    30% {
+        background: rgba(255, 149, 0, 0.25);
+    }
+    100% {
+        background: transparent;
+    }
 }
 
 /* Dark mode reactions */
@@ -7993,6 +8206,13 @@ body.dark-mode .progress-range-slider {
     background:
         linear-gradient(to right, transparent 0%, transparent var(--progress, 0%), #3a3a3c var(--progress, 0%), #3a3a3c 100%),
         linear-gradient(90deg, #FF3B30 0%, #FF9500 33%, #FFCC00 66%, #34C759 100%) !important;
+    background-size: 100% 100%, 100% 100% !important;
+}
+
+body.dark-mode .custom-slider-range {
+    background:
+        linear-gradient(to right, transparent 0%, transparent var(--progress, 0%), #3a3a3c var(--progress, 0%), #3a3a3c 100%),
+        linear-gradient(90deg, var(--slider-color, #9CA3AF) 0%, var(--slider-color, #9CA3AF) 100%) !important;
     background-size: 100% 100%, 100% 100% !important;
 }
 
@@ -13215,6 +13435,302 @@ body.dark-mode .color-circle.selected {
     opacity: 1 !important;
 }
 
+/* ===================================
+   ACHIEVEMENTS TAB STYLES
+   =================================== */
+
+/* Two-column hero grid - matches Duolingo style */
+.achievements-hero-grid {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 24px 0;
+    gap: 32px;
+}
+
+/* XP Section - Left side */
+.achievements-xp-section {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex: 1;
+}
+
+.xp-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.xp-level-text {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 8px;
+}
+
+.level-number-blue {
+    color: #0052CC;
+    font-weight: 700;
+}
+
+.xp-progress-container {
+    height: 6px;
+    background: #e0e0e0;
+    border-radius: 3px;
+    overflow: hidden;
+    margin-bottom: 4px;
+    width: 100%;
+}
+
+.xp-progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, #60efff, #0061ff);
+    border-radius: 3px;
+    transition: width 0.4s ease;
+}
+
+.xp-text {
+    font-size: 13px;
+    color: var(--text-muted);
+    font-weight: 500;
+}
+
+/* Streak Section - Right side */
+.achievements-streak-section {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+}
+
+.streak-fire-icon {
+    position: relative;
+    width: 72px;
+    height: 72px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.streak-fire-icon i {
+    font-size: 48px;
+    color: #FF6B35;
+}
+
+.streak-fire-icon .streak-number {
+    position: absolute;
+    bottom: 6px;
+    right: 6px;
+    font-size: 20px;
+    font-weight: 700;
+    color: white;
+    background: #FF6B35;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+}
+
+.streak-info {
+    text-align: left;
+}
+
+.streak-label {
+    font-size: 26px;
+    font-weight: 700;
+    color: var(--text-primary);
+    line-height: 1.1;
+}
+
+.best-streak {
+    font-size: 14px;
+    color: var(--text-muted);
+    font-weight: 500;
+    margin-top: 2px;
+}
+
+/* Responsive - stack on small screens */
+@media (max-width: 500px) {
+    .achievements-hero-grid {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 24px;
+    }
+}
+    .achievements-hero-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Achievement badges container */
+.achievements-badges-container {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.badge-category {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 16px;
+}
+
+.badge-category-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+}
+
+.badge-category-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.badge-category-title i {
+    font-size: 12px;
+    opacity: 0.7;
+}
+
+.badge-category-count {
+    font-size: 12px;
+    color: var(--text-muted);
+    font-weight: 500;
+}
+
+.badge-category .badges-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    gap: 10px;
+}
+
+.badge-category .badge-item {
+    flex-direction: column;
+    text-align: center;
+    padding: 12px 8px;
+    border-radius: 12px;
+    gap: 6px;
+}
+
+.badge-category .badge-item .badge-icon {
+    width: 36px;
+    height: 36px;
+    font-size: 14px;
+}
+
+.badge-category .badge-item .badge-name {
+    font-size: 10px;
+    line-height: 1.2;
+}
+
+.badge-category .badge-item.locked {
+    opacity: 0.5;
+}
+
+.badge-category .badge-item.locked .badge-icon {
+    background: var(--bg-tertiary) !important;
+    color: var(--text-muted);
+}
+
+.badge-xp {
+    font-size: 9px;
+    color: var(--text-muted);
+    font-weight: 500;
+}
+
+.badge-item.earned .badge-xp {
+    color: #34C759;
+}
+
+/* Achievement stats list (rows format) */
+.achievements-stats-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+}
+
+.achievement-stat-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 0;
+    border-bottom: none;
+}
+
+.achievement-stat-row .stat-label {
+    font-size: 14px;
+    color: #666666;
+    font-weight: 400;
+}
+
+.achievement-stat-row .stat-value {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
+/* Achievements disabled message */
+.achievements-disabled-message {
+    text-align: center;
+    padding: 48px 24px;
+    color: var(--text-muted);
+}
+
+.achievements-disabled-message i {
+    font-size: 48px;
+    opacity: 0.3;
+    margin-bottom: 16px;
+    display: block;
+}
+
+.achievements-disabled-message p {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 4px;
+}
+
+.achievements-disabled-message span {
+    font-size: 13px;
+}
+
+/* Settings row hint text */
+.settings-row-hint {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 2px;
+}
+
+/* Dark mode adjustments */
+body.dark-mode .xp-progress-container {
+    background: rgba(255, 255, 255, 0.15);
+}
+
+body.dark-mode .badge-category {
+    background: var(--bg-elevated);
+}
+
+body.dark-mode .achievements-stats-list {
+    background: transparent;
+}
+
+body.dark-mode .achievement-stat-row .stat-label {
+    color: #999999;
+}
+
+body.dark-mode .streak-fire-icon .streak-number {
+    color: #FF6B35;
+}
+
 /* Minimal Actions */
 .settings-actions-minimal {
     padding-top: 24px;
@@ -13504,7 +14020,8 @@ body.dark-mode .color-circle.selected {
     width: 12px;
     height: 12px;
     display: inline-block;
-    background-image: url('data:image/svg+xml;charset=UTF-8,<svg xmlns="http://www.w3.org/2000/svg" width="12" height="8" viewBox="0 0 12 8"><path fill="%23808AFC" d="M1.41 0L6 4.58 10.59 0 12 1.41l-6 6-6-6z"/></svg>');
+    flex-shrink: 0;
+    background-image: url('data:image/svg+xml;charset=UTF-8,<svg xmlns="http://www.w3.org/2000/svg" width="12" height="8" viewBox="0 0 12 8"><path fill="%23808080" d="M1.41 0L6 4.58 10.59 0 12 1.41l-6 6-6-6z"/></svg>');
     background-repeat: no-repeat;
     background-size: 12px;
 }
@@ -17485,8 +18002,8 @@ body.dark-mode .sidebar-section::-webkit-scrollbar-thumb:hover {
    Apple-style create column popup
    =================================== */
 .custom-column-modal {
-    max-width: 420px;
-    width: 94%;
+    max-width: 480px;
+    width: 95%;
     max-height: 85vh;
     background: white;
     border-radius: 16px;
@@ -18037,8 +18554,15 @@ body.dark-mode .add-column-btn:hover {
 
 .custom-slider-cell .progress-range-slider {
     flex: 1;
-    height: 5px;
-    background: var(--bg-surface-soft);
+    height: 6px;
+}
+
+/* Custom slider track uses the same reveal overlay as default progress slider */
+.custom-slider-cell .custom-slider-range {
+    background:
+        linear-gradient(to right, transparent 0%, transparent var(--progress, 0%), #e5e5ea var(--progress, 0%), #e5e5ea 100%),
+        var(--slider-gradient, linear-gradient(90deg, var(--slider-color, #9CA3AF) 0%, var(--slider-color, #9CA3AF) 100%));
+    background-size: 100% 100%, 100% 100%;
 }
     
 .custom-slider-cell .custom-slider-value {
@@ -25228,7 +25752,7 @@ body.dark-mode .unified-modal-container {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 20px 24px 16px;
+    padding: 16px 24px 12px;
     border-bottom: 1px solid var(--border-subtle);
     flex-shrink: 0;
 }
@@ -25294,11 +25818,11 @@ body.dark-mode .unified-modal-close {
 
 /* Modal Body */
 .unified-modal-body {
-    padding: 20px 24px;
+    padding: 16px 24px;
     flex: 1;
     overflow-y: auto;
     overflow-x: hidden;
-    max-height: calc(100vh - 200px);
+    max-height: calc(100vh - 180px);
 }
 
 .unified-modal-body::-webkit-scrollbar {
@@ -25451,13 +25975,13 @@ body.dark-mode .unified-modal-footer {
 .unified-form-grid {
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: 12px;
 }
 
 .unified-form-grid.two-col {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
-    gap: 16px;
+    gap: 12px;
 }
 
 .unified-form-field.full-width {
@@ -25467,7 +25991,7 @@ body.dark-mode .unified-modal-footer {
 .unified-form-field {
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 4px;
 }
 
 .unified-form-label {
@@ -29725,8 +30249,30 @@ body.dark-mode .date-chip-soon {
    Clean, modern inputs with borders and subtle shadows
    =================================== */
 
+/* Exception for custom color hex input - escape unified modal rules */
+#eventColorHex {
+    background: transparent !important;
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    font: 600 15px/1 -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', sans-serif !important;
+    letter-spacing: 0.4px !important;
+    text-transform: uppercase !important;
+    color: black !important;
+    width: auto !important;
+    height: auto !important;
+    outline: none !important;
+}
+
+#eventColorHex:focus {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+}
+
 /* Universal Modal Input Overrides */
-.unified-modal input[type="text"],
+.unified-modal input[type="text"]:not(#eventColorHex):not(#projectColorHex):not(#editProjectColorHex):not(#spreadsheetColorHex),
 .unified-modal input[type="email"],
 .unified-modal input[type="password"],
 .unified-modal input[type="number"],
@@ -31204,21 +31750,20 @@ button span + i,
     stroke: currentColor;
 }
 
-/* Project badges - compact for 2x2 grid */
+/* Project badges - super simple: icon + name */
 .project-badge {
     --project-color: #007aff;
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
     align-items: center;
-    justify-content: center;
-    gap: 4px;
-    padding: 8px 4px;
+    gap: 8px;
+    padding: 8px 12px;
     background: transparent;
     border: none;
-    border-radius: 8px;
+    border-radius: 10px;
     cursor: pointer;
     transition: background 0.15s ease;
-    text-align: center;
+    text-align: left;
     width: 100%;
     min-height: 0;
 }
@@ -31228,55 +31773,45 @@ button span + i,
 }
 
 .project-badge.active {
-    background: rgba(0, 122, 255, 0.08);
+    background: color-mix(in srgb, var(--project-color) 12%, transparent);
 }
 
 .project-badge-icon {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 28px;
-    height: 28px;
+    width: 24px;
+    height: 24px;
     flex-shrink: 0;
     border-radius: 6px;
-    background: rgba(0, 0, 0, 0.04);
+    background: color-mix(in srgb, var(--project-color) 15%, transparent);
     color: var(--project-color);
 }
 
 .project-badge-icon svg {
-    width: 14px;
-    height: 14px;
+    width: 12px;
+    height: 12px;
     stroke: currentColor;
 }
 
 .project-badge-name {
-    font-size: 11px;
+    font-size: 13px;
     font-weight: 500;
     color: var(--text-primary);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    max-width: 100%;
-    line-height: 1.2;
+    flex: 1;
+    min-width: 0;
 }
 
 .project-badge.active .project-badge-name {
-    color: #007aff;
+    color: var(--project-color);
+    font-weight: 600;
 }
 
 .project-badge-check {
-    width: 12px;
-    height: 12px;
-    stroke: #007aff;
-    flex-shrink: 0;
-    position: absolute;
-    top: 2px;
-    right: 2px;
-}
-
-/* Position relative for check mark */
-.project-badge {
-    position: relative;
+    display: none;
 }
 
 .project-badge.project-overflow {
@@ -31284,7 +31819,7 @@ button span + i,
 }
 
 .project-badge.project-overflow .project-badge-name {
-    font-size: 10px;
+    font-size: 11px;
     color: var(--text-muted);
 }
 
@@ -31292,9 +31827,9 @@ button span + i,
 .project-overflow-menu {
     position: absolute;
     z-index: 1000;
-    min-width: 200px;
-    max-width: 280px;
-    padding: 8px;
+    min-width: 180px;
+    max-width: 240px;
+    padding: 6px;
     background: #ffffff;
     border: 1px solid var(--border-subtle);
     border-radius: 12px;
@@ -31302,11 +31837,12 @@ button span + i,
 }
 
 .project-overflow-item {
+    --project-color: #007aff;
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
     width: 100%;
-    padding: 10px 12px;
+    padding: 8px 10px;
     background: transparent;
     border: none;
     border-radius: 8px;
@@ -31320,21 +31856,26 @@ button span + i,
 }
 
 .project-overflow-item.active {
-    background: rgba(0, 122, 255, 0.08);
+    background: color-mix(in srgb, var(--project-color) 12%, transparent);
 }
 
 .project-overflow-item .project-badge-icon {
-    width: 28px;
-    height: 28px;
+    width: 22px;
+    height: 22px;
 }
 
 .project-overflow-item .project-badge-icon svg {
-    width: 14px;
-    height: 14px;
+    width: 11px;
+    height: 11px;
+}
+
+.project-overflow-item .project-badge-name {
+    font-size: 13px;
 }
 
 .project-overflow-item.active .project-badge-name {
-    color: #007aff;
+    color: var(--project-color);
+    font-weight: 600;
 }
 
 /* ===================================
@@ -31535,58 +32076,52 @@ button span + i,
 
 /* Project Edit Button in Header - Modern Pill Style */
 .project-edit-btn {
-    background: rgba(0, 0, 0, 0.04);
-    border: 1.5px solid rgba(0, 0, 0, 0.08);
-    padding: 6px 12px;
+    background: transparent;
+    border: none;
+    padding: 6px 14px;
     border-radius: 999px;
+    cursor: pointer;
+    color: #666666;
+    transition: all 0.15s ease;
+    margin-left: 12px;
+    font-size: 13px;
+    font-weight: 500;
+    vertical-align: middle;
     display: inline-flex;
     align-items: center;
-    justify-content: center;
-    gap: 5px;
-    cursor: pointer;
-    color: #8e8e93;
-    transition: all 0.2s ease;
-    margin-left: 10px;
-    vertical-align: middle;
-    font-size: 11px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.3px;
+    gap: 6px;
 }
 
 .project-edit-btn i {
-    font-size: 10px;
-    color: #8e8e93;
+    font-size: 10px !important;
+    color: #666666 !important;
+    transition: color 0.15s ease;
 }
 
 .project-edit-btn:hover {
-    background: rgba(0, 0, 0, 0.08);
-    border-color: rgba(0, 0, 0, 0.15);
-    color: var(--text-main);
+    background: rgba(0, 0, 0, 0.06);
+    color: #333333;
 }
 
 .project-edit-btn:hover i {
-    color: var(--text-main);
+    color: #333333 !important;
 }
 
 body.dark-mode .project-edit-btn {
-    background: rgba(255, 255, 255, 0.06);
-    border-color: rgba(255, 255, 255, 0.1);
-    color: #8e8e93;
+    color: #999999;
 }
 
 body.dark-mode .project-edit-btn i {
-    color: #8e8e93;
+    color: #999999 !important;
 }
 
 body.dark-mode .project-edit-btn:hover {
-    background: rgba(255, 255, 255, 0.12);
-    border-color: rgba(255, 255, 255, 0.18);
+    background: rgba(255, 255, 255, 0.1);
     color: #ffffff;
 }
 
 body.dark-mode .project-edit-btn:hover i {
-    color: #ffffff;
+    color: #ffffff !important;
 }
 
 /* Project Title Icon with Color */
@@ -31666,6 +32201,8 @@ body.dark-mode .project-edit-btn:hover i {
     min-width: fit-content;
     padding: 8px 12px;
     font-size: 12px;
+    justify-content: center;
+    text-align: center;
 }
 
 .input-type-toggle .view-toggle-btn i {
@@ -31708,7 +32245,11 @@ body.dark-mode .project-edit-btn:hover i {
 }
 
 .dark-mode .project-badge.active {
-    background: rgba(0, 122, 255, 0.15);
+    background: color-mix(in srgb, var(--project-color) 20%, transparent);
+}
+
+.dark-mode .project-badge-icon {
+    background: color-mix(in srgb, var(--project-color) 20%, transparent);
 }
 
 .dark-mode .project-overflow-menu {
@@ -31765,4 +32306,358 @@ body.dark-mode .project-edit-btn:hover i {
     .project-modal-footer {
         padding: 14px 20px;
     }
+}
+
+/* Transaction Category Dropdowns */
+.transaction-category-dropdown {
+    position: relative;
+    width: 100%;
+}
+
+body.dark-mode .transaction-category-dropdown .custom-dropdown-trigger {
+    background: var(--bg-surface);
+    border-color: var(--border-subtle);
+}
+
+body.dark-mode .transaction-category-dropdown .custom-dropdown-menu {
+    background: #2c2c2e;
+    border-color: var(--border-medium);
+}
+
+/* ===================================
+   UNIFIED COLOR PICKER (Inline)
+   Pill container with hex input and recent colors
+   =================================== */
+
+/* Main inline container */
+.color-picker-inline {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 6px 12px 6px 0;
+    background: var(--bg-surface);
+    border: 2px solid var(--border-medium);
+    border-radius: 50px;
+    width: fit-content;
+    height: 48px;
+    box-sizing: border-box;
+}
+
+/* Inner pill with swatch and hex input */
+.color-picker-inner-pill {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0 10px;
+    background: none;
+    border: 2px solid var(--border-subtle);
+    border-radius: 50px;
+    position: relative;
+    height: 100%;
+    box-sizing: border-box;
+    min-height: 48px;
+}
+
+.color-picker-current-swatch {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+    cursor: pointer;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.color-picker-current-swatch:hover {
+    transform: scale(1.05);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+/* Hidden native color input positioned over swatch */
+.color-picker-native {
+    position: absolute;
+    left: 6px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 28px;
+    height: 28px;
+    opacity: 0;
+    cursor: pointer;
+    border: none;
+    padding: 0;
+}
+
+/* Recent colors row */
+.color-picker-recent {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.color-picker-recent-btn {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: 2px solid transparent;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+    padding: 0;
+}
+
+.color-picker-recent-btn:hover {
+    transform: scale(1.12);
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.2);
+}
+
+.color-picker-recent-btn:active {
+    transform: scale(1.05);
+}
+
+/* Dark Mode Adjustments */
+body.dark-mode .color-picker-inline {
+    background: var(--bg-surface);
+    border-color: var(--border-medium);
+}
+
+body.dark-mode .color-picker-inner-pill {
+    background: rgba(0, 0, 0, 0.2);
+    border-color: var(--border-medium);
+}
+
+body.dark-mode .color-picker-current-swatch {
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+body.dark-mode .color-picker-current-swatch:hover {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+body.dark-mode .color-picker-recent-btn {
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+body.dark-mode .color-picker-recent-btn:hover {
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.4);
+}
+
+/* Narrow variant - minimal inner pill width */
+.color-picker-inline.narrow {
+    width: 100%;
+    max-width: 100%;
+}
+
+.color-picker-inline.narrow .color-picker-inner-pill {
+    min-width: 88px;
+    padding: 0 8px;
+    gap: 6px;
+}
+
+/* Wide variant - larger inner pill width */
+.color-picker-inline.wide .color-picker-inner-pill {
+    min-width: 120px;
+    padding: 0 16px;
+}
+
+/* Preset-only variant - no hex input, just swatch + presets */
+.color-picker-inline.preset-only {
+    width: fit-content;
+}
+
+.color-picker-inline.preset-only .color-picker-inner-pill {
+    min-width: 40px;
+    padding: 0 10px;
+    gap: 0;
+}
+
+/* Mobile Responsive */
+@media (max-width: 480px) {
+    .color-picker-inline {
+        flex-wrap: wrap;
+        border-radius: 20px;
+        padding: 8px;
+        gap: 8px;
+        height: auto;
+    }
+    
+    .color-picker-inner-pill {
+        flex: 1;
+        min-width: 140px;
+        height: 40px;
+    }
+    
+    .color-picker-recent {
+        width: 100%;
+        justify-content: center;
+        padding-top: 4px;
+    }
+}
+
+
+/* ===================================
+   UNIFIED ICON PICKER (Inline)
+   Pill container with selected icon and icon options
+   =================================== */
+
+/* Main inline container - matches color picker design */
+.icon-picker-inline {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 6px 12px 6px 0;
+    background: var(--bg-surface);
+    border: 2px solid var(--border-medium);
+    border-radius: 50px;
+    width: 100%;
+    max-width: 100%;
+    height: 48px;
+    box-sizing: border-box;
+    overflow: hidden;
+}
+
+/* Inner pill with selected icon */
+.icon-picker-inner-pill {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 14px;
+    background: none;
+    border: 2px solid var(--border-subtle);
+    border-radius: 50px;
+    height: 100%;
+    box-sizing: border-box;
+    min-height: 48px;
+    min-width: 48px;
+}
+
+.icon-picker-selected {
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-main);
+}
+
+.icon-picker-selected svg {
+    width: 20px;
+    height: 20px;
+    stroke: currentColor;
+}
+
+.icon-picker-selected i {
+    font-size: 18px;
+}
+
+/* Icon options row */
+.icon-picker-options {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: nowrap;
+    max-width: 100%;
+    overflow: hidden;
+    flex: 1;
+    justify-content: space-between;
+}
+
+.icon-picker-option {
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    transition: color 0.15s ease, transform 0.15s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-secondary);
+    padding: 0;
+    width: auto;
+    height: auto;
+}
+
+.icon-picker-option svg {
+    width: 16px;
+    height: 16px;
+    stroke: currentColor;
+}
+
+.icon-picker-option i {
+    font-size: 18px;
+}
+
+.icon-picker-option:hover {
+    color: #007aff;
+    transform: scale(1.05);
+}
+
+.icon-picker-option.selected {
+    color: #007aff;
+}
+
+/* Dark Mode Adjustments */
+body.dark-mode .icon-picker-inline {
+    background: var(--bg-surface);
+    border-color: var(--border-medium);
+}
+
+body.dark-mode .icon-picker-inner-pill {
+    background: rgba(0, 0, 0, 0.2);
+    border-color: var(--border-medium);
+}
+
+body.dark-mode .icon-picker-option {
+    background: rgba(255, 255, 255, 0.06);
+}
+
+body.dark-mode .icon-picker-option:hover {
+    background: rgba(0, 122, 255, 0.15);
+}
+
+body.dark-mode .icon-picker-option.selected {
+    background: rgba(0, 122, 255, 0.2);
+}
+
+/* Mobile Responsive */
+@media (max-width: 480px) {
+    .icon-picker-inline {
+        flex-wrap: wrap;
+        border-radius: 20px;
+        padding: 8px;
+        gap: 8px;
+        height: auto;
+    }
+    
+    .icon-picker-inner-pill {
+        height: 40px;
+        min-height: 40px;
+    }
+    
+    .icon-picker-options {
+        width: 100%;
+        justify-content: center;
+        flex-wrap: wrap;
+    }
+}
+
+#projectColorHex,
+#editProjectColorHex {
+    background: transparent !important;
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    font: 600 15px/1 -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', sans-serif !important;
+    letter-spacing: 0.4px !important;
+    text-transform: uppercase !important;
+    color: black !important;
+    width: auto !important;
+    height: auto !important;
+    outline: none !important;
+}
+
+#projectColorHex:focus,
+#editProjectColorHex:focus {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
 }

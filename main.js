@@ -1427,6 +1427,11 @@ async function initializeFirebaseAuth() {
                 // Initialize team after authentication
                 await initializeUserTeam();
                 
+                // Update login streak for achievements
+                if (typeof updateLoginStreak === 'function') {
+                    updateLoginStreak();
+                }
+                
                 // After auth and team initialization, ensure we're on the right route
                 // If user is authenticated, they should see the app, not the homepage
                 if (currentRoute === 'home') {
@@ -2480,6 +2485,10 @@ function initChat() {
                 // RATE LIMITING: Update rate limit state after successful send
                 rateLimitState.lastMessageSent = Date.now();
                 rateLimitState.messageCount++;
+                
+                // Award XP for sending message
+                updateAchievementStat('messagesSent', 1);
+                awardXP(XP_CONFIG.messageSend, 'sending a message');
                 
             } catch (error) {
                 console.error('Message encryption failed:', error.code || error.message);
@@ -6956,6 +6965,15 @@ function initTasks() {
         const iconPicker = document.getElementById('iconPicker');
         const optionsList = document.getElementById('dropdownOptionsList');
         const colorRangesList = document.getElementById('sliderColorRanges');
+        const sliderGradientToggle = document.getElementById('sliderGradientToggle');
+        
+        // Ensure only one active button in input type toggle
+        if (typeSelector) {
+            const activeButtons = Array.from(typeSelector.querySelectorAll('.view-toggle-btn.active'));
+            activeButtons.forEach((btn, index) => {
+                if (index > 0) btn.classList.remove('active');
+            });
+        }
         
         console.log('🔧 addColumnBtn:', addColumnBtn);
         console.log('🔧 modal:', modal);
@@ -7206,6 +7224,7 @@ function initTasks() {
 
                 // Get slider config with color ranges if applicable
                 let sliderMin = 0, sliderMax = 100, colorRanges = [];
+                let useGradient = true;
                 if (selectedType === 'slider') {
                     sliderMin = parseInt(document.getElementById('sliderMin').value) || 0;
                     sliderMax = parseInt(document.getElementById('sliderMax').value) || 100;
@@ -7213,6 +7232,7 @@ function initTasks() {
                         showToast('Max must be greater than Min', 'warning');
                         return;
                     }
+                    useGradient = sliderGradientToggle ? sliderGradientToggle.checked : true;
                     
                     // Get color ranges
                     const rangeItems = colorRangesList.querySelectorAll('.color-range-item');
@@ -7251,6 +7271,7 @@ function initTasks() {
                                 settings.min = sliderMin;
                                 settings.max = sliderMax;
                                 settings.colorRanges = colorRanges;
+                                settings.useGradient = useGradient;
                             }
                         }
                         
@@ -7268,6 +7289,7 @@ function initTasks() {
                             customCol.min = selectedType === 'slider' ? sliderMin : null;
                             customCol.max = selectedType === 'slider' ? sliderMax : null;
                             customCol.colorRanges = selectedType === 'slider' ? colorRanges : null;
+                            customCol.useGradient = selectedType === 'slider' ? useGradient : null;
                         }
                     }
                     
@@ -7286,6 +7308,7 @@ function initTasks() {
                         min: selectedType === 'slider' ? sliderMin : null,
                         max: selectedType === 'slider' ? sliderMax : null,
                         colorRanges: selectedType === 'slider' ? colorRanges : null,
+                        useGradient: selectedType === 'slider' ? useGradient : null,
                         createdAt: Date.now()
                     };
 
@@ -7372,8 +7395,10 @@ function initTasks() {
             // Reset slider config
             const sliderMinInput = document.getElementById('sliderMin');
             const sliderMaxInput = document.getElementById('sliderMax');
+            const sliderGradientToggle = document.getElementById('sliderGradientToggle');
             if (sliderMinInput) sliderMinInput.value = '0';
             if (sliderMaxInput) sliderMaxInput.value = '100';
+            if (sliderGradientToggle) sliderGradientToggle.checked = true;
 
             // Reset icon picker - supports both old and new class names
             selectedIcon = 'fa-tag';
@@ -7462,6 +7487,11 @@ function initTasks() {
             
             editingColumnId = columnId;
             editingColumnIsBuiltIn = isBuiltIn;
+            
+            // Ensure only one active toggle at a time
+            if (typeSelector) {
+                typeSelector.querySelectorAll('.view-toggle-btn').forEach(btn => btn.classList.remove('active'));
+            }
             
             // Built-in column definitions with default options
             // Includes both Task columns and Lead columns
@@ -7586,8 +7616,10 @@ function initTasks() {
                     if (selectedType === 'slider') {
                         const sliderMinInput = document.getElementById('sliderMin');
                         const sliderMaxInput = document.getElementById('sliderMax');
+                        const sliderGradientToggle = document.getElementById('sliderGradientToggle');
                         if (sliderMinInput) sliderMinInput.value = customSettings.min || 0;
                         if (sliderMaxInput) sliderMaxInput.value = customSettings.max || 100;
+                        if (sliderGradientToggle) sliderGradientToggle.checked = customSettings.useGradient ?? true;
                         
                         if (colorRangesList) {
                             colorRangesList.innerHTML = '';
@@ -7649,8 +7681,10 @@ function initTasks() {
                 if (selectedType === 'slider') {
                     const sliderMinInput = document.getElementById('sliderMin');
                     const sliderMaxInput = document.getElementById('sliderMax');
+                    const sliderGradientToggle = document.getElementById('sliderGradientToggle');
                     if (sliderMinInput) sliderMinInput.value = customCol.min || 0;
                     if (sliderMaxInput) sliderMaxInput.value = customCol.max || 100;
+                    if (sliderGradientToggle) sliderGradientToggle.checked = customCol.useGradient ?? true;
                     
                     if (colorRangesList) {
                         colorRangesList.innerHTML = '';
@@ -8308,16 +8342,39 @@ function initTasks() {
     function initInlineProgressEditing(container) {
         container.querySelectorAll('.progress-cell-inline').forEach(cell => {
             const taskId = cell.dataset.taskId;
+            const columnId = cell.dataset.columnId;
             const slider = cell.querySelector('.progress-range-slider');
-            const text = cell.querySelector('.progress-text');
+            const text = cell.querySelector('.progress-text') || cell.querySelector('.custom-slider-badge');
             
             if (!slider || !taskId) return;
+            
+            // Skip custom column sliders (handled by initCustomColumnEditing)
+            if (columnId && columnId !== 'progress') return;
+            
+            const colorRanges = cell.dataset.colorRanges ? JSON.parse(cell.dataset.colorRanges) : [];
+            const hasColorRanges = Array.isArray(colorRanges) && colorRanges.length > 0;
+            const getColorForValue = (val) => {
+                for (const range of colorRanges) {
+                    if (val >= range.min && val <= range.max) return range.color;
+                }
+                return '#9CA3AF';
+            };
             
             // Update visual on input (while dragging)
             slider.addEventListener('input', (e) => {
                 const value = parseInt(e.target.value);
-                text.textContent = value + '%';
+                if (text) {
+                    text.textContent = columnId === 'progress' || text.classList.contains('progress-text') ? value + '%' : value;
+                }
                 slider.style.setProperty('--progress', value + '%');
+                
+                if (hasColorRanges) {
+                    const color = getColorForValue(value);
+                    slider.style.setProperty('--slider-color', color);
+                    if (text && text.classList.contains('custom-slider-badge')) {
+                        text.style.background = color;
+                    }
+                }
                 
                 if (value === 100) {
                     slider.classList.add('complete');
@@ -9241,6 +9298,25 @@ function initTasks() {
     // Render individual table cell
     // Updated for FULL inline editing support (all fields)
     function renderTableCell(task, column, spreadsheet) {
+        function buildSliderGradient(ranges, minVal, maxVal) {
+            if (!Array.isArray(ranges) || ranges.length === 0 || maxVal <= minVal) {
+                return '';
+            }
+            const sorted = [...ranges].sort((a, b) => (a.min || 0) - (b.min || 0));
+            const span = maxVal - minVal;
+            const stops = [];
+            for (let i = 0; i < sorted.length; i++) {
+                const range = sorted[i];
+                const next = sorted[i + 1];
+                const start = Math.max(0, Math.min(100, ((range.min - minVal) / span) * 100));
+                const end = Math.max(0, Math.min(100, ((range.max - minVal) / span) * 100));
+                const color = range.color || '#9CA3AF';
+                const nextColor = next?.color || color;
+                // Blend from current color to next color across this range
+                stops.push(`${color} ${start}%`, `${nextColor} ${end}%`);
+            }
+            return `linear-gradient(90deg, ${stops.join(', ')})`;
+        }
         // Check if this is a custom column
         if (column.startsWith('custom_')) {
             const customCol = (spreadsheet?.customColumns || []).find(cc => cc.id === column);
@@ -9281,6 +9357,7 @@ function initTasks() {
                     const min = customCol.min || 0;
                     const max = customCol.max || 100;
                     const pct = ((sliderValue - min) / (max - min)) * 100;
+                    const useGradient = customCol.useGradient ?? true;
                     
                     // Find color based on ranges
                     let sliderColor = '#9CA3AF'; // default grey
@@ -9292,10 +9369,13 @@ function initTasks() {
                             }
                         }
                     }
+                    const sliderGradient = useGradient
+                        ? buildSliderGradient(customCol.colorRanges || [], min, max)
+                        : `linear-gradient(90deg, ${sliderColor} 0%, ${sliderColor} 100%)`;
                     
                     return `<td class="cell-editable">
-                        <div class="custom-slider-cell" data-task-id="${task.id}" data-column-id="${column}" data-color-ranges='${JSON.stringify(customCol.colorRanges || [])}'>
-                            <input type="range" class="progress-range-slider custom-slider-input" min="${min}" max="${max}" value="${sliderValue}" style="--progress: ${pct}%; --slider-color: ${sliderColor}">
+                        <div class="progress-cell-inline custom-slider-cell" data-task-id="${task.id}" data-column-id="${column}" data-color-ranges='${JSON.stringify(customCol.colorRanges || [])}' data-use-gradient="${useGradient}">
+                            <input type="range" class="progress-range-slider custom-slider-input custom-slider-range" min="${min}" max="${max}" value="${sliderValue}" style="--progress: ${pct}%; --slider-color: ${sliderColor}; --slider-gradient: ${sliderGradient}">
                             <span class="custom-slider-badge" style="background: ${sliderColor}">${sliderValue}</span>
                         </div>
                     </td>`;
@@ -9462,6 +9542,7 @@ function initTasks() {
                     const pMin = progressSettings.min || 0;
                     const pMax = progressSettings.max || 100;
                     const pPct = ((progress - pMin) / (pMax - pMin)) * 100;
+                    const useGradient = progressSettings.useGradient ?? true;
                     
                     // Find color based on ranges
                     let progressColor = '#9CA3AF';
@@ -9471,10 +9552,13 @@ function initTasks() {
                             break;
                         }
                     }
+                    const progressGradient = useGradient
+                        ? buildSliderGradient(progressSettings.colorRanges || [], pMin, pMax)
+                        : `linear-gradient(90deg, ${progressColor} 0%, ${progressColor} 100%)`;
                     
                     return `<td class="cell-editable">
-                        <div class="custom-slider-cell" data-task-id="${task.id}" data-column-id="progress" data-color-ranges='${JSON.stringify(progressSettings.colorRanges)}'>
-                            <input type="range" class="progress-range-slider custom-slider-input" min="${pMin}" max="${pMax}" value="${progress}" style="--progress: ${pPct}%; --slider-color: ${progressColor}">
+                        <div class="progress-cell-inline custom-slider-cell" data-task-id="${task.id}" data-column-id="progress" data-color-ranges='${JSON.stringify(progressSettings.colorRanges)}' data-use-gradient="${useGradient}">
+                            <input type="range" class="progress-range-slider custom-slider-input custom-slider-range" min="${pMin}" max="${pMax}" value="${progress}" style="--progress: ${pPct}%; --slider-color: ${progressColor}; --slider-gradient: ${progressGradient}">
                             <span class="custom-slider-badge" style="background: ${progressColor}">${progress}%</span>
                         </div>
                     </td>`;
@@ -10007,15 +10091,22 @@ function initTasks() {
                                     <label class="unified-form-label">
                                         <i class="fas fa-icons"></i> Icon
                                     </label>
-                                    <div class="unified-icon-grid" id="iconSelectGrid">
-                                        <button type="button" class="unified-icon-option selected" data-icon="fa-table"><i class="fas fa-table"></i></button>
-                                        <button type="button" class="unified-icon-option" data-icon="fa-list-check"><i class="fas fa-list-check"></i></button>
-                                        <button type="button" class="unified-icon-option" data-icon="fa-clipboard-list"><i class="fas fa-clipboard-list"></i></button>
-                                        <button type="button" class="unified-icon-option" data-icon="fa-folder"><i class="fas fa-folder"></i></button>
-                                        <button type="button" class="unified-icon-option" data-icon="fa-calendar"><i class="fas fa-calendar"></i></button>
-                                        <button type="button" class="unified-icon-option" data-icon="fa-star"><i class="fas fa-star"></i></button>
-                                        <button type="button" class="unified-icon-option" data-icon="fa-briefcase"><i class="fas fa-briefcase"></i></button>
-                                        <button type="button" class="unified-icon-option" data-icon="fa-bolt"><i class="fas fa-bolt"></i></button>
+                                    <div class="icon-picker-inline narrow" id="iconSelectGrid">
+                                        <div class="icon-picker-inner-pill">
+                                            <span class="icon-picker-selected" id="spreadsheetIconSelected"><i class="fas fa-table"></i></span>
+                                        </div>
+                                        <div class="icon-picker-options">
+                                            <button type="button" class="icon-picker-option selected" data-icon="fa-table"><i class="fas fa-table"></i></button>
+                                            <button type="button" class="icon-picker-option" data-icon="fa-list-check"><i class="fas fa-list-check"></i></button>
+                                            <button type="button" class="icon-picker-option" data-icon="fa-clipboard-list"><i class="fas fa-clipboard-list"></i></button>
+                                            <button type="button" class="icon-picker-option" data-icon="fa-folder"><i class="fas fa-folder"></i></button>
+                                            <button type="button" class="icon-picker-option" data-icon="fa-calendar"><i class="fas fa-calendar"></i></button>
+                                            <button type="button" class="icon-picker-option" data-icon="fa-star"><i class="fas fa-star"></i></button>
+                                            <button type="button" class="icon-picker-option" data-icon="fa-briefcase"><i class="fas fa-briefcase"></i></button>
+                                            <button type="button" class="icon-picker-option" data-icon="fa-bolt"><i class="fas fa-bolt"></i></button>
+                                            <button type="button" class="icon-picker-option" data-icon="fa-rocket"><i class="fas fa-rocket"></i></button>
+                                            <button type="button" class="icon-picker-option" data-icon="fa-heart"><i class="fas fa-heart"></i></button>
+                                        </div>
                                     </div>
                                     <input type="hidden" id="spreadsheetIcon" value="fa-table">
                                 </div>
@@ -10025,15 +10116,21 @@ function initTasks() {
                                     <label class="unified-form-label">
                                         <i class="fas fa-palette"></i> Color
                                     </label>
-                                    <div class="unified-color-grid" id="colorSelectGrid">
-                                        <button type="button" class="unified-color-option" data-color="#ff3b30" style="background: #ff3b30;"></button>
-                                        <button type="button" class="unified-color-option" data-color="#ff9500" style="background: #ff9500;"></button>
-                                        <button type="button" class="unified-color-option" data-color="#ff2d55" style="background: #ff2d55;"></button>
-                                        <button type="button" class="unified-color-option" data-color="#af52de" style="background: #af52de;"></button>
-                                        <button type="button" class="unified-color-option" data-color="#5856d6" style="background: #5856d6;"></button>
-                                        <button type="button" class="unified-color-option selected" data-color="#0070f3" style="background: #0070f3;"></button>
-                                        <button type="button" class="unified-color-option" data-color="#00c7be" style="background: #00c7be;"></button>
-                                        <button type="button" class="unified-color-option" data-color="#34c759" style="background: #34c759;"></button>
+                                    <div class="color-picker-inline narrow" id="colorSelectGrid">
+                                        <div class="color-picker-inner-pill">
+                                            <div class="color-picker-current-swatch" id="spreadsheetColorSwatch" style="background: #0070f3;"></div>
+                                            <input type="text" id="spreadsheetColorHex" value="#0070f3" maxlength="7" spellcheck="false" autocomplete="off" inputmode="text" aria-label="Hex color" style="color:#ff2d9f;background:transparent;border:0;outline:0;box-shadow:none;padding:0;margin:0;font:600 15px/1 -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', sans-serif;letter-spacing:0.4px;text-transform:uppercase;">
+                                        </div>
+                                        <div class="color-picker-recent" id="spreadsheetColorOptions">
+                                            <button type="button" class="color-picker-recent-btn" data-color="#FF3B30" style="background: #FF3B30;"></button>
+                                            <button type="button" class="color-picker-recent-btn" data-color="#FF9500" style="background: #FF9500;"></button>
+                                            <button type="button" class="color-picker-recent-btn" data-color="#FFCC00" style="background: #FFCC00;"></button>
+                                            <button type="button" class="color-picker-recent-btn" data-color="#34C759" style="background: #34C759;"></button>
+                                            <button type="button" class="color-picker-recent-btn" data-color="#00C7BE" style="background: #00C7BE;"></button>
+                                            <button type="button" class="color-picker-recent-btn" data-color="#0070F3" style="background: #0070F3;"></button>
+                                            <button type="button" class="color-picker-recent-btn" data-color="#5856D6" style="background: #5856D6;"></button>
+                                            <button type="button" class="color-picker-recent-btn" data-color="#AF52DE" style="background: #AF52DE;"></button>
+                                        </div>
                                     </div>
                                     <input type="hidden" id="spreadsheetColor" value="#0070f3">
                                 </div>
@@ -10087,18 +10184,37 @@ function initTasks() {
             });
         }
 
-        // Handle color selection
+        // Handle color selection (inline color picker)
         const colorGrid = document.getElementById('colorSelectGrid');
         const colorInput = document.getElementById('spreadsheetColor');
-        if (colorGrid && colorInput) {
+        const colorSwatch = document.getElementById('spreadsheetColorSwatch');
+        const colorHexInput = document.getElementById('spreadsheetColorHex');
+        if (colorGrid && colorInput && colorSwatch) {
             colorGrid.addEventListener('click', (e) => {
-                const btn = e.target.closest('.unified-color-option');
+                const btn = e.target.closest('.color-picker-recent-btn');
                 if (btn) {
-                    colorGrid.querySelectorAll('.unified-color-option').forEach(b => b.classList.remove('selected'));
+                    colorGrid.querySelectorAll('.color-picker-recent-btn').forEach(b => b.classList.remove('selected'));
                     btn.classList.add('selected');
                     colorInput.value = btn.dataset.color;
+                    colorSwatch.style.background = btn.dataset.color;
+                    if (colorHexInput) colorHexInput.value = btn.dataset.color.toUpperCase();
                 }
             });
+            
+            // Handle hex input
+            if (colorHexInput) {
+                colorHexInput.addEventListener('input', () => {
+                    const normalized = normalizeHexInput(colorHexInput.value);
+                    colorHexInput.value = normalized;
+                    if (normalized.length === 7) {
+                        colorInput.value = normalized;
+                        colorSwatch.style.background = normalized;
+                        colorGrid.querySelectorAll('.color-picker-recent-btn').forEach(b => {
+                            b.classList.toggle('selected', b.dataset.color.toUpperCase() === normalized.toUpperCase());
+                        });
+                    }
+                });
+            }
         }
 
         // Handle type selection
@@ -10211,6 +10327,11 @@ function initTasks() {
                 // leads_ prefix allows type detection even if type field is lost
                 const idPrefix = type === 'leads' ? 'leads_' : 'tasks_';
                 const uniqueId = idPrefix + Date.now().toString();
+                
+                // Get pending project ID if set from the + button in project view
+                const modal = document.getElementById('spreadsheetModal');
+                const pendingProjectId = modal?.dataset.pendingProjectId || null;
+                console.log('📎 Creating spreadsheet with pendingProjectId:', pendingProjectId);
 
                 const newSpreadsheet = {
                     id: uniqueId,
@@ -10222,7 +10343,8 @@ function initTasks() {
                     visibility: visibility,
                     createdBy: currentAuthUser?.uid || null,
                     columns: [...preset.columns],
-                    columnSettings: JSON.parse(JSON.stringify(preset.columnSettings))
+                    columnSettings: JSON.parse(JSON.stringify(preset.columnSettings)),
+                    projectId: pendingProjectId || null
                     // Don't set createdAt here - let saveSpreadsheetToFirestore handle it with serverTimestamp()
                 };
 
@@ -10235,17 +10357,25 @@ function initTasks() {
                 
                 // Reset form and selections
                 form.reset();
-                iconGrid.querySelectorAll('.unified-icon-option').forEach((b, i) => b.classList.toggle('selected', i === 0));
-                colorGrid.querySelectorAll('.unified-color-option').forEach((b, i) => b.classList.toggle('selected', i === 0));
+                iconGrid.querySelectorAll('.icon-picker-option').forEach((b, i) => b.classList.toggle('selected', i === 0));
+                colorGrid.querySelectorAll('.color-picker-recent-btn').forEach((b, i) => b.classList.toggle('selected', i === 0));
                 typeSelectRow.querySelectorAll('.unified-segmented-option').forEach((b, i) => b.classList.toggle('active', i === 0));
-                visibilityOptions.forEach((o, i) => o.classList.toggle('selected', i === 0));
+                document.querySelectorAll('#spreadsheetModal .visibility-toggle').forEach((o, i) => o.classList.toggle('selected', i === 0));
                 document.getElementById('spreadsheetIcon').value = 'fa-table';
                 document.getElementById('spreadsheetColor').value = '#0070f3';
                 document.getElementById('spreadsheetType').value = 'tasks';
                 
+                // Clear pending project ID
+                const spreadsheetModal = document.getElementById('spreadsheetModal');
+                if (spreadsheetModal) delete spreadsheetModal.dataset.pendingProjectId;
+                
                 closeModal('spreadsheetModal');
                 
                 showToast(`Spreadsheet "${name}" created!`, 'success');
+                
+                // Award XP and update stats
+                updateAchievementStat('sheetsCreated', 1);
+                awardXP(XP_CONFIG.sheetCreate, 'creating a spreadsheet');
                 
                 // Log activity for sheet creation
                 addActivity({
@@ -10833,7 +10963,7 @@ function initTasks() {
                 projectTitle.innerHTML = `
                     <span class="project-title-icon" style="--project-color: ${activeProject.color || '#6366f1'}">${iconSVG}</span>
                     <span class="project-title-text">${escapeHtml(activeProject.name)}</span>
-                    <button class="project-edit-btn" onclick="openEditProjectModal('${activeProject.id}')" title="Edit project">
+                    <button class="project-edit-btn" onclick="openEditProjectModal('${activeProject.id}')" title="Edit project" aria-label="Edit project">
                         <i class="fas fa-pen"></i>
                         <span>Edit</span>
                     </button>
@@ -10855,11 +10985,11 @@ function initTasks() {
                 backBtn.dataset.bound = 'true';
             }
             
-            // Bind add button - show choice modal
+            // Bind add button - show choice modal with current project
             const addBtn = document.getElementById('projectAddBtn');
             if (addBtn && !addBtn.dataset.bound) {
                 addBtn.addEventListener('click', () => {
-                    openCreateWorkspaceItemModal();
+                    openCreateWorkspaceItemModal(appState.activeProjectId);
                 });
                 addBtn.dataset.bound = 'true';
             }
@@ -11057,9 +11187,12 @@ function initTasks() {
     }
 
     // Unified create modal for sheets/docs
-    function openCreateWorkspaceItemModal() {
+    function openCreateWorkspaceItemModal(projectId = null) {
         const existing = document.getElementById('createWorkspaceItemModal');
         if (existing) existing.remove();
+        
+        // Store the project ID for the modal options to use
+        window._pendingProjectId = projectId;
 
         const modalHTML = `
             <div class="unified-modal active" id="createWorkspaceItemModal">
@@ -11074,14 +11207,14 @@ function initTasks() {
                         </button>
                     </div>
                     <div class="unified-modal-body create-item-body">
-                        <button class="create-item-option" onclick="closeCreateWorkspaceItemModal(); openModal('spreadsheetModal');">
+                        <button class="create-item-option" onclick="closeCreateWorkspaceItemModal(false); openSpreadsheetModalWithProject();">
                             <span class="create-item-icon" aria-hidden="true"><i class="fas fa-table-cells"></i></span>
                             <div class="create-item-text">
                                 <span class="create-item-title">Sheet</span>
                                 <span class="create-item-subtitle">Track tasks, leads, or data</span>
                             </div>
                         </button>
-                        <button class="create-item-option" onclick="closeCreateWorkspaceItemModal(); openCreateDocModal();">
+                        <button class="create-item-option" onclick="closeCreateWorkspaceItemModal(false); openDocModalWithProject();">
                             <span class="create-item-icon" aria-hidden="true"><i class="fas fa-file-lines"></i></span>
                             <div class="create-item-text">
                                 <span class="create-item-title">Doc</span>
@@ -11095,10 +11228,42 @@ function initTasks() {
 
         document.body.insertAdjacentHTML('beforeend', modalHTML);
     }
+    
+    // Open spreadsheet modal with pending project ID
+    window.openSpreadsheetModalWithProject = function() {
+        const projectId = window._pendingProjectId;
+        window._pendingProjectId = null;
+        
+        // Make sure the modal exists (initSpreadsheetModal creates it)
+        if (!document.getElementById('spreadsheetModal')) {
+            initSpreadsheetModal();
+        }
+        
+        // Store project ID for the form submission
+        const spreadsheetModal = document.getElementById('spreadsheetModal');
+        if (spreadsheetModal && projectId) {
+            spreadsheetModal.dataset.pendingProjectId = projectId;
+            console.log('📎 Stored pendingProjectId on spreadsheet modal:', projectId);
+        }
+        
+        openModal('spreadsheetModal');
+    };
+    
+    // Open doc modal with pending project ID
+    window.openDocModalWithProject = function() {
+        const projectId = window._pendingProjectId;
+        window._pendingProjectId = null;
+        
+        // Store project ID for the form submission
+        openCreateDocModal(projectId);
+    };
 
-    window.closeCreateWorkspaceItemModal = function() {
+    window.closeCreateWorkspaceItemModal = function(clearPendingProject = true) {
         const modal = document.getElementById('createWorkspaceItemModal');
         if (modal) modal.remove();
+        if (clearPendingProject) {
+            window._pendingProjectId = null;
+        }
     };
     
     /**
@@ -11860,8 +12025,12 @@ function initTasks() {
     
     /**
      * Open Create Doc modal
+     * @param {string|null} projectId - Optional project ID to link the doc to
      */
-    function openCreateDocModal() {
+    function openCreateDocModal(projectId = null) {
+        // Store project ID for doc creation
+        window._pendingDocProjectId = projectId;
+        
         // Modern minimal create doc modal
         const modalHTML = `
             <div class="unified-modal active" id="createDocModal" style="display: flex;">
@@ -11910,6 +12079,7 @@ function initTasks() {
     window.closeCreateDocModal = function() {
         const modal = document.getElementById('createDocModal');
         if (modal) modal.remove();
+        window._pendingDocProjectId = null;
     };
     
     window.createNewDoc = async function() {
@@ -11934,6 +12104,10 @@ function initTasks() {
             
             const docsRef = collection(db, 'teams', appState.currentTeamId, 'docs');
             
+            // Get pending project ID if set
+            const pendingProjectId = window._pendingDocProjectId || null;
+            window._pendingDocProjectId = null;
+            
             const docData = {
                 title: title,
                 contentHtml: '<p></p>',
@@ -11943,7 +12117,8 @@ function initTasks() {
                 createdBy: currentAuthUser.uid,
                 createdAt: serverTimestamp(),
                 updatedAt: serverTimestamp(),
-                updatedBy: currentAuthUser.uid
+                updatedBy: currentAuthUser.uid,
+                projectId: pendingProjectId
             };
             
             const docRef = await addDoc(docsRef, docData);
@@ -11954,6 +12129,10 @@ function initTasks() {
             
             closeCreateDocModal();
             showToast('Document created', 'success');
+            
+            // Award XP and update stats
+            updateAchievementStat('docsCreated', 1);
+            awardXP(XP_CONFIG.docCreate, 'creating a document');
             
             // Log activity for doc creation
             addActivity({
@@ -14229,7 +14408,6 @@ function initTasks() {
                              style="--project-color: ${accent};">
                             <span class="project-badge-icon">${iconSVG}</span>
                             <span class="project-badge-name">${escapeHtml(project.name)}</span>
-                            ${project.id === appState.activeProjectId ? '<svg class="project-badge-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>' : ''}
                         </button>
                     `;
                 });
@@ -14345,17 +14523,55 @@ function initTasks() {
      */
     const PROJECT_COLOR_PALETTE = ['#ef4444', '#f59e0b', '#22c55e', '#14b8a6', '#0ea5e9', '#6d5dfc', '#a855f7', '#475569'];
 
-    // SVG icon definitions for projects (monochromatic, clean design)
+    function normalizeHexInput(value) {
+        const cleaned = value.replace(/[^0-9a-fA-F]/g, '').slice(0, 6);
+        if (!cleaned.length) return '';
+        return '#' + cleaned.toUpperCase();
+    }
+
+    /**
+     * Intelligently limit color buttons based on picker width
+     * Returns only colors that fit in the available space
+     */
+    function limitColorsByWidth(pickerElement, allColors) {
+        if (!pickerElement) return allColors;
+        
+        const pickerRect = pickerElement.getBoundingClientRect();
+        const innerPill = pickerElement.querySelector('.color-picker-inner-pill');
+        const recentContainer = pickerElement.querySelector('.color-picker-recent');
+        
+        if (!innerPill || !recentContainer) return allColors;
+        if (pickerRect.width <= 0) return allColors;
+        
+        // Calculate available width for color buttons
+        const innerPillWidth = innerPill.getBoundingClientRect().width;
+        const pickerStyles = window.getComputedStyle(pickerElement);
+        const pickerGap = parseFloat(pickerStyles.columnGap || pickerStyles.gap || 0) || 0;
+        const paddingLeft = parseFloat(pickerStyles.paddingLeft || 0) || 0;
+        const paddingRight = parseFloat(pickerStyles.paddingRight || 0) || 0;
+        const availableWidth = pickerRect.width - innerPillWidth - pickerGap - paddingLeft - paddingRight;
+
+        const firstBtn = recentContainer.querySelector('.color-picker-recent-btn');
+        const buttonSize = firstBtn ? firstBtn.getBoundingClientRect().width : 28;
+        const recentStyles = window.getComputedStyle(recentContainer);
+        const gap = parseFloat(recentStyles.columnGap || recentStyles.gap || 0) || 0;
+        
+        // Calculate how many buttons can fit
+        const maxButtons = Math.max(1, Math.floor((availableWidth + gap) / (buttonSize + gap)));
+        
+        // Return limited colors
+        return allColors.slice(0, Math.min(maxButtons, allColors.length));
+    }
+
+    // SVG icon definitions for projects (monochromatic, clean design) - 10 icons max
     const PROJECT_ICONS = {
         folder: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 7.5V18a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6.586a1 1 0 01-.707-.293l-1.414-1.414A1 1 0 009.586 5H5a2 2 0 00-2 2.5z"/></svg>',
         briefcase: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 012-2h4a2 2 0 012 2v2"/><line x1="12" y1="12" x2="12" y2="12.01"/></svg>',
-        target: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>',
         rocket: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 00-2.91-.09z"/><path d="M12 15l-3-3a22 22 0 012-3.95A12.88 12.88 0 0122 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 01-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/></svg>',
         globe: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg>',
         chart: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>',
         lightbulb: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0018 8 6 6 0 006 8c0 1 .23 2.23 1.5 3.5A4.61 4.61 0 018.91 14"/></svg>',
         star: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>',
-        cube: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>',
         users: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>',
         code: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>',
         heart: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg>'
@@ -14365,21 +14581,25 @@ function initTasks() {
         const existingModal = document.getElementById('createProjectModal');
         if (existingModal) return;
         
-        // Build icon grid HTML
-        let iconGridHTML = '';
+        // Build icon picker options HTML (new unified inline style)
+        let iconOptionsHTML = '';
         Object.entries(PROJECT_ICONS).forEach(([key, svg], index) => {
             const isSelected = index === 0 ? 'selected' : '';
-            iconGridHTML += `
-                <button type="button" class="project-icon-option ${isSelected}" data-icon="${key}" onclick="setProjectIcon('${key}')">
+            iconOptionsHTML += `
+                <button type="button" class="icon-picker-option ${isSelected}" data-icon="${key}" onclick="setProjectIcon('${key}')" title="${key}">
                     ${svg}
                 </button>
             `;
         });
+        
+        // Get first icon for selected display
+        const firstIconKey = Object.keys(PROJECT_ICONS)[0];
+        const firstIconSVG = PROJECT_ICONS[firstIconKey];
 
-        // Build color grid HTML
-        const colorGridHTML = PROJECT_COLOR_PALETTE.map((color, index) => {
+        // Build color picker options HTML (inline pill)
+        const colorOptionsHTML = PROJECT_COLOR_PALETTE.map((color, index) => {
             const isSelected = index === 0 ? 'selected' : '';
-            return `<button type="button" class="project-color-swatch ${isSelected}" data-color="${color}" style="--swatch-color: ${color};" onclick="setProjectColor('${color}')"></button>`;
+            return `<button type="button" class="color-picker-recent-btn ${isSelected}" data-color="${color}" style="background: ${color};" onclick="setProjectColor('${color}')"></button>`;
         }).join('');
 
         const modalHTML = `
@@ -14406,16 +14626,27 @@ function initTasks() {
                         <div class="project-form-group">
                             <label class="project-form-label">Icon</label>
                             <input type="hidden" id="projectIconInput" value="folder">
-                            <div class="project-icon-grid">
-                                ${iconGridHTML}
+                            <div class="icon-picker-inline" id="projectIconPicker">
+                                <div class="icon-picker-inner-pill">
+                                    <span class="icon-picker-selected" id="projectIconSelected">${firstIconSVG}</span>
+                                </div>
+                                <div class="icon-picker-options">
+                                    ${iconOptionsHTML}
+                                </div>
                             </div>
                         </div>
 
                         <div class="project-form-group">
                             <label class="project-form-label">Color</label>
                             <input type="hidden" id="projectColorInput" value="${PROJECT_COLOR_PALETTE[0]}">
-                            <div class="project-color-grid">
-                                ${colorGridHTML}
+                            <div class="color-picker-inline narrow" id="projectColorPicker">
+                                <div class="color-picker-inner-pill">
+                                    <div class="color-picker-current-swatch" id="projectColorSwatch" style="background: ${PROJECT_COLOR_PALETTE[0]};"></div>
+                                    <input type="text" id="projectColorHex" value="${PROJECT_COLOR_PALETTE[0]}" maxlength="7" spellcheck="false" autocomplete="off" inputmode="text" aria-label="Hex color" style="color:#ff2d9f;background:transparent;border:0;outline:0;box-shadow:none;padding:0;margin:0;font:600 15px/1 -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', sans-serif;letter-spacing:0.4px;text-transform:uppercase;">
+                                </div>
+                                <div class="color-picker-recent">
+                                    ${colorOptionsHTML}
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -14428,6 +14659,33 @@ function initTasks() {
         `;
         
         document.body.insertAdjacentHTML('beforeend', modalHTML);
+
+        // Wire up hex input for project color
+        const projectHexInput = document.getElementById('projectColorHex');
+        if (projectHexInput) {
+            projectHexInput.addEventListener('input', () => {
+                const normalized = normalizeHexInput(projectHexInput.value);
+                if (normalized.length === 7) {
+                    setProjectColor(normalized);
+                }
+                projectHexInput.value = normalized;
+            });
+        }
+
+        // Apply color limiting based on available width
+        setTimeout(() => {
+            const picker = document.getElementById('projectColorPicker');
+            if (picker) {
+                const limitedColors = limitColorsByWidth(picker, PROJECT_COLOR_PALETTE);
+                const recentContainer = picker.querySelector('.color-picker-recent');
+                if (recentContainer) {
+                    const buttons = recentContainer.querySelectorAll('.color-picker-recent-btn');
+                    buttons.forEach((btn, idx) => {
+                        btn.style.display = idx < limitedColors.length ? '' : 'none';
+                    });
+                }
+            }
+        }, 0);
     }
 
     /**
@@ -14443,22 +14701,32 @@ function initTasks() {
      */
     function setProjectIcon(iconKey) {
         const input = document.getElementById('projectIconInput');
-        const options = document.querySelectorAll('.project-icon-option');
+        const options = document.querySelectorAll('#projectIconPicker .icon-picker-option');
+        const selectedDisplay = document.getElementById('projectIconSelected');
         
         if (input) input.value = iconKey;
         
-        // Update selected state
+        // Update selected state on options
         options.forEach(opt => {
             opt.classList.toggle('selected', opt.dataset.icon === iconKey);
         });
+        
+        // Update the selected icon display in inner pill
+        if (selectedDisplay && PROJECT_ICONS[iconKey]) {
+            selectedDisplay.innerHTML = PROJECT_ICONS[iconKey];
+        }
     }
 
     function setProjectColor(color) {
         const input = document.getElementById('projectColorInput');
+        const swatch = document.getElementById('projectColorSwatch');
+        const hexInput = document.getElementById('projectColorHex');
         if (input) input.value = color;
+        if (swatch) swatch.style.background = color;
+        if (hexInput) hexInput.value = color.toUpperCase();
 
-        document.querySelectorAll('.project-color-swatch').forEach(swatch => {
-            swatch.classList.toggle('selected', swatch.dataset.color === color);
+        document.querySelectorAll('#projectColorPicker .color-picker-recent-btn').forEach(btn => {
+            btn.classList.toggle('selected', btn.dataset.color === color);
         });
     }
 
@@ -14476,21 +14744,24 @@ function initTasks() {
         const existingModal = document.getElementById('editProjectModal');
         if (existingModal) existingModal.remove();
 
-        // Build icon grid HTML
-        let iconGridHTML = '';
+        // Build icon picker options HTML (new unified inline style)
+        let iconOptionsHTML = '';
         Object.entries(PROJECT_ICONS).forEach(([key, svg]) => {
             const isSelected = key === project.icon ? 'selected' : '';
-            iconGridHTML += `
-                <button type="button" class="project-icon-option ${isSelected}" data-icon="${key}" onclick="setEditProjectIcon('${key}')">
+            iconOptionsHTML += `
+                <button type="button" class="icon-picker-option ${isSelected}" data-icon="${key}" onclick="setEditProjectIcon('${key}')" title="${key}">
                     ${svg}
                 </button>
             `;
         });
+        
+        // Get current icon for selected display
+        const currentIconSVG = PROJECT_ICONS[project.icon] || PROJECT_ICONS['folder'];
 
-        // Build color grid HTML
-        const colorGridHTML = PROJECT_COLOR_PALETTE.map((color) => {
+        // Build color picker options HTML (inline pill)
+        const colorOptionsHTML = PROJECT_COLOR_PALETTE.map((color) => {
             const isSelected = color === project.color ? 'selected' : '';
-            return `<button type="button" class="project-color-swatch ${isSelected}" data-color="${color}" style="--swatch-color: ${color};" onclick="setEditProjectColor('${color}')"></button>`;
+            return `<button type="button" class="color-picker-recent-btn ${isSelected}" data-color="${color}" style="background: ${color};" onclick="setEditProjectColor('${color}')"></button>`;
         }).join('');
 
         const modalHTML = `
@@ -14518,16 +14789,27 @@ function initTasks() {
                         <div class="project-form-group">
                             <label class="project-form-label">Icon</label>
                             <input type="hidden" id="editProjectIconInput" value="${project.icon || 'folder'}">
-                            <div class="project-icon-grid">
-                                ${iconGridHTML}
+                            <div class="icon-picker-inline" id="editProjectIconPicker">
+                                <div class="icon-picker-inner-pill">
+                                    <span class="icon-picker-selected" id="editProjectIconSelected">${currentIconSVG}</span>
+                                </div>
+                                <div class="icon-picker-options">
+                                    ${iconOptionsHTML}
+                                </div>
                             </div>
                         </div>
 
                         <div class="project-form-group">
                             <label class="project-form-label">Color</label>
                             <input type="hidden" id="editProjectColorInput" value="${project.color || PROJECT_COLOR_PALETTE[0]}">
-                            <div class="project-color-grid">
-                                ${colorGridHTML}
+                            <div class="color-picker-inline narrow" id="editProjectColorPicker">
+                                <div class="color-picker-inner-pill">
+                                    <div class="color-picker-current-swatch" id="editProjectColorSwatch" style="background: ${project.color || PROJECT_COLOR_PALETTE[0]};"></div>
+                                    <input type="text" id="editProjectColorHex" value="${project.color || PROJECT_COLOR_PALETTE[0]}" maxlength="7" spellcheck="false" autocomplete="off" inputmode="text" aria-label="Hex color" style="color:#ff2d9f;background:transparent;border:0;outline:0;box-shadow:none;padding:0;margin:0;font:600 15px/1 -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', sans-serif;letter-spacing:0.4px;text-transform:uppercase;">
+                                </div>
+                                <div class="color-picker-recent">
+                                    ${colorOptionsHTML}
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -14549,6 +14831,33 @@ function initTasks() {
         setTimeout(() => {
             document.getElementById('editProjectNameInput')?.focus();
         }, 100);
+
+        // Wire up hex input for edit project color
+        const editHexInput = document.getElementById('editProjectColorHex');
+        if (editHexInput) {
+            editHexInput.addEventListener('input', () => {
+                const normalized = normalizeHexInput(editHexInput.value);
+                if (normalized.length === 7) {
+                    setEditProjectColor(normalized);
+                }
+                editHexInput.value = normalized;
+            });
+        }
+
+        // Apply color limiting based on available width
+        setTimeout(() => {
+            const picker = document.getElementById('editProjectColorPicker');
+            if (picker) {
+                const limitedColors = limitColorsByWidth(picker, PROJECT_COLOR_PALETTE);
+                const recentContainer = picker.querySelector('.color-picker-recent');
+                if (recentContainer) {
+                    const buttons = recentContainer.querySelectorAll('.color-picker-recent-btn');
+                    buttons.forEach((btn, idx) => {
+                        btn.style.display = idx < limitedColors.length ? '' : 'none';
+                    });
+                }
+            }
+        }, 0);
     }
 
     function closeEditProjectModal() {
@@ -14558,19 +14867,31 @@ function initTasks() {
 
     function setEditProjectIcon(iconKey) {
         const input = document.getElementById('editProjectIconInput');
+        const selectedDisplay = document.getElementById('editProjectIconSelected');
+        
         if (input) input.value = iconKey;
         
-        document.querySelectorAll('#editProjectModal .project-icon-option').forEach(opt => {
+        // Update selected state on options
+        document.querySelectorAll('#editProjectIconPicker .icon-picker-option').forEach(opt => {
             opt.classList.toggle('selected', opt.dataset.icon === iconKey);
         });
+        
+        // Update the selected icon display in inner pill
+        if (selectedDisplay && PROJECT_ICONS[iconKey]) {
+            selectedDisplay.innerHTML = PROJECT_ICONS[iconKey];
+        }
     }
 
     function setEditProjectColor(color) {
         const input = document.getElementById('editProjectColorInput');
+        const swatch = document.getElementById('editProjectColorSwatch');
+        const hexInput = document.getElementById('editProjectColorHex');
         if (input) input.value = color;
+        if (swatch) swatch.style.background = color;
+        if (hexInput) hexInput.value = color.toUpperCase();
 
-        document.querySelectorAll('#editProjectModal .project-color-swatch').forEach(swatch => {
-            swatch.classList.toggle('selected', swatch.dataset.color === color);
+        document.querySelectorAll('#editProjectColorPicker .color-picker-recent-btn').forEach(btn => {
+            btn.classList.toggle('selected', btn.dataset.color === color);
         });
     }
 
@@ -14813,10 +15134,9 @@ function initTasks() {
             const activeClass = project.id === appState.activeProjectId ? 'active' : '';
             const iconSVG = getProjectIconSVG(project.icon);
             menuHTML += `
-                <button class="project-overflow-item ${activeClass}" onclick="toggleProjectFilter('${project.id}')">
-                    <span class="project-badge-icon" style="--project-color: ${project.color || '#6366f1'};">${iconSVG}</span>
+                <button class="project-overflow-item ${activeClass}" onclick="toggleProjectFilter('${project.id}')" style="--project-color: ${project.color || '#6366f1'};">
+                    <span class="project-badge-icon">${iconSVG}</span>
                     <span class="project-badge-name">${escapeHtml(project.name)}</span>
-                    ${project.id === appState.activeProjectId ? '<svg class="project-badge-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>' : ''}
                 </button>
             `;
         });
@@ -14960,6 +15280,179 @@ function initTasks() {
         const isExpanded = grid.getAttribute('data-expanded') === 'true';
         grid.setAttribute('data-expanded', isExpanded ? 'false' : 'true');
     };
+    
+    /**
+     * Unified Inline Color Picker System
+     * Manages color pickers with swatch, hex input, and recent colors
+     */
+    window.initInlineColorPicker = function(containerId) {
+        const container = document.getElementById(containerId);
+        if (!container) return null;
+        
+        const hiddenInput = container.previousElementSibling; // The hidden input before the picker
+        const swatch = container.querySelector('.color-picker-current-swatch');
+        const nativeInput = container.querySelector('.color-picker-native');
+        const hexInput = container.querySelector('#eventColorHex');
+        const recentContainer = container.querySelector('.color-picker-recent');
+        const recentButtons = container.querySelectorAll('.color-picker-recent-btn');
+        
+        // Storage key for recent colors
+        const storageKey = 'teamster_recent_colors';
+        const defaultColors = ['#8E8E93', '#FFCC00', '#FF3B30', '#FF9500', '#AF52DE'];
+        
+        // Load recent colors from localStorage
+        function loadRecentColors() {
+            try {
+                const stored = localStorage.getItem(storageKey);
+                return stored ? JSON.parse(stored) : [...defaultColors];
+            } catch (e) {
+                return [...defaultColors];
+            }
+        }
+        
+        // Save recent colors to localStorage
+        function saveRecentColors(colors) {
+            try {
+                localStorage.setItem(storageKey, JSON.stringify(colors));
+            } catch (e) {
+                console.warn('Could not save recent colors');
+            }
+        }
+        
+        // Add color to recent list
+        function addToRecent(color) {
+            const recent = loadRecentColors();
+            const normalized = color.toUpperCase();
+            
+            // Remove if already exists
+            const index = recent.findIndex(c => c.toUpperCase() === normalized);
+            if (index !== -1) {
+                recent.splice(index, 1);
+            }
+            
+            // Add to front
+            recent.unshift(normalized);
+            
+            // Keep only 5
+            if (recent.length > 5) {
+                recent.pop();
+            }
+            
+            saveRecentColors(recent);
+            updateRecentButtons();
+        }
+        
+        // Update recent color buttons
+        function updateRecentButtons() {
+            const recent = loadRecentColors();
+            recentButtons.forEach((btn, i) => {
+                const color = recent[i] || defaultColors[i];
+                btn.setAttribute('data-color', color);
+                btn.style.background = color;
+            });
+        }
+        
+        // Update all displays with a color
+        function setColor(color, addToHistory = false) {
+            const normalized = color.toUpperCase();
+            
+            if (hiddenInput) hiddenInput.value = normalized;
+            if (swatch) swatch.style.background = normalized;
+            if (nativeInput) nativeInput.value = normalized;
+            if (hexInput) hexInput.value = normalized;
+            
+            if (addToHistory) {
+                addToRecent(normalized);
+            }
+        }
+        
+        // Get current color
+        function getColor() {
+            return hiddenInput ? hiddenInput.value : '#007AFF';
+        }
+        
+        function normalizeHexInput(raw, allowPartial = false) {
+            if (!raw) return allowPartial ? '#' : null;
+            let value = raw.trim();
+            if (value.startsWith('#')) value = value.slice(1);
+            value = value.replace(/[^0-9a-fA-F]/g, '').toUpperCase();
+            value = value.slice(0, 6);
+            if (allowPartial) return `#${value}`;
+            return value.length === 6 ? `#${value}` : null;
+        }
+
+        // Event: Native color picker change
+        if (nativeInput) {
+            nativeInput.addEventListener('input', (e) => {
+                setColor(e.target.value, false);
+            });
+            nativeInput.addEventListener('change', (e) => {
+                setColor(e.target.value, true);
+            });
+        }
+
+        // Event: Hex input change
+        if (hexInput) {
+            hexInput.addEventListener('input', (e) => {
+                const display = normalizeHexInput(e.target.value, true);
+                e.target.value = display;
+                if (display.length === 7) {
+                    setColor(display, false);
+                }
+            });
+
+            hexInput.addEventListener('blur', (e) => {
+                const normalized = normalizeHexInput(e.target.value, false);
+                if (normalized) {
+                    setColor(normalized, true);
+                } else {
+                    e.target.value = getColor();
+                }
+            });
+
+            hexInput.addEventListener('focus', () => {
+                hexInput.style.boxShadow = 'inset 0 -2px 0 0 #ff2d9f';
+            });
+
+            hexInput.addEventListener('blur', () => {
+                hexInput.style.boxShadow = 'none';
+            });
+
+            hexInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    hexInput.blur();
+                }
+            });
+        }
+        
+        // Event: Recent color button clicks
+        recentButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const color = btn.getAttribute('data-color');
+                setColor(color, false);
+            });
+        });
+        
+        // Initialize recent buttons
+        updateRecentButtons();
+
+        // Sync initial hex input with current color
+        if (hexInput) {
+            hexInput.value = getColor().toUpperCase();
+        }
+        
+        return { setColor, getColor, addToRecent, updateRecentButtons };
+    };
+    
+    // Initialize all inline color pickers on page
+    window.colorPickers = {};
+    document.querySelectorAll('.color-picker-inline').forEach(picker => {
+        const id = picker.id;
+        if (id) {
+            window.colorPickers[id] = window.initInlineColorPicker(id);
+        }
+    });
     
     /**
      * Toggle pie chart legend expansion
@@ -15171,9 +15664,11 @@ async function updateTaskStatus(taskId, newStatus) {
                 });
             }
             
-            // Check for task completion milestones
+            // Check for task completion milestones and award XP
             if (newStatus === 'done') {
                 checkAndAwardMilestone();
+                updateAchievementStat('tasksCompleted', 1);
+                awardXP(XP_CONFIG.taskComplete, 'completing a task');
             }
             
         } catch (error) {
@@ -15928,31 +16423,526 @@ async function addActivity(activity) {
 }
 
 // ===================================
-// TASK COMPLETION MILESTONES
+// ACHIEVEMENTS & GAMIFICATION SYSTEM
 // ===================================
 
 /**
- * Milestone definitions for task completions
- * Each milestone has a threshold, name, icon, and color
+ * XP Configuration
  */
-const TASK_MILESTONES = [
-    { threshold: 1, name: 'First Task', icon: 'fa-seedling', color: '#34C759', description: 'Completed your first task!' },
-    { threshold: 10, name: 'Getting Started', icon: 'fa-rocket', color: '#007AFF', description: 'Completed 10 tasks' },
-    { threshold: 50, name: 'On a Roll', icon: 'fa-fire', color: '#FF9500', description: 'Completed 50 tasks' },
-    { threshold: 100, name: 'Centurion', icon: 'fa-medal', color: '#AF52DE', description: 'Completed 100 tasks' },
-    { threshold: 200, name: 'Task Master', icon: 'fa-crown', color: '#FFD700', description: 'Completed 200 tasks' },
-    { threshold: 300, name: 'Productivity Pro', icon: 'fa-gem', color: '#00C7BE', description: 'Completed 300 tasks' },
-    { threshold: 500, name: 'Legend', icon: 'fa-trophy', color: '#FF2D55', description: 'Completed 500 tasks' },
-    { threshold: 1000, name: 'Grandmaster', icon: 'fa-star', color: '#5856D6', description: 'Completed 1000 tasks' }
-];
+const XP_CONFIG = {
+    taskComplete: 25,          // XP for completing a task
+    docCreate: 15,             // XP for creating a doc
+    sheetCreate: 20,           // XP for creating a sheet
+    messageSend: 2,            // XP for sending a message
+    eventCreate: 10,           // XP for creating an event
+    levelBaseXP: 100,          // Base XP needed for level 2
+    levelMultiplier: 1.5       // XP requirement multiplier per level
+};
 
 /**
- * Check if user has reached a new milestone and award it
- * Also performs retroactive check for backward compatibility
- * @param {boolean} retroactive - If true, awards all missed milestones silently
+ * Calculate XP needed for a specific level
+ */
+function getXPForLevel(level) {
+    if (level <= 1) return 0;
+    return Math.floor(XP_CONFIG.levelBaseXP * Math.pow(XP_CONFIG.levelMultiplier, level - 2));
+}
+
+/**
+ * Calculate total XP needed to reach a level (cumulative)
+ */
+function getTotalXPForLevel(level) {
+    let total = 0;
+    for (let i = 2; i <= level; i++) {
+        total += getXPForLevel(i);
+    }
+    return total;
+}
+
+/**
+ * Calculate level from total XP
+ */
+function getLevelFromXP(totalXP) {
+    let level = 1;
+    let xpNeeded = 0;
+    while (true) {
+        const nextLevelXP = getXPForLevel(level + 1);
+        if (totalXP < xpNeeded + nextLevelXP) break;
+        xpNeeded += nextLevelXP;
+        level++;
+        if (level > 100) break; // Safety cap
+    }
+    return { level, xpInCurrentLevel: totalXP - xpNeeded, xpNeededForNext: getXPForLevel(level + 1) };
+}
+
+/**
+ * All achievement badge categories
+ */
+const ACHIEVEMENT_BADGES = {
+    tasks: [
+        { id: 'task_1', threshold: 1, name: 'First Task', icon: 'fa-seedling', color: '#34C759', description: 'Completed your first task!', xpReward: 50 },
+        { id: 'task_10', threshold: 10, name: 'Getting Started', icon: 'fa-rocket', color: '#007AFF', description: 'Completed 10 tasks', xpReward: 100 },
+        { id: 'task_50', threshold: 50, name: 'On a Roll', icon: 'fa-fire', color: '#FF9500', description: 'Completed 50 tasks', xpReward: 250 },
+        { id: 'task_100', threshold: 100, name: 'Centurion', icon: 'fa-medal', color: '#AF52DE', description: 'Completed 100 tasks', xpReward: 500 },
+        { id: 'task_250', threshold: 250, name: 'Task Master', icon: 'fa-crown', color: '#FFD700', description: 'Completed 250 tasks', xpReward: 1000 },
+        { id: 'task_500', threshold: 500, name: 'Legend', icon: 'fa-trophy', color: '#FF2D55', description: 'Completed 500 tasks', xpReward: 2000 },
+        { id: 'task_1000', threshold: 1000, name: 'Grandmaster', icon: 'fa-star', color: '#5856D6', description: 'Completed 1000 tasks', xpReward: 5000 }
+    ],
+    docs: [
+        { id: 'doc_1', threshold: 1, name: 'First Doc', icon: 'fa-file-alt', color: '#00C7BE', description: 'Created your first document!', xpReward: 30 },
+        { id: 'doc_10', threshold: 10, name: 'Writer', icon: 'fa-pen-fancy', color: '#5856D6', description: 'Created 10 documents', xpReward: 100 },
+        { id: 'doc_50', threshold: 50, name: 'Author', icon: 'fa-book', color: '#AF52DE', description: 'Created 50 documents', xpReward: 300 },
+        { id: 'doc_100', threshold: 100, name: 'Novelist', icon: 'fa-book-open', color: '#FF9500', description: 'Created 100 documents', xpReward: 750 }
+    ],
+    messages: [
+        { id: 'msg_10', threshold: 10, name: 'Chatterbox', icon: 'fa-comment', color: '#34C759', description: 'Sent 10 messages', xpReward: 20 },
+        { id: 'msg_100', threshold: 100, name: 'Conversationalist', icon: 'fa-comments', color: '#007AFF', description: 'Sent 100 messages', xpReward: 100 },
+        { id: 'msg_500', threshold: 500, name: 'Social Butterfly', icon: 'fa-comment-dots', color: '#FF9500', description: 'Sent 500 messages', xpReward: 300 },
+        { id: 'msg_1000', threshold: 1000, name: 'Communication Pro', icon: 'fa-bullhorn', color: '#AF52DE', description: 'Sent 1000 messages', xpReward: 750 }
+    ],
+    sheets: [
+        { id: 'sheet_1', threshold: 1, name: 'First Sheet', icon: 'fa-table', color: '#00C7BE', description: 'Created your first sheet!', xpReward: 30 },
+        { id: 'sheet_5', threshold: 5, name: 'Organizer', icon: 'fa-th', color: '#5856D6', description: 'Created 5 sheets', xpReward: 75 },
+        { id: 'sheet_20', threshold: 20, name: 'Data Wizard', icon: 'fa-table-cells', color: '#FF9500', description: 'Created 20 sheets', xpReward: 200 }
+    ],
+    special: [
+        { id: 'top_performer', threshold: 1, name: 'Top Performer', icon: 'fa-chart-line', color: '#FFD700', description: 'Best stats on the team', xpReward: 500 }
+    ],
+    streaks: [
+        { id: 'streak_3', threshold: 3, name: 'Getting Warm', icon: 'fa-fire', color: '#FF9500', description: '3-day login streak', xpReward: 50 },
+        { id: 'streak_7', threshold: 7, name: 'Week Warrior', icon: 'fa-fire', color: '#FF6B35', description: '7-day login streak', xpReward: 150 },
+        { id: 'streak_14', threshold: 14, name: 'Fortnight Fire', icon: 'fa-fire', color: '#FF4500', description: '14-day login streak', xpReward: 300 },
+        { id: 'streak_30', threshold: 30, name: 'On Fire!', icon: 'fa-fire-flame-curved', color: '#FF2D55', description: '30-day login streak', xpReward: 500 },
+        { id: 'streak_60', threshold: 60, name: 'Blazing', icon: 'fa-fire-flame-curved', color: '#E91E63', description: '60-day login streak', xpReward: 1000 },
+        { id: 'streak_100', threshold: 100, name: 'Inferno', icon: 'fa-fire-flame-curved', color: '#9C27B0', description: '100-day login streak', xpReward: 2500 }
+    ]
+};
+
+// Keep backward compatibility
+const TASK_MILESTONES = ACHIEVEMENT_BADGES.tasks;
+
+/**
+ * Get user's achievement data from localStorage
+ */
+function getUserAchievementData() {
+    if (!currentAuthUser) return { xp: 0, earnedBadges: [], stats: {}, streak: 0, lastLoginDate: null, bestStreak: 0 };
+    const userId = currentAuthUser.uid;
+    const data = localStorage.getItem(`achievements_${userId}`);
+    if (data) {
+        const parsed = JSON.parse(data);
+        // Ensure streak fields exist
+        if (!parsed.streak) parsed.streak = 0;
+        if (!parsed.bestStreak) parsed.bestStreak = 0;
+        return parsed;
+    }
+    // Migrate old milestone data if exists
+    const oldMilestones = JSON.parse(localStorage.getItem(`milestones_${userId}`) || '[]');
+    const earnedBadges = oldMilestones.map(t => `task_${t}`);
+    return { xp: 0, earnedBadges, stats: { tasksCompleted: 0, docsCreated: 0, messagesSent: 0, sheetsCreated: 0 }, streak: 0, lastLoginDate: null, bestStreak: 0 };
+}
+
+/**
+ * Save user's achievement data to localStorage
+ */
+function saveUserAchievementData(data) {
+    if (!currentAuthUser) return;
+    const userId = currentAuthUser.uid;
+    localStorage.setItem(`achievements_${userId}`, JSON.stringify(data));
+}
+
+/**
+ * Check if gamification is enabled
+ */
+function isGamificationEnabled() {
+    return localStorage.getItem('gamificationEnabled') !== 'false';
+}
+
+/**
+ * Update login streak - call this on app load/auth
+ */
+function updateLoginStreak() {
+    if (!currentAuthUser || !isGamificationEnabled()) return;
+    
+    const data = getUserAchievementData();
+    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+    
+    if (data.lastLoginDate === today) {
+        // Already logged in today, no change
+        return data.streak;
+    }
+    
+    const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+    
+    if (data.lastLoginDate === yesterday) {
+        // Consecutive day - increase streak
+        data.streak = (data.streak || 0) + 1;
+    } else if (data.lastLoginDate) {
+        // Streak broken - reset to 1
+        data.streak = 1;
+    } else {
+        // First login ever
+        data.streak = 1;
+    }
+    
+    // Update best streak
+    if (data.streak > (data.bestStreak || 0)) {
+        data.bestStreak = data.streak;
+    }
+    
+    data.lastLoginDate = today;
+    saveUserAchievementData(data);
+    
+    // Check for streak badges
+    checkAndAwardBadges('streaks', data.streak);
+    
+    return data.streak;
+}
+
+/**
+ * Calculate retroactive stats from Firestore and sync achievements
+ */
+async function syncRetroactiveAchievements() {
+    if (!currentAuthUser || !currentTeamId) return;
+    
+    const userId = currentAuthUser.uid;
+    const data = getUserAchievementData();
+    const syncVersion = 2; // Increment this to force resync when calculation changes
+    const syncKey = `achievements_synced_v${syncVersion}_${userId}_${currentTeamId}`;
+    const alreadySynced = localStorage.getItem(syncKey);
+    
+    if (alreadySynced) {
+        debugLog('✅ Achievements already synced for this team');
+        return;
+    }
+    
+    debugLog('🔄 Syncing retroactive achievements...');
+    
+    try {
+        // Count completed tasks by this user
+        const tasksRef = collection(db, 'teams', currentTeamId, 'tasks');
+        const tasksSnap = await getDocs(tasksRef);
+        let tasksCompleted = 0;
+        tasksSnap.forEach(doc => {
+            const task = doc.data();
+            if (task.completed && (task.completedBy === userId || task.createdBy === userId)) {
+                tasksCompleted++;
+            }
+        });
+        
+        // Count docs created by this user
+        const docsRef = collection(db, 'teams', currentTeamId, 'docs');
+        const docsSnap = await getDocs(docsRef);
+        let docsCreated = 0;
+        docsSnap.forEach(doc => {
+            const docData = doc.data();
+            if (docData.createdBy === userId || docData.userId === userId) {
+                docsCreated++;
+            }
+        });
+        
+        // Count sheets created by this user
+        const sheetsRef = collection(db, 'teams', currentTeamId, 'spreadsheets');
+        const sheetsSnap = await getDocs(sheetsRef);
+        let sheetsCreated = 0;
+        sheetsSnap.forEach(doc => {
+            const sheetData = doc.data();
+            if (sheetData.createdBy === userId) {
+                sheetsCreated++;
+            }
+        });
+        
+        // Count messages sent by this user
+        const channelsRef = collection(db, 'teams', currentTeamId, 'channels');
+        const channelsSnap = await getDocs(channelsRef);
+        let messagesSent = 0;
+        
+        for (const channelDoc of channelsSnap.docs) {
+            const messagesRef = collection(db, 'teams', currentTeamId, 'channels', channelDoc.id, 'messages');
+            const messagesSnap = await getDocs(messagesRef);
+            messagesSnap.forEach(msgDoc => {
+                const msg = msgDoc.data();
+                const senderUid = msg.createdBy || msg.userId || msg.authorId;
+                if (senderUid === userId) {
+                    messagesSent++;
+                }
+            });
+        }
+        
+        // Update stats with max of current and retroactive counts
+        data.stats = data.stats || {};
+        data.stats.tasksCompleted = Math.max(data.stats.tasksCompleted || 0, tasksCompleted);
+        data.stats.docsCreated = Math.max(data.stats.docsCreated || 0, docsCreated);
+        data.stats.sheetsCreated = Math.max(data.stats.sheetsCreated || 0, sheetsCreated);
+        data.stats.messagesSent = Math.max(data.stats.messagesSent || 0, messagesSent);
+        
+        // Calculate retroactive XP from activity stats
+        let retroXP = 0;
+        retroXP += data.stats.tasksCompleted * XP_CONFIG.taskComplete;
+        retroXP += data.stats.docsCreated * XP_CONFIG.docCreate;
+        retroXP += data.stats.sheetsCreated * XP_CONFIG.sheetCreate;
+        retroXP += Math.floor(data.stats.messagesSent * XP_CONFIG.messageSend);
+        
+        // Also add XP from any previously earned badges
+        const allBadges = [
+            ...ACHIEVEMENT_BADGES.tasks,
+            ...ACHIEVEMENT_BADGES.docs,
+            ...ACHIEVEMENT_BADGES.messages,
+            ...ACHIEVEMENT_BADGES.sheets,
+            ...ACHIEVEMENT_BADGES.streaks,
+            ...ACHIEVEMENT_BADGES.special
+        ];
+        
+        for (const badge of allBadges) {
+            if (data.earnedBadges.includes(badge.id) && badge.xpReward) {
+                retroXP += badge.xpReward;
+            }
+        }
+        
+        // Set XP to the calculated retroactive amount (always recalculate to fix missing XP)
+        data.xp = retroXP;
+        
+        saveUserAchievementData(data);
+        
+        // Check for all badge categories (this will award new badges and add their XP)
+        checkAndAwardBadges('tasks', data.stats.tasksCompleted);
+        checkAndAwardBadges('docs', data.stats.docsCreated);
+        checkAndAwardBadges('sheets', data.stats.sheetsCreated);
+        checkAndAwardBadges('messages', data.stats.messagesSent);
+        
+        // Mark as synced for this team with version
+        localStorage.setItem(syncKey, 'true');
+        
+        debugLog(`✅ Retroactive sync complete: ${tasksCompleted} tasks, ${docsCreated} docs, ${sheetsCreated} sheets, ${messagesSent} messages, ${retroXP} XP`);
+        
+        renderAchievementsTab();
+        
+    } catch (error) {
+        console.error('Error syncing retroactive achievements:', error);
+    }
+}
+
+/**
+ * Award XP to the current user
+ */
+function awardXP(amount, reason = '') {
+    if (!currentAuthUser || !isGamificationEnabled()) return;
+    
+    const data = getUserAchievementData();
+    const oldLevel = getLevelFromXP(data.xp).level;
+    data.xp += amount;
+    const newLevelInfo = getLevelFromXP(data.xp);
+    
+    saveUserAchievementData(data);
+    
+    // Check for level up
+    if (newLevelInfo.level > oldLevel) {
+        showToast(`🎉 Level Up! You're now level ${newLevelInfo.level}!`, 'success', 4000);
+    }
+    
+    // Update UI
+    renderAchievementsTab();
+    debugLog(`⭐ Awarded ${amount} XP${reason ? ` for ${reason}` : ''}`);
+}
+
+/**
+ * Check and award badges for a specific category
+ */
+function checkAndAwardBadges(category, currentCount) {
+    if (!currentAuthUser || !isGamificationEnabled()) return;
+    
+    const data = getUserAchievementData();
+    const badges = ACHIEVEMENT_BADGES[category] || [];
+    let newBadges = [];
+    
+    for (const badge of badges) {
+        if (currentCount >= badge.threshold && !data.earnedBadges.includes(badge.id)) {
+            data.earnedBadges.push(badge.id);
+            newBadges.push(badge);
+            
+            // Award XP for the badge
+            if (badge.xpReward) {
+                data.xp += badge.xpReward;
+            }
+        }
+    }
+    
+    if (newBadges.length > 0) {
+        saveUserAchievementData(data);
+        
+        // Show notification for first new badge
+        const badge = newBadges[0];
+        showToast(`🏆 Badge Unlocked: ${badge.name}!`, 'success', 4000);
+        
+        // Add activity
+        addActivity({
+            type: 'milestone',
+            description: `🏆 earned the "${badge.name}" badge!`,
+            entityType: 'milestone',
+            entityId: badge.id,
+            entityName: badge.name
+        });
+        
+        renderAchievementsTab();
+    }
+}
+
+/**
+ * Update user stats and check for badge unlocks
+ */
+function updateAchievementStat(statName, increment = 1) {
+    if (!currentAuthUser || !isGamificationEnabled()) return;
+    
+    const data = getUserAchievementData();
+    if (!data.stats) data.stats = {};
+    data.stats[statName] = (data.stats[statName] || 0) + increment;
+    saveUserAchievementData(data);
+    
+    // Check for badge unlocks based on stat
+    const statToBadgeCategory = {
+        tasksCompleted: 'tasks',
+        docsCreated: 'docs',
+        messagesSent: 'messages',
+        sheetsCreated: 'sheets'
+    };
+    
+    if (statToBadgeCategory[statName]) {
+        checkAndAwardBadges(statToBadgeCategory[statName], data.stats[statName]);
+    }
+}
+
+/**
+ * Get user stats for achievements display
+ */
+function getUserStats() {
+    if (!currentAuthUser) return { tasksCompleted: 0, docsCreated: 0, messagesSent: 0, sheetsCreated: 0 };
+    
+    const data = getUserAchievementData();
+    return data.stats || { tasksCompleted: 0, docsCreated: 0, messagesSent: 0, sheetsCreated: 0 };
+}
+
+/**
+ * Render the Achievements tab content
+ */
+function renderAchievementsTab() {
+    if (!isGamificationEnabled()) {
+        const container = document.getElementById('achievementsBadgesContainer');
+        if (container) {
+            container.innerHTML = `
+                <div class="achievements-disabled-message">
+                    <i class="fas fa-trophy"></i>
+                    <p>Achievements are disabled</p>
+                    <span>Enable in Advanced settings to track your progress</span>
+                </div>
+            `;
+        }
+        return;
+    }
+    
+    const data = getUserAchievementData();
+    const levelInfo = getLevelFromXP(data.xp);
+    
+    // Update XP display
+    const levelText = document.getElementById('userLevel');
+    const xpBar = document.getElementById('xpProgressBar');
+    const currentXP = document.getElementById('currentXP');
+    const nextLevelXP = document.getElementById('nextLevelXP');
+    
+    if (levelText) levelText.textContent = levelInfo.level;
+    if (xpBar) xpBar.style.width = `${(levelInfo.xpInCurrentLevel / levelInfo.xpNeededForNext) * 100}%`;
+    if (currentXP) currentXP.textContent = levelInfo.xpInCurrentLevel;
+    if (nextLevelXP) nextLevelXP.textContent = levelInfo.xpNeededForNext;
+    
+    // Update streak display
+    const streakCount = document.getElementById('streakCount');
+    const bestStreakEl = document.getElementById('bestStreak');
+    if (streakCount) streakCount.textContent = data.streak || 0;
+    if (bestStreakEl) bestStreakEl.textContent = data.bestStreak || 0;
+    
+    // Render stats list (rows format with lots of interesting stats)
+    const statsList = document.getElementById('achievementsStatsList');
+    if (statsList) {
+        const stats = data.stats || {};
+        const allStats = [
+            { label: 'Tasks Completed', value: stats.tasksCompleted || 0 },
+            { label: 'Documents Created', value: stats.docsCreated || 0 },
+            { label: 'Sheets Created', value: stats.sheetsCreated || 0 },
+            { label: 'Messages Sent', value: stats.messagesSent || 0 },
+            { label: 'Current Streak', value: `${data.streak || 0} days` },
+            { label: 'Best Streak', value: `${data.bestStreak || 0} days` },
+            { label: 'Total XP Earned', value: data.xp?.toLocaleString() || 0 },
+            { label: 'Current Level', value: levelInfo.level },
+            { label: 'Badges Earned', value: data.earnedBadges?.length || 0 },
+            { label: 'XP to Next Level', value: (levelInfo.xpNeededForNext - levelInfo.xpInCurrentLevel).toLocaleString() }
+        ];
+        
+        statsList.innerHTML = allStats.map(stat => `
+            <div class="achievement-stat-row">
+                <span class="stat-label">${stat.label}</span>
+                <span class="stat-value">${typeof stat.value === 'number' ? stat.value.toLocaleString() : stat.value}</span>
+            </div>
+        `).join('');
+    }
+    
+    // Render badges
+    const container = document.getElementById('achievementsBadgesContainer');
+    if (!container) return;
+    
+    let html = '';
+    
+    // All badge categories
+    const categories = [
+        { key: 'streaks', label: 'Login Streak', icon: 'fa-fire' },
+        { key: 'tasks', label: 'Tasks', icon: 'fa-check-circle' },
+        { key: 'docs', label: 'Documents', icon: 'fa-file-alt' },
+        { key: 'messages', label: 'Messages', icon: 'fa-comments' },
+        { key: 'sheets', label: 'Sheets', icon: 'fa-table' },
+        { key: 'special', label: 'Special', icon: 'fa-star' }
+    ];
+    
+    categories.forEach(cat => {
+        const badges = ACHIEVEMENT_BADGES[cat.key] || [];
+        const earnedInCategory = badges.filter(b => data.earnedBadges.includes(b.id));
+        
+        html += `
+            <div class="badge-category">
+                <div class="badge-category-header">
+                    <span class="badge-category-title"><i class="fas ${cat.icon}"></i> ${cat.label}</span>
+                    <span class="badge-category-count">${earnedInCategory.length}/${badges.length}</span>
+                </div>
+                <div class="badges-grid">
+        `;
+        
+        badges.forEach(badge => {
+            const isEarned = data.earnedBadges.includes(badge.id);
+            html += `
+                <div class="badge-item ${isEarned ? 'earned' : 'locked'}" title="${badge.description}${!isEarned ? ' (Locked)' : ''}">
+                    <div class="badge-icon" style="background: ${isEarned ? badge.color : 'var(--bg-tertiary)'}">
+                        <i class="fas ${isEarned ? badge.icon : 'fa-lock'}"></i>
+                    </div>
+                    <span class="badge-name">${badge.name}</span>
+                    ${badge.xpReward ? `<span class="badge-xp">+${badge.xpReward} XP</span>` : ''}
+                </div>
+            `;
+        });
+        
+        html += '</div></div>';
+    });
+    
+    container.innerHTML = html;
+}
+
+// Expose functions globally
+window.awardXP = awardXP;
+window.updateAchievementStat = updateAchievementStat;
+window.renderAchievementsTab = renderAchievementsTab;
+window.isGamificationEnabled = isGamificationEnabled;
+window.updateLoginStreak = updateLoginStreak;
+window.syncRetroactiveAchievements = syncRetroactiveAchievements;
+
+/**
+ * Legacy function for backward compatibility
  */
 async function checkAndAwardMilestone(retroactive = false) {
-    if (!currentAuthUser) return;
+    if (!currentAuthUser || !isGamificationEnabled()) return;
     
     // Count completed tasks for current user
     const userId = currentAuthUser.uid;
@@ -15961,59 +16951,12 @@ async function checkAndAwardMilestone(retroactive = false) {
         (t.assigneeId === userId || t.createdBy === userId || (!t.assigneeId && t.createdBy === userId))
     ).length;
     
-    // Get user's earned milestones from local storage
-    const earnedMilestones = JSON.parse(localStorage.getItem(`milestones_${userId}`) || '[]');
-    
-    // Track newly awarded milestones
-    let newMilestones = [];
-    
-    // Check each milestone threshold
-    for (const milestone of TASK_MILESTONES) {
-        if (completedTasks >= milestone.threshold && !earnedMilestones.includes(milestone.threshold)) {
-            // Award new milestone
-            earnedMilestones.push(milestone.threshold);
-            newMilestones.push(milestone);
-        }
-    }
-    
-    // Save updated milestones if any were awarded
-    if (newMilestones.length > 0) {
-        localStorage.setItem(`milestones_${userId}`, JSON.stringify(earnedMilestones));
-        
-        if (retroactive) {
-            // Retroactive mode: only show one combined notification
-            debugLog('🏆 Retroactively awarded milestones:', newMilestones.map(m => m.name).join(', '));
-            if (newMilestones.length === 1) {
-                showToast(`🎉 Badge Unlocked: ${newMilestones[0].name}!`, 'success', 3000);
-            } else {
-                showToast(`🎉 ${newMilestones.length} Badges Unlocked!`, 'success', 3000);
-            }
-        } else {
-            // Normal mode: notify for the first new milestone
-            const milestone = newMilestones[0];
-            
-            // Add special milestone activity
-            addActivity({
-                type: 'milestone',
-                description: `🏆 earned the "${milestone.name}" badge for completing ${milestone.threshold} task${milestone.threshold > 1 ? 's' : ''}!`,
-                entityType: 'milestone',
-                entityId: `milestone_${milestone.threshold}`,
-                entityName: milestone.name
-            });
-            
-            // Show celebratory toast
-            showToast(`🎉 Badge Unlocked: ${milestone.name}!`, 'success', 4000);
-            debugLog('🏆 Milestone awarded:', milestone.name);
-        }
-        
-        // Update badges display if visible
-        renderProfileBadges();
-    }
+    // Use new badge system
+    checkAndAwardBadges('tasks', completedTasks);
 }
 
 /**
  * Perform backward compatibility check for badges
- * Awards any milestones the user should have based on completed task count
  */
 function checkRetroactiveMilestones() {
     if (!currentAuthUser) return;
@@ -16021,13 +16964,12 @@ function checkRetroactiveMilestones() {
 }
 
 /**
- * Get all earned milestones for current user
+ * Get all earned milestones for current user (legacy compatibility)
  */
 function getEarnedMilestones() {
     if (!currentAuthUser) return [];
-    const userId = currentAuthUser.uid;
-    const earnedThresholds = JSON.parse(localStorage.getItem(`milestones_${userId}`) || '[]');
-    return TASK_MILESTONES.filter(m => earnedThresholds.includes(m.threshold));
+    const data = getUserAchievementData();
+    return TASK_MILESTONES.filter(m => data.earnedBadges.includes(m.id));
 }
 
 /**
@@ -16043,77 +16985,10 @@ function getCompletedTaskCount() {
 }
 
 /**
- * Render badges section in profile settings
+ * Render badges section in profile settings (legacy - redirects to achievements)
  */
 function renderProfileBadges() {
-    const badgesContainer = document.getElementById('profileBadgesContainer');
-    if (!badgesContainer) return;
-    
-    const earnedMilestones = getEarnedMilestones();
-    const completedCount = getCompletedTaskCount();
-    
-    // Find next milestone
-    const nextMilestone = TASK_MILESTONES.find(m => !earnedMilestones.some(e => e.threshold === m.threshold));
-    const progress = nextMilestone ? Math.min((completedCount / nextMilestone.threshold) * 100, 100) : 100;
-    
-    let html = '';
-    
-    // Progress to next badge
-    if (nextMilestone) {
-        html += `
-            <div class="badges-progress">
-                <div class="badges-progress-info">
-                    <span class="badges-progress-label">Next badge: ${nextMilestone.name}</span>
-                    <span class="badges-progress-count">${completedCount}/${nextMilestone.threshold}</span>
-                </div>
-                <div class="badges-progress-bar">
-                    <div class="badges-progress-fill" style="width: ${progress}%; background: ${nextMilestone.color}"></div>
-                </div>
-            </div>
-        `;
-    }
-    
-    // Earned badges
-    if (earnedMilestones.length > 0) {
-        html += '<div class="badges-grid">';
-        earnedMilestones.forEach(m => {
-            html += `
-                <div class="badge-item" data-tooltip="${m.description}">
-                    <div class="badge-icon" style="background: ${m.color}">
-                        <i class="fas ${m.icon}"></i>
-                    </div>
-                    <span class="badge-name">${m.name}</span>
-                </div>
-            `;
-        });
-        html += '</div>';
-    } else {
-        html += `
-            <div class="badges-empty">
-                <i class="fas fa-medal"></i>
-                <span>Complete tasks to earn badges!</span>
-            </div>
-        `;
-    }
-    
-    // Locked badges preview
-    const lockedMilestones = TASK_MILESTONES.filter(m => !earnedMilestones.some(e => e.threshold === m.threshold));
-    if (lockedMilestones.length > 0) {
-        html += '<div class="badges-locked">';
-        lockedMilestones.slice(0, 4).forEach(m => {
-            html += `
-                <div class="badge-item badge-locked" data-tooltip="${m.threshold} tasks to unlock">
-                    <div class="badge-icon">
-                        <i class="fas fa-lock"></i>
-                    </div>
-                    <span class="badge-name">${m.name}</span>
-                </div>
-            `;
-        });
-        html += '</div>';
-    }
-    
-    badgesContainer.innerHTML = html;
+    renderAchievementsTab();
 }
 
 // Expose milestone functions
@@ -16902,15 +17777,28 @@ function getUniqueCustomerCount() {
 /**
  * Generate trend data from actual finance transactions
  * Respects the metrics time filter (7 days, 30 days, all time)
+ * @param {string} type - 'income' or 'expense' - MUST be specified
  */
 function generateFinanceTrendData(type = 'income') {
+    // CRITICAL: Ensure type is valid
+    if (type !== 'income' && type !== 'expense') {
+        console.error('[generateFinanceTrendData] Invalid type:', type, '- must be "income" or "expense"');
+        return [];
+    }
+    
     const timeBounds = getMetricsTimeBoundaries();
-    const filteredTransactions = getFilteredTransactions(type);
+    
+    // Get transactions and MANUALLY filter by type as a failsafe
+    // This ensures we only get the right type even if getFilteredTransactions has issues
+    const allTransactions = getFilteredTransactions(type);
+    const filteredTransactions = allTransactions.filter(t => t.type === type);
+    
+    console.log(`[generateFinanceTrendData] Type: "${type}", Before type filter: ${allTransactions.length}, After: ${filteredTransactions.length}`);
     
     if (!filteredTransactions || filteredTransactions.length === 0) {
-        // Return placeholder data matching the current timeframe
-        const days = metricsTimeFilter === '7days' ? 7 : metricsTimeFilter === '30days' ? 30 : 30;
-        return generatePlaceholderTrendData(days, 0, 0);
+        // Return empty array to show "no data" state
+        console.log(`[generateFinanceTrendData] No ${type} transactions found, returning empty`);
+        return [];
     }
     
     const now = new Date();
@@ -16944,6 +17832,11 @@ function generateFinanceTrendData(type = 'income') {
         
         let dayTotal = 0;
         filteredTransactions.forEach(t => {
+            // SAFETY CHECK: Only count if type matches (belt AND suspenders)
+            if (t.type !== type) {
+                console.warn(`[generateFinanceTrendData] Skipping wrong type: expected "${type}", got "${t.type}"`);
+                return;
+            }
             const transDate = t.date?.toDate?.() || new Date(t.date);
             if (transDate >= dayStart && transDate <= dayEnd) {
                 dayTotal += t.amount || 0;
@@ -16988,77 +17881,141 @@ function generatePlaceholderTrendData(days, min, max) {
 }
 
 /**
- * Generate MRR trend data (monthly view)
+ * Generate MRR trend data
+ * Respects the metrics time filter (7 days, 30 days, all time)
  * Shows cumulative MRR growth from active subscriptions and recurring income
- * Only counts subscriptions that were active during each month
+ * For 7days/30days: shows daily cumulative MRR
+ * For all time: shows monthly MRR with year separators
  */
 function generateMRRTrendData() {
     const now = new Date();
     const data = [];
+    const timeBounds = getMetricsTimeBoundaries();
     
-    // Get last 12 months of MRR data for better trend visibility
-    const numMonths = 12;
-    
-    for (let i = numMonths - 1; i >= 0; i--) {
-        const monthDate = new Date(now.getFullYear(), now.getMonth() - i, 1);
-        const monthEnd = new Date(now.getFullYear(), now.getMonth() - i + 1, 0);
-        const monthLabel = monthDate.toLocaleDateString('en-US', { month: 'short' });
+    /**
+     * Calculate cumulative MRR as of a specific date
+     * MRR = Monthly Recurring Revenue from INCOME transactions only
+     * Note: Subscriptions in this system are EXPENSES (payments to vendors), not income
+     * @param {Date} asOfDate - The date to calculate MRR as of
+     * @returns {number} The cumulative MRR
+     */
+    function calculateMRRAsOfDate(asOfDate) {
+        let totalMrr = 0;
         
-        let monthlyMrr = 0;
-        
-        // Calculate MRR from subscriptions that were active during this month
-        const subs = appState.subscriptions || [];
-        subs.forEach(sub => {
-            // Get start date
-            const startDate = sub.startDate?.toDate?.() || sub.createdAt?.toDate?.() || new Date(sub.startDate || sub.createdAt || 0);
-            // Get cancel/end date if exists
-            const cancelDate = sub.cancelledAt?.toDate?.() || sub.endDate?.toDate?.() || null;
-            
-            // Only count if subscription started before or during this month
-            // and hasn't been cancelled before this month
-            const wasActiveInMonth = startDate <= monthEnd && 
-                (!cancelDate || cancelDate >= monthDate);
-            
-            if (wasActiveInMonth && sub.type !== 'private') {
-                const amount = sub.amount || 0;
-                switch (sub.frequency) {
-                    case 'monthly': monthlyMrr += amount; break;
-                    case 'quarterly': monthlyMrr += amount / 3; break;
-                    case 'yearly': monthlyMrr += amount / 12; break;
-                    case 'weekly': monthlyMrr += amount * 4; break;
-                    default: monthlyMrr += amount;
-                }
-            }
-        });
-        
-        // Also include recurring income transactions
+        // MRR comes ONLY from recurring INCOME transactions (client payments)
+        // Subscriptions are expenses (payments TO vendors), NOT revenue
         const transactions = appState.transactions || [];
         transactions.forEach(t => {
-            if (t.type === 'income' && t.isRecurring) {
+            // Must be an income transaction marked as recurring with a valid frequency
+            if (t.type === 'income' && t.isRecurring === true) {
                 const transDate = t.date?.toDate?.() || new Date(t.date || 0);
-                // Only count if the recurring transaction was created before or during this month
-                if (transDate <= monthEnd) {
+                // Only count if the recurring income started on or before this date
+                if (transDate <= asOfDate) {
                     const amount = t.amount || 0;
-                    switch (t.frequency) {
-                        case 'monthly': monthlyMrr += amount; break;
-                        case 'quarterly': monthlyMrr += amount / 3; break;
-                        case 'yearly': monthlyMrr += amount / 12; break;
-                        case 'weekly': monthlyMrr += amount * 4; break;
-                        default: monthlyMrr += amount;
+                    const freq = t.frequency;
+                    // Only count with valid recurring frequencies
+                    if (freq === 'monthly') {
+                        totalMrr += amount;
+                    } else if (freq === 'quarterly') {
+                        totalMrr += amount / 3;
+                    } else if (freq === 'yearly') {
+                        totalMrr += amount / 12;
+                    } else if (freq === 'weekly') {
+                        totalMrr += amount * 4;
                     }
+                    // Note: transactions without valid frequency are NOT included in MRR
                 }
             }
         });
         
-        data.push({
-            date: monthDate,
-            label: monthLabel,
-            count: monthlyMrr,
-            value: monthlyMrr
-        });
+        return totalMrr;
     }
     
-    // Return empty if no MRR data at all
+    // First check if there are ANY recurring income transactions
+    const hasAnyRecurringIncome = (appState.transactions || []).some(t => 
+        t.type === 'income' && t.isRecurring === true && 
+        ['monthly', 'quarterly', 'yearly', 'weekly'].includes(t.frequency)
+    );
+    
+    // Return empty immediately if no recurring income exists
+    if (!hasAnyRecurringIncome) {
+        return [];
+    }
+    
+    // Month abbreviations for labels
+    const monthNames = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+    
+    if (metricsTimeFilter === '7days' || metricsTimeFilter === '30days') {
+        // Daily view: Show cumulative MRR for each day
+        const numDays = metricsTimeFilter === '7days' ? 7 : 30;
+        
+        for (let i = numDays - 1; i >= 0; i--) {
+            const date = new Date(now);
+            date.setDate(date.getDate() - i);
+            date.setHours(23, 59, 59, 999); // End of day
+            
+            const dayMrr = calculateMRRAsOfDate(date);
+            
+            // Format label: "Jan 15" for daily view
+            const dayLabel = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+            
+            data.push({
+                date: date,
+                label: dayLabel,
+                count: dayMrr,
+                value: dayMrr
+            });
+        }
+    } else {
+        // All time view: Show monthly MRR with year separators
+        // Find the earliest recurring income transaction
+        let earliestDate = now;
+        
+        (appState.transactions || []).forEach(t => {
+            if (t.type === 'income' && t.isRecurring === true && 
+                ['monthly', 'quarterly', 'yearly', 'weekly'].includes(t.frequency)) {
+                const transDate = t.date?.toDate?.() || new Date(t.date || 0);
+                if (transDate < earliestDate) earliestDate = transDate;
+            }
+        });
+        
+        // Start from the beginning of the earliest month
+        const startMonth = new Date(earliestDate.getFullYear(), earliestDate.getMonth(), 1);
+        const endMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        
+        // Check if data spans multiple years
+        const spansMultipleYears = startMonth.getFullYear() !== endMonth.getFullYear();
+        let lastYear = null;
+        
+        // Generate monthly data points
+        let currentMonth = new Date(startMonth);
+        while (currentMonth <= endMonth) {
+            const monthEnd = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0, 23, 59, 59, 999);
+            const monthMrr = calculateMRRAsOfDate(monthEnd);
+            
+            // Create label with year separator indicator
+            let label = monthNames[currentMonth.getMonth()];
+            
+            // Add year indicator if spans multiple years and year changed
+            if (spansMultipleYears && currentMonth.getFullYear() !== lastYear) {
+                label = `${currentMonth.getFullYear()}\n${label}`;
+                lastYear = currentMonth.getFullYear();
+            }
+            
+            data.push({
+                date: new Date(currentMonth),
+                label: label,
+                count: monthMrr,
+                value: monthMrr,
+                year: currentMonth.getFullYear()
+            });
+            
+            // Move to next month
+            currentMonth.setMonth(currentMonth.getMonth() + 1);
+        }
+    }
+    
+    // Return empty if no MRR data at all (will show "no trend data")
     const hasAnyMRR = data.some(d => d.value > 0);
     if (!hasAnyMRR) {
         return [];
@@ -17110,11 +18067,44 @@ function generateCustomerGrowthData() {
 /**
  * Get transactions filtered by current metrics time filter
  * @param {string} type - Optional: 'expense' or 'income' to filter by type
+ * @param {boolean} includeSubscriptions - Whether to include subscription expenses (default: true for expenses)
  * @returns {Array} Filtered transactions
  */
-function getFilteredTransactions(type = null) {
+function getFilteredTransactions(type = null, includeSubscriptions = true) {
     const timeBounds = getMetricsTimeBoundaries();
-    let transactions = appState.transactions || [];
+    let transactions = [...(appState.transactions || [])];
+    
+    // DEBUG: Log transaction types to help troubleshoot
+    if (type) {
+        const typeBreakdown = {};
+        transactions.forEach(t => {
+            const tType = t.type || 'UNDEFINED';
+            typeBreakdown[tType] = (typeBreakdown[tType] || 0) + 1;
+        });
+        console.log(`[getFilteredTransactions] Requested type: "${type}", Transaction type breakdown:`, typeBreakdown);
+    }
+    
+    // For expense type, optionally include company subscriptions as virtual expense transactions
+    if (type === 'expense' && includeSubscriptions) {
+        const subscriptionExpenses = (appState.subscriptions || [])
+            .filter(sub => sub.type === 'company')
+            .map(sub => {
+                const subDate = sub.nextPayDate?.toDate?.() || new Date(sub.nextPayDate || Date.now());
+                return {
+                    id: `sub-${sub.id}`,
+                    type: 'expense',
+                    amount: sub.amount || 0,
+                    party: sub.vendor || sub.name || 'Subscription',
+                    description: sub.name ? `Subscription · ${sub.name}` : 'Subscription',
+                    category: sub.category || 'subscriptions',
+                    date: subDate,
+                    frequency: sub.frequency || 'monthly',
+                    isRecurring: true,
+                    isSubscription: true
+                };
+            });
+        transactions = [...transactions, ...subscriptionExpenses];
+    }
     
     // Filter by time range
     transactions = transactions.filter(t => {
@@ -17122,9 +18112,19 @@ function getFilteredTransactions(type = null) {
         return transDate >= timeBounds.start && transDate <= timeBounds.end;
     });
     
-    // Filter by type if specified
-    if (type) {
+    // Filter by type if specified - strict type matching
+    // IMPORTANT: Only include transactions where type EXACTLY matches
+    if (type === 'expense') {
+        transactions = transactions.filter(t => t.type === 'expense');
+    } else if (type === 'income') {
+        transactions = transactions.filter(t => t.type === 'income');
+    } else if (type) {
         transactions = transactions.filter(t => t.type === type);
+    }
+    
+    // DEBUG: Log result count
+    if (type) {
+        console.log(`[getFilteredTransactions] After filtering for "${type}": ${transactions.length} transactions`);
     }
     
     return transactions;
@@ -17132,12 +18132,20 @@ function getFilteredTransactions(type = null) {
 
 /**
  * Generate expenses by category data
+ * ONLY returns expense transactions, never income
  */
 function generateExpensesByCategoryData() {
     const expenses = getFilteredTransactions('expense');
     const byCategory = {};
     
+    console.log(`[generateExpensesByCategoryData] Processing ${expenses.length} expense transactions`);
+    
     expenses.forEach(exp => {
+        // Double-check this is actually an expense
+        if (exp.type !== 'expense') {
+            console.warn('[generateExpensesByCategoryData] Non-expense found in expenses:', exp.id, exp.type);
+            return;
+        }
         const category = exp.category || 'Other';
         const amount = exp.amount || 0;
         byCategory[category] = (byCategory[category] || 0) + amount;
@@ -17152,16 +18160,27 @@ function generateExpensesByCategoryData() {
             value: value
         }));
     
+    console.log(`[generateExpensesByCategoryData] Result: ${data.length} categories, total: ${data.reduce((s, d) => s + d.value, 0)}`);
+    
     return data.length > 0 ? data : [{ label: 'No expenses', value: 0 }];
 }
 
 /**
  * Get expenses grouped by category
+ * ONLY includes expense transactions, never income
  */
 function getExpensesByCategory() {
     const expenses = getFilteredTransactions('expense');
     const byCategory = {};
+    
+    console.log(`[getExpensesByCategory] Processing ${expenses.length} expense transactions`);
+    
     expenses.forEach(exp => {
+        // Double-check this is actually an expense
+        if (exp.type !== 'expense') {
+            console.warn('[getExpensesByCategory] Non-expense found in expenses:', exp.id, exp.type);
+            return;
+        }
         const category = exp.category || 'other';
         byCategory[category] = (byCategory[category] || 0) + (exp.amount || 0);
     });
@@ -17170,11 +18189,21 @@ function getExpensesByCategory() {
 
 /**
  * Get revenue grouped by category
+ * ONLY includes income transactions, never expenses
  */
 function getRevenueByCategory() {
-    const income = getFilteredTransactions('income');
+    // Don't include subscriptions for revenue (subscriptions are expenses)
+    const income = getFilteredTransactions('income', false);
     const byCategory = {};
+    
+    console.log(`[getRevenueByCategory] Processing ${income.length} income transactions`);
+    
     income.forEach(inc => {
+        // Double-check this is actually income
+        if (inc.type !== 'income') {
+            console.warn('[getRevenueByCategory] Non-income found in income:', inc.id, inc.type);
+            return;
+        }
         const category = inc.category || 'other';
         byCategory[category] = (byCategory[category] || 0) + (inc.amount || 0);
     });
@@ -17183,9 +18212,12 @@ function getRevenueByCategory() {
 
 /**
  * Generate revenue by category data for charts
+ * ONLY returns income transactions, never expenses
  */
 function generateRevenueByCategoryData() {
     const byCategory = getRevenueByCategory();
+    
+    console.log(`[generateRevenueByCategoryData] Processing categories:`, Object.keys(byCategory));
     
     // Use income-specific category labels
     const data = Object.entries(byCategory)
@@ -17195,6 +18227,8 @@ function generateRevenueByCategoryData() {
             label: getIncomeCategoryLabel(label),
             value: value
         }));
+    
+    console.log(`[generateRevenueByCategoryData] Result: ${data.length} categories, total: ${data.reduce((s, d) => s + d.value, 0)}`);
     
     return data.length > 0 ? data : [{ label: 'No revenue', value: 0 }];
 }
@@ -21344,7 +22378,9 @@ async function renderMetrics() {
                 graphMetrics.forEach(metricId => {
                     const metric = CUSTOM_METRICS_CATALOG[metricId];
                     if (metric && metric.hasChart) {
+                        console.log(`📊 [RENDER] Generating chart data for metric: "${metricId}"`);
                         const chartData = metric.chartData();
+                        console.log(`📊 [RENDER] Chart data for "${metricId}":`, JSON.stringify(chartData).substring(0, 200) + '...');
                         const chartDataType = metric.chartDataType || 'trend';
                         const metricIsHidden = isMetricHidden(metricId);
                         const hiddenClass = metricIsHidden ? 'metric-hidden' : '';
@@ -21606,6 +22642,35 @@ function initPieChartHoverEffects(container) {
 
 // Make renderMetrics available globally for data listener updates
 window.renderMetrics = renderMetrics;
+
+// DEBUG: Helper function to diagnose transaction data issues
+// Run `debugTransactionTypes()` in browser console to see breakdown
+window.debugTransactionTypes = function() {
+    const transactions = appState.transactions || [];
+    const breakdown = { income: [], expense: [], other: [] };
+    
+    transactions.forEach(t => {
+        if (t.type === 'income') {
+            breakdown.income.push({ id: t.id, desc: t.description, amount: t.amount, category: t.category });
+        } else if (t.type === 'expense') {
+            breakdown.expense.push({ id: t.id, desc: t.description, amount: t.amount, category: t.category });
+        } else {
+            breakdown.other.push({ id: t.id, type: t.type, desc: t.description, amount: t.amount });
+        }
+    });
+    
+    console.log('=== TRANSACTION TYPE BREAKDOWN ===');
+    console.log(`Income transactions: ${breakdown.income.length}`);
+    breakdown.income.forEach(t => console.log(`  💰 [${t.id}] ${t.desc} - $${t.amount} (${t.category})`));
+    console.log(`Expense transactions: ${breakdown.expense.length}`);
+    breakdown.expense.forEach(t => console.log(`  💸 [${t.id}] ${t.desc} - $${t.amount} (${t.category})`));
+    if (breakdown.other.length > 0) {
+        console.log(`Unknown type transactions: ${breakdown.other.length}`);
+        breakdown.other.forEach(t => console.log(`  ⚠️ [${t.id}] type="${t.type}" ${t.desc} - $${t.amount}`));
+    }
+    
+    return breakdown;
+};
 
 /**
  * Update metrics if the metrics tab is currently active.
@@ -22196,19 +23261,6 @@ function initModals() {
     // Initialize custom time pickers
     initializeTimePicker('startTimeWrapper', 'eventHour', 'eventMinute', 'startHourOptions', 'startMinuteOptions');
     initializeTimePicker('endTimeWrapper', 'eventEndHour', 'eventEndMinute', 'endHourOptions', 'endMinuteOptions');
-    
-    // Event color option buttons - updated for unified color picker
-    const eventColorOptions = document.querySelectorAll('#eventModal .unified-color-option');
-    eventColorOptions.forEach(option => {
-        option.addEventListener('click', () => {
-            const color = option.getAttribute('data-color');
-            eventColorInput.value = color;
-            
-            // Update selected state
-            eventColorOptions.forEach(o => o.classList.remove('selected'));
-            option.classList.add('selected');
-        });
-    });
     
     // Event visibility toggle (calendar-style)
     const visibilityToggles = document.querySelectorAll('#eventModal .visibility-toggle');
@@ -23020,6 +24072,22 @@ function openEventModalWithDate(selectedDate, startHour = 9) {
     resetEventVisibility();
     resetEventRepeat();
     
+    // Reset color to default blue using inline color picker
+    const eventColorPicker = window.colorPickers['eventColorPicker'];
+    if (eventColorPicker) {
+        eventColorPicker.setColor('#007AFF');
+    } else {
+        // Fallback if picker not initialized yet
+        const eventColorInput = document.getElementById('eventColor');
+        const eventColorSwatch = document.getElementById('eventColorSwatch');
+        const eventColorNative = document.getElementById('eventColorNative');
+        const eventColorHex = document.getElementById('eventColorHex');
+        if (eventColorInput) eventColorInput.value = '#007AFF';
+        if (eventColorSwatch) eventColorSwatch.style.background = '#007AFF';
+        if (eventColorNative) eventColorNative.value = '#007AFF';
+        if (eventColorHex) eventColorHex.value = '#007AFF';
+    }
+    
     // Open the modal
     openModal('eventModal');
 }
@@ -23351,17 +24419,34 @@ function openEditEventModal(event) {
     document.getElementById('eventEndHour').value = String(endDate.getHours()).padStart(2, '0');
     document.getElementById('eventEndMinute').value = String(endDate.getMinutes()).padStart(2, '0');
     
-    // Set color
-    const colorInput = document.getElementById('eventColor');
-    colorInput.value = event.color || '#007AFF';
+    // Set color using inline color picker
+    const eventColor = event.color || '#007AFF';
+    const eventColorPicker = window.colorPickers['eventColorPicker'];
+    if (eventColorPicker) {
+        eventColorPicker.setColor(eventColor);
+    } else {
+        // Fallback
+        const colorInput = document.getElementById('eventColor');
+        const eventColorSwatch = document.getElementById('eventColorSwatch');
+        const eventColorNative = document.getElementById('eventColorNative');
+        const eventColorHex = document.getElementById('eventColorHex');
+        if (colorInput) colorInput.value = eventColor;
+        if (eventColorSwatch) eventColorSwatch.style.background = eventColor;
+        if (eventColorNative) eventColorNative.value = eventColor;
+        if (eventColorHex) eventColorHex.value = eventColor;
+    }
     
-    // Update event color option selection (unified style)
-    document.querySelectorAll('.unified-color-option').forEach(btn => {
-        if (btn.dataset.color === colorInput.value) {
-            btn.classList.add('selected');
-        } else {
-            btn.classList.remove('selected');
-        }
+    // Set icon using inline icon picker
+    const eventIcon = event.icon || 'calendar';
+    const eventIconInput = document.getElementById('eventIcon');
+    const iconSelected = document.getElementById('eventIconSelected');
+    const iconOptions = document.querySelectorAll('#eventIconOptions .icon-picker-option');
+    if (eventIconInput) eventIconInput.value = eventIcon;
+    if (iconSelected && window.EVENT_ICONS && window.EVENT_ICONS[eventIcon]) {
+        iconSelected.innerHTML = window.EVENT_ICONS[eventIcon];
+    }
+    iconOptions.forEach(opt => {
+        opt.classList.toggle('selected', opt.dataset.icon === eventIcon);
     });
     
     // Set visibility
@@ -24225,11 +25310,21 @@ async function loadTeamData() {
         await Promise.all(parallelLoads);
 
         await loadCompletedTaskCounts();
+        
+        // Hide skeleton loaders now that data is loaded
+        if (typeof hideAllSkeletons === 'function') {
+            hideAllSkeletons();
+        }
 
         debugLog('Team data loaded successfully');
     } catch (error) {
         console.error('Error loading team data:', error.code || error.message);
         debugError('Full error:', error);
+        
+        // Hide skeletons even on error so user sees empty state instead of forever loading
+        if (typeof hideAllSkeletons === 'function') {
+            hideAllSkeletons();
+        }
     }
 }
 
@@ -26893,11 +27988,41 @@ function navigateToSearchResult(route, sectionId) {
     navigateToSection(route, sectionId);
 }
 
+/**
+ * Navigate to chat and scroll to a specific message with highlight
+ * @param {string} messageId - The ID of the message to scroll to
+ */
+function navigateToChatMessage(messageId) {
+    clearSearchUI();
+    navigateToSection('chat', 'chat-section');
+    
+    // Wait for the chat to render, then scroll to the message
+    setTimeout(() => {
+        const messageEl = document.querySelector(`.message[data-message-id="${messageId}"]`);
+        
+        if (messageEl) {
+            // Scroll to the message
+            messageEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            
+            // Add highlight effect
+            messageEl.classList.add('search-highlight');
+            
+            // Remove highlight after animation completes
+            setTimeout(() => {
+                messageEl.classList.remove('search-highlight');
+            }, 3000);
+        } else {
+            showToast('Message not found in current view', 'info', 3000);
+        }
+    }, 300);
+}
+
 // Expose search functions globally for onclick handlers
 window.executeSearchResult = executeSearchResult;
 window.executeSearchCommand = executeSearchCommand;
 window.navigateToSearchResult = navigateToSearchResult;
 window.navigateToSection = navigateToSection;
+window.navigateToChatMessage = navigateToChatMessage;
 
 /**
  * Perform the search and render results
@@ -26988,7 +28113,7 @@ function performSearch(query) {
         html += '<div class="search-section-title"><i class="fas fa-comment"></i> Messages</div>';
         results.messages.forEach(msg => {
             html += `
-                <div class="search-result-item" data-index="${resultIndex}" data-type="navigation" onclick="executeSearchResult(null, 'navigation', 'chat', 'chat-section')">
+                <div class="search-result-item" data-index="${resultIndex}" data-type="navigation" onclick="navigateToChatMessage('${msg.id}')">
                     <div class="search-result-icon"><i class="fas fa-comment"></i></div>
                     <div class="search-result-content">
                         <div class="search-result-title">${escapeHtml(msg.username || 'Unknown')}</div>
@@ -27146,8 +28271,47 @@ function initSettingsTabs() {
                     pane.classList.add('active');
                 }
             });
+            
+            // Render achievements when tab is opened
+            if (targetTab === 'achievements') {
+                // Update login streak
+                updateLoginStreak();
+                // Sync retroactive achievements (runs once per team)
+                syncRetroactiveAchievements();
+                renderAchievementsTab();
+            }
         });
     });
+    
+    // Initialize gamification toggle
+    const gamificationToggle = document.getElementById('gamificationEnabled');
+    if (gamificationToggle) {
+        // Load saved state (default is enabled)
+        const isEnabled = localStorage.getItem('gamificationEnabled') !== 'false';
+        gamificationToggle.checked = isEnabled;
+        
+        // Update achievements tab visibility
+        const achievementsTab = document.getElementById('achievementsSettingsTab');
+        if (achievementsTab) {
+            achievementsTab.style.display = isEnabled ? '' : 'none';
+        }
+        
+        gamificationToggle.addEventListener('change', () => {
+            localStorage.setItem('gamificationEnabled', gamificationToggle.checked);
+            
+            // Show/hide achievements tab
+            const achievementsTab = document.getElementById('achievementsSettingsTab');
+            if (achievementsTab) {
+                achievementsTab.style.display = gamificationToggle.checked ? '' : 'none';
+            }
+            
+            if (gamificationToggle.checked) {
+                showToast('Achievements enabled! 🎮', 'success');
+            } else {
+                showToast('Achievements disabled', 'info');
+            }
+        });
+    }
     
     // Initialize theme selector in Appearance tab
     initThemeSelectorModern();
@@ -27548,18 +28712,13 @@ function updateProfilePreview(userData) {
 
 // Setup avatar color picker - supports both old (.color-option), (.color-circle), and new (.color-dot) styles
 function setupAvatarColorPicker() {
-    const colorOptions = document.querySelectorAll('.color-option, .color-circle, .color-dot');
+    const picker = document.getElementById('avatarColorPicker');
+    if (!picker) return;
+    
+    const colorOptions = picker.querySelectorAll('.color-picker-recent-btn');
+    const swatch = document.getElementById('avatarColorSwatch');
     
     colorOptions.forEach(option => {
-        // Make options keyboard accessible
-        option.tabIndex = 0;
-        option.addEventListener('keydown', function(e) {
-            if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                this.click();
-            }
-        });
-
         option.addEventListener('click', function() {
             // Remove selected class from all
             colorOptions.forEach(opt => opt.classList.remove('selected'));
@@ -27567,8 +28726,11 @@ function setupAvatarColorPicker() {
             // Add selected class to clicked option
             this.classList.add('selected');
             
-            // Update hidden input
+            // Update swatch
             const color = this.getAttribute('data-color');
+            if (swatch) swatch.style.background = color;
+            
+            // Update hidden input
             document.getElementById('settingsAvatarColor').value = color;
             
             // Update preview
@@ -27582,9 +28744,9 @@ function setupAvatarColorPicker() {
     });
 }
 
-// Select color option - supports old (.color-option), (.color-circle), and new (.color-dot') styles
+// Select color option - supports old and new styles
 function selectColorOption(color) {
-    const colorOptions = document.querySelectorAll('.color-option, .color-circle, .color-dot');
+    const colorOptions = document.querySelectorAll('.color-option, .color-circle, .color-dot, .color-picker-recent-btn');
     colorOptions.forEach(option => {
         if (option.getAttribute('data-color') === color) {
             option.classList.add('selected');
@@ -28348,27 +29510,35 @@ function applyAccentColor(accentName, colorData) {
     root.style.setProperty('--primary-dark', isDark ? colorData.darkHover : colorData.hover);
 }
 
+// Accent color definitions for dynamic theming
+const ACCENT_COLORS = {
+    blue: { color: '#007AFF', hover: '#0051CC', soft: 'rgba(0, 122, 255, 0.12)', dark: '#0A84FF', darkHover: '#007AFF', darkSoft: 'rgba(10, 132, 255, 0.15)' },
+    teal: { color: '#00C7BE', hover: '#00ADA6', soft: 'rgba(0, 199, 190, 0.12)', dark: '#64D2FF', darkHover: '#00C7BE', darkSoft: 'rgba(100, 210, 255, 0.15)' },
+    green: { color: '#34C759', hover: '#2DB04E', soft: 'rgba(52, 199, 89, 0.12)', dark: '#32D74B', darkHover: '#34C759', darkSoft: 'rgba(50, 215, 75, 0.15)' },
+    purple: { color: '#AF52DE', hover: '#9340C7', soft: 'rgba(175, 82, 222, 0.12)', dark: '#BF5AF2', darkHover: '#AF52DE', darkSoft: 'rgba(191, 90, 242, 0.15)' },
+    red: { color: '#FF3B30', hover: '#E6352B', soft: 'rgba(255, 59, 48, 0.12)', dark: '#FF453A', darkHover: '#FF3B30', darkSoft: 'rgba(255, 69, 58, 0.15)' },
+    orange: { color: '#FF9500', hover: '#E68600', soft: 'rgba(255, 149, 0, 0.12)', dark: '#FF9F0A', darkHover: '#FF9500', darkSoft: 'rgba(255, 159, 10, 0.15)' }
+};
+
 // Initialize accent color picker
 function initAccentColorPicker() {
     const picker = document.getElementById('accentColorPicker');
     if (!picker) return;
     
+    const colorOptions = picker.querySelectorAll('.color-picker-recent-btn');
+    const swatch = document.getElementById('accentColorSwatch');
+    
     // Load saved accent from localStorage first for instant load
     const savedAccent = localStorage.getItem('accentColor') || 'blue';
     
     // Select the saved option and apply colors
-    picker.querySelectorAll('.accent-color-option').forEach(opt => {
+    colorOptions.forEach(opt => {
         opt.classList.remove('selected');
         if (opt.dataset.accent === savedAccent) {
             opt.classList.add('selected');
-            applyAccentColor(savedAccent, {
-                color: opt.dataset.color,
-                hover: opt.dataset.hover,
-                soft: opt.dataset.soft,
-                dark: opt.dataset.dark,
-                darkHover: opt.dataset.darkHover,
-                darkSoft: opt.dataset.darkSoft
-            });
+            if (swatch) swatch.style.background = opt.dataset.color;
+            const colorData = ACCENT_COLORS[savedAccent];
+            if (colorData) applyAccentColor(savedAccent, colorData);
         }
     });
     
@@ -28377,8 +29547,9 @@ function initAccentColorPicker() {
         if (accentData && accentData.name) {
             const option = picker.querySelector(`[data-accent="${accentData.name}"]`);
             if (option) {
-                picker.querySelectorAll('.accent-color-option').forEach(opt => opt.classList.remove('selected'));
+                colorOptions.forEach(opt => opt.classList.remove('selected'));
                 option.classList.add('selected');
+                if (swatch) swatch.style.background = option.dataset.color;
                 applyAccentColor(accentData.name, accentData);
                 localStorage.setItem('accentColor', accentData.name);
             }
@@ -28386,23 +29557,19 @@ function initAccentColorPicker() {
     });
     
     // Add click handlers for each color option
-    picker.querySelectorAll('.accent-color-option').forEach(option => {
+    colorOptions.forEach(option => {
         option.addEventListener('click', async () => {
             // Update selected state
-            picker.querySelectorAll('.accent-color-option').forEach(opt => opt.classList.remove('selected'));
+            colorOptions.forEach(opt => opt.classList.remove('selected'));
             option.classList.add('selected');
             
-            // Get color data from data attributes
+            // Update swatch
+            const color = option.dataset.color;
+            if (swatch) swatch.style.background = color;
+            
+            // Get color data from definitions
             const accentName = option.dataset.accent;
-            const colorData = {
-                name: accentName,
-                color: option.dataset.color,
-                hover: option.dataset.hover,
-                soft: option.dataset.soft,
-                dark: option.dataset.dark,
-                darkHover: option.dataset.darkHover,
-                darkSoft: option.dataset.darkSoft
-            };
+            const colorData = { name: accentName, ...ACCENT_COLORS[accentName] };
             
             // Apply instantly
             applyAccentColor(accentName, colorData);
@@ -28421,16 +29588,11 @@ function initAccentColorPicker() {
     const darkModeObserver = new MutationObserver((mutations) => {
         mutations.forEach((mutation) => {
             if (mutation.attributeName === 'class') {
-                const selectedOption = picker.querySelector('.accent-color-option.selected');
+                const selectedOption = picker.querySelector('.color-picker-recent-btn.selected');
                 if (selectedOption) {
-                    applyAccentColor(selectedOption.dataset.accent, {
-                        color: selectedOption.dataset.color,
-                        hover: selectedOption.dataset.hover,
-                        soft: selectedOption.dataset.soft,
-                        dark: selectedOption.dataset.dark,
-                        darkHover: selectedOption.dataset.darkHover,
-                        darkSoft: selectedOption.dataset.darkSoft
-                    });
+                    const accentName = selectedOption.dataset.accent;
+                    const colorData = ACCENT_COLORS[accentName];
+                    if (colorData) applyAccentColor(accentName, colorData);
                 }
             }
         });
@@ -33480,6 +34642,76 @@ const FINANCE_CATEGORIES = {
 };
 
 /**
+ * Initialize transaction category dropdown
+ * @param {string} type - 'Income' or 'Expense'
+ */
+function initTransactionCategoryDropdown(type) {
+    const isIncome = type === 'Income';
+    const trigger = document.getElementById(`transactionCategory${type}Trigger`);
+    const menu = document.getElementById(`transactionCategory${type}Menu`);
+    const display = document.getElementById(`transactionCategory${type}Display`);
+    const hiddenInput = document.getElementById(`transactionCategory${type}`);
+    
+    if (!trigger || !menu) return;
+    
+    // Toggle menu on trigger click
+    trigger.addEventListener('click', (e) => {
+        e.stopPropagation();
+        // Close other dropdown
+        const otherType = isIncome ? 'Expense' : 'Income';
+        const otherMenu = document.getElementById(`transactionCategory${otherType}Menu`);
+        const otherTrigger = document.getElementById(`transactionCategory${otherType}Trigger`);
+        if (otherMenu) otherMenu.classList.remove('visible');
+        if (otherTrigger) otherTrigger.classList.remove('active');
+        
+        // Toggle this menu
+        menu.classList.toggle('visible');
+        trigger.classList.toggle('active');
+    });
+    
+    // Handle option selection
+    const options = menu.querySelectorAll('.dropdown-menu-option');
+    options.forEach(option => {
+        option.addEventListener('click', () => {
+            const value = option.dataset.value;
+            const label = option.textContent;
+            
+            // Update hidden input
+            if (hiddenInput) {
+                hiddenInput.value = value;
+            }
+            
+            // Update display
+            if (display) {
+                if (value) {
+                    display.textContent = label;
+                    display.classList.remove('dropdown-placeholder');
+                } else {
+                    display.textContent = 'Select category...';
+                    display.classList.add('dropdown-placeholder');
+                }
+            }
+            
+            // Close menu
+            menu.classList.remove('visible');
+            trigger.classList.remove('active');
+        });
+    });
+}
+
+// Close dropdowns when clicking outside
+document.addEventListener('click', (e) => {
+    if (!e.target.closest('.transaction-category-dropdown')) {
+        document.querySelectorAll('.transaction-category-dropdown .custom-dropdown-menu').forEach(menu => {
+            menu.classList.remove('visible');
+        });
+        document.querySelectorAll('.transaction-category-dropdown .custom-dropdown-trigger').forEach(trigger => {
+            trigger.classList.remove('active');
+        });
+    }
+});
+
+/**
  * Initialize finances tab event listeners
  */
 function initFinances() {
@@ -33541,6 +34773,17 @@ function initFinances() {
             btn.classList.add('active');
             document.getElementById('transactionType').value = btn.dataset.type;
             
+            // Toggle category dropdowns based on type
+            const incomeContainer = document.getElementById('transactionCategoryIncomeContainer');
+            const expenseContainer = document.getElementById('transactionCategoryExpenseContainer');
+            if (btn.dataset.type === 'income') {
+                if (incomeContainer) incomeContainer.style.display = 'block';
+                if (expenseContainer) expenseContainer.style.display = 'none';
+            } else {
+                if (incomeContainer) incomeContainer.style.display = 'none';
+                if (expenseContainer) expenseContainer.style.display = 'block';
+            }
+            
             // Update party label
             const partyLabel = document.getElementById('transactionPartyLabel');
             if (partyLabel) {
@@ -33550,6 +34793,10 @@ function initFinances() {
             }
         });
     });
+    
+    // Initialize transaction category dropdowns
+    initTransactionCategoryDropdown('Income');
+    initTransactionCategoryDropdown('Expense');
     
     // Recurring toggle
     const recurringToggle = document.getElementById('transactionRecurring');
@@ -33639,6 +34886,32 @@ function openTransactionModal(transaction = null, defaultType = 'income') {
         btn.classList.toggle('active', btn.dataset.type === defaultType);
     });
     
+    // Show appropriate category dropdown and reset displays
+    const incomeContainer = document.getElementById('transactionCategoryIncomeContainer');
+    const expenseContainer = document.getElementById('transactionCategoryExpenseContainer');
+    const incomeDisplay = document.getElementById('transactionCategoryIncomeDisplay');
+    const expenseDisplay = document.getElementById('transactionCategoryExpenseDisplay');
+    
+    if (defaultType === 'income') {
+        if (incomeContainer) incomeContainer.style.display = 'block';
+        if (expenseContainer) expenseContainer.style.display = 'none';
+        if (incomeDisplay) {
+            incomeDisplay.textContent = 'Select category...';
+            incomeDisplay.classList.add('dropdown-placeholder');
+        }
+    } else {
+        if (incomeContainer) incomeContainer.style.display = 'none';
+        if (expenseContainer) expenseContainer.style.display = 'block';
+        if (expenseDisplay) {
+            expenseDisplay.textContent = 'Select category...';
+            expenseDisplay.classList.add('dropdown-placeholder');
+        }
+    }
+    
+    // Reset category inputs
+    document.getElementById('transactionCategoryIncome').value = '';
+    document.getElementById('transactionCategoryExpense').value = '';
+    
     // Reset recurring field
     const frequencyField = document.getElementById('recurringFrequencyField');
     if (frequencyField) {
@@ -33670,16 +34943,50 @@ function openTransactionModal(transaction = null, defaultType = 'income') {
         document.getElementById('transactionAmount').value = transaction.amount;
         document.getElementById('transactionDate').value = transaction.date?.toDate?.()?.toISOString().split('T')[0] || transaction.date;
         document.getElementById('transactionDescription').value = transaction.description || '';
-        document.getElementById('transactionCategory').value = transaction.category || '';
+        
+        // Set category in appropriate dropdown and display
+        const catValue = transaction.category || '';
+        const catLabel = catValue ? FINANCE_CATEGORIES[transaction.type]?.find(c => c.value === catValue)?.label || catValue : 'Select category...';
+        const isPlaceholder = !catValue;
+        
+        if (transaction.type === 'income') {
+            document.getElementById('transactionCategoryIncome').value = catValue;
+            const incomeDisplay = document.getElementById('transactionCategoryIncomeDisplay');
+            if (incomeDisplay) {
+                incomeDisplay.textContent = catLabel;
+                incomeDisplay.classList.toggle('dropdown-placeholder', isPlaceholder);
+            }
+            document.getElementById('transactionCategoryExpense').value = '';
+            if (incomeContainer) incomeContainer.style.display = 'block';
+            if (expenseContainer) expenseContainer.style.display = 'none';
+        } else {
+            document.getElementById('transactionCategoryExpense').value = catValue;
+            const expenseDisplay = document.getElementById('transactionCategoryExpenseDisplay');
+            if (expenseDisplay) {
+                expenseDisplay.textContent = catLabel;
+                expenseDisplay.classList.toggle('dropdown-placeholder', isPlaceholder);
+            }
+            document.getElementById('transactionCategoryIncome').value = '';
+            if (incomeContainer) incomeContainer.style.display = 'none';
+            if (expenseContainer) expenseContainer.style.display = 'block';
+        }
+        
         document.getElementById('transactionParty').value = transaction.party || '';
         document.getElementById('transactionRecurring').checked = transaction.isRecurring || false;
         document.getElementById('transactionFrequency').value = transaction.frequency || 'monthly';
         document.getElementById('transactionNotes').value = transaction.notes || '';
         
-        // Update type buttons
+        // Update type buttons and category visibility
         typeButtons.forEach(btn => {
             btn.classList.toggle('active', btn.dataset.type === transaction.type);
         });
+        if (transaction.type === 'income') {
+            if (incomeContainer) incomeContainer.style.display = 'block';
+            if (expenseContainer) expenseContainer.style.display = 'none';
+        } else {
+            if (incomeContainer) incomeContainer.style.display = 'none';
+            if (expenseContainer) expenseContainer.style.display = 'block';
+        }
         
         // Show frequency field if recurring
         if (transaction.isRecurring && frequencyField) {
@@ -33727,15 +35034,25 @@ async function handleTransactionSave(event) {
     const isEdit = !!transactionId;
     
     // Get form values
+    const transactionType = document.getElementById('transactionType').value;
+    
+    // Validate type is set (critical for proper categorization)
+    if (!transactionType || (transactionType !== 'income' && transactionType !== 'expense')) {
+        showToast('Please select a transaction type (Income or Expense)', 'error');
+        return;
+    }
+    
     const transactionData = {
-        type: document.getElementById('transactionType').value,
+        type: transactionType, // 'income' or 'expense' - REQUIRED
         amount: parseFloat(document.getElementById('transactionAmount').value) || 0,
         date: new Date(document.getElementById('transactionDate').value),
         description: document.getElementById('transactionDescription').value.trim(),
-        category: document.getElementById('transactionCategory').value,
+        category: transactionType === 'income' 
+            ? (document.getElementById('transactionCategoryIncome').value || 'other')
+            : (document.getElementById('transactionCategoryExpense').value || 'other'),
         party: document.getElementById('transactionParty').value.trim(),
-        isRecurring: document.getElementById('transactionRecurring').checked,
-        frequency: document.getElementById('transactionFrequency').value,
+        isRecurring: document.getElementById('transactionRecurring').checked === true,
+        frequency: document.getElementById('transactionRecurring').checked ? document.getElementById('transactionFrequency').value : '',
         notes: document.getElementById('transactionNotes').value.trim(),
         updatedAt: new Date()
     };
@@ -33832,6 +35149,82 @@ async function handleDeleteTransaction() {
 }
 
 /**
+ * Normalize a transaction to ensure all required fields exist
+ * This handles old transactions that may not have all fields set
+ * @param {Object} transaction - The raw transaction from database
+ * @returns {Object} Normalized transaction with all fields
+ */
+function normalizeTransaction(transaction) {
+    // Check if type exists and is valid
+    const hasValidType = transaction.type === 'income' || transaction.type === 'expense';
+    const finalType = hasValidType ? transaction.type : inferTransactionType(transaction);
+    
+    // DEBUG: Log when type inference is used
+    if (!hasValidType) {
+        console.warn(`[normalizeTransaction] Transaction "${transaction.id}" missing valid type. Raw type: "${transaction.type}", Inferred: "${finalType}"`);
+    }
+    
+    // Default values for missing fields
+    const normalized = {
+        id: transaction.id,
+        // Type is REQUIRED - if missing or invalid, infer from other fields
+        type: finalType,
+        amount: parseFloat(transaction.amount) || 0,
+        date: transaction.date,
+        description: transaction.description || '',
+        category: transaction.category || 'other',
+        party: transaction.party || '',
+        isRecurring: transaction.isRecurring === true,
+        frequency: transaction.frequency || '',
+        notes: transaction.notes || '',
+        createdBy: transaction.createdBy || null,
+        createdAt: transaction.createdAt || null,
+        updatedAt: transaction.updatedAt || null
+    };
+    
+    return normalized;
+}
+
+/**
+ * Infer transaction type from available data when type field is missing
+ * This is for backwards compatibility with old transactions
+ * @param {Object} transaction - The transaction to analyze
+ * @returns {string} 'income' or 'expense'
+ */
+function inferTransactionType(transaction) {
+    // Check if category suggests income (revenue categories)
+    const incomeCategories = ['sales', 'services', 'consulting', 'subscription', 'recurring', 'client', 'revenue', 'income', 'payment'];
+    const expenseCategories = ['rent', 'utilities', 'software', 'hardware', 'salary', 'marketing', 'office', 'travel', 'supplies', 'expense', 'cost'];
+    
+    const category = (transaction.category || '').toLowerCase();
+    const description = (transaction.description || '').toLowerCase();
+    const party = (transaction.party || '').toLowerCase();
+    
+    // Check category first
+    if (incomeCategories.some(c => category.includes(c))) {
+        return 'income';
+    }
+    if (expenseCategories.some(c => category.includes(c))) {
+        return 'expense';
+    }
+    
+    // Check description for income keywords
+    const incomeKeywords = ['payment from', 'received', 'revenue', 'income', 'client payment', 'sale', 'invoice'];
+    const expenseKeywords = ['paid to', 'payment to', 'expense', 'cost', 'purchased', 'bought', 'subscription to'];
+    
+    if (incomeKeywords.some(k => description.includes(k))) {
+        return 'income';
+    }
+    if (expenseKeywords.some(k => description.includes(k))) {
+        return 'expense';
+    }
+    
+    // Default to expense (safer default - won't inflate revenue numbers)
+    console.warn('Could not infer transaction type, defaulting to expense:', transaction.id, transaction.description);
+    return 'expense';
+}
+
+/**
  * Load transactions from Firestore
  */
 async function loadTransactions() {
@@ -33846,12 +35239,21 @@ async function loadTransactions() {
         const q = query(transactionsRef, orderBy('date', 'desc'));
         const snapshot = await getDocs(q);
         
-        appState.transactions = snapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data()
-        }));
+        // Normalize all transactions to ensure required fields exist
+        appState.transactions = snapshot.docs.map(doc => {
+            const rawData = { id: doc.id, ...doc.data() };
+            return normalizeTransaction(rawData);
+        });
         
-        debugLog('💰 Loaded transactions:', appState.transactions.length);
+        // DEBUG: Log type distribution after loading
+        const typeBreakdown = { income: 0, expense: 0, other: 0 };
+        appState.transactions.forEach(t => {
+            if (t.type === 'income') typeBreakdown.income++;
+            else if (t.type === 'expense') typeBreakdown.expense++;
+            else typeBreakdown.other++;
+        });
+        console.log('💰 Loaded and normalized transactions:', appState.transactions.length, 'Type breakdown:', typeBreakdown);
+        
         renderFinances();
         
         // Check for milestone achievements
@@ -34031,6 +35433,7 @@ function calculateFinanceMetrics(transactions = appState.transactions) {
         const amount = t.amount || 0;
         const transactionDate = t.date?.toDate?.() || new Date(t.date);
         
+        // IMPORTANT: Explicitly check for 'income' type
         if (t.type === 'income') {
             totalIncome += amount;
             
@@ -34044,8 +35447,8 @@ function calculateFinanceMetrics(transactions = appState.transactions) {
                 ytdIncome += amount;
             }
             
-            // MRR calculation - recurring monthly income
-            if (t.isRecurring) {
+            // MRR calculation - recurring monthly income only
+            if (t.isRecurring === true) {
                 switch (t.frequency) {
                     case 'monthly':
                         mrr += amount;
@@ -34056,9 +35459,15 @@ function calculateFinanceMetrics(transactions = appState.transactions) {
                     case 'yearly':
                         mrr += amount / 12;
                         break;
+                    case 'weekly':
+                        mrr += amount * 4;
+                        break;
+                    // Don't add anything for invalid/missing frequency
                 }
             }
-        } else {
+        } 
+        // IMPORTANT: Explicitly check for 'expense' type - don't count undefined or other types
+        else if (t.type === 'expense') {
             totalExpenses += amount;
             
             // YTD expenses
@@ -34066,6 +35475,7 @@ function calculateFinanceMetrics(transactions = appState.transactions) {
                 ytdExpenses += amount;
             }
         }
+        // Ignore transactions with invalid or missing type
     });
     
     // Find main customer (highest total)
@@ -35568,8 +36978,54 @@ function focusSearchInput() {
 // ===================================
 // INITIALIZATION
 // ===================================
+
+/**
+ * Show skeleton loading state for a section
+ * @param {string} sectionId - The section to show skeleton for (activity, tasks, chat, calendar)
+ */
+function showSkeleton(sectionId) {
+    const section = document.getElementById(`${sectionId}-section`);
+    const skeleton = document.getElementById(`${sectionId}-skeleton`);
+    if (section) section.classList.add('content-loading');
+    if (skeleton) skeleton.classList.add('loading');
+}
+
+/**
+ * Hide skeleton loading state for a section
+ * @param {string} sectionId - The section to hide skeleton for
+ */
+function hideSkeleton(sectionId) {
+    const section = document.getElementById(`${sectionId}-section`);
+    const skeleton = document.getElementById(`${sectionId}-skeleton`);
+    if (section) section.classList.remove('content-loading');
+    if (skeleton) skeleton.classList.remove('loading');
+}
+
+/**
+ * Show all skeleton loaders
+ */
+function showAllSkeletons() {
+    ['activity', 'tasks', 'chat', 'calendar'].forEach(showSkeleton);
+}
+
+/**
+ * Hide all skeleton loaders
+ */
+function hideAllSkeletons() {
+    ['activity', 'tasks', 'chat', 'calendar'].forEach(hideSkeleton);
+}
+
+// Expose skeleton functions globally
+window.showSkeleton = showSkeleton;
+window.hideSkeleton = hideSkeleton;
+window.showAllSkeletons = showAllSkeletons;
+window.hideAllSkeletons = hideAllSkeletons;
+
 document.addEventListener('DOMContentLoaded', async () => {
     console.log('Teamster App Initializing...');
+    
+    // Show skeleton loaders immediately
+    showAllSkeletons();
     
     // Check for join code in URL
     const urlParams = new URLSearchParams(window.location.search);
