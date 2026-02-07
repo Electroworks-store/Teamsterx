@@ -1426,6 +1426,11 @@ async function initializeFirebaseAuth() {
                 startForceLogoutListener();
                 // Initialize team after authentication
                 await initializeUserTeam();
+
+                // Pull achievements from Firestore so XP/badges sync across devices
+                if (typeof loadAchievementDataFromFirestore === 'function') {
+                    await loadAchievementDataFromFirestore();
+                }
                 
                 // Update login streak for achievements
                 if (typeof updateLoginStreak === 'function') {
@@ -16936,6 +16941,50 @@ const ACHIEVEMENT_BADGES = {
 // Keep backward compatibility
 const TASK_MILESTONES = ACHIEVEMENT_BADGES.tasks;
 
+function normalizeAchievementData(raw = {}) {
+    return {
+        xp: Number(raw.xp) || 0,
+        earnedBadges: Array.isArray(raw.earnedBadges) ? raw.earnedBadges.slice() : [],
+        stats: {
+            tasksCompleted: Number(raw.stats?.tasksCompleted) || 0,
+            docsCreated: Number(raw.stats?.docsCreated) || 0,
+            messagesSent: Number(raw.stats?.messagesSent) || 0,
+            sheetsCreated: Number(raw.stats?.sheetsCreated) || 0
+        },
+        streak: Number(raw.streak) || 0,
+        lastLoginDate: raw.lastLoginDate || null,
+        bestStreak: Number(raw.bestStreak) || 0
+    };
+}
+
+function mergeAchievementData(localData, remoteData) {
+    const local = normalizeAchievementData(localData);
+    const remote = normalizeAchievementData(remoteData);
+
+    const merged = normalizeAchievementData({});
+    merged.xp = Math.max(local.xp, remote.xp);
+    merged.earnedBadges = Array.from(new Set([...(local.earnedBadges || []), ...(remote.earnedBadges || [])]));
+    merged.stats = {
+        tasksCompleted: Math.max(local.stats.tasksCompleted, remote.stats.tasksCompleted),
+        docsCreated: Math.max(local.stats.docsCreated, remote.stats.docsCreated),
+        messagesSent: Math.max(local.stats.messagesSent, remote.stats.messagesSent),
+        sheetsCreated: Math.max(local.stats.sheetsCreated, remote.stats.sheetsCreated)
+    };
+
+    const localDate = local.lastLoginDate || null;
+    const remoteDate = remote.lastLoginDate || null;
+    if (remoteDate && (!localDate || remoteDate > localDate)) {
+        merged.streak = remote.streak || 0;
+        merged.lastLoginDate = remoteDate;
+    } else {
+        merged.streak = local.streak || 0;
+        merged.lastLoginDate = localDate;
+    }
+
+    merged.bestStreak = Math.max(local.bestStreak, remote.bestStreak, merged.streak);
+    return merged;
+}
+
 /**
  * Get user's achievement data from localStorage
  */
@@ -16945,16 +16994,22 @@ function getUserAchievementData() {
     const data = localStorage.getItem(`achievements_${userId}`);
     if (data) {
         const parsed = JSON.parse(data);
-        // Ensure streak fields exist
-        if (!parsed.streak) parsed.streak = 0;
-        if (!parsed.bestStreak) parsed.bestStreak = 0;
-        return parsed;
+        return normalizeAchievementData(parsed);
     }
     // Migrate old milestone data if exists
     const oldMilestones = JSON.parse(localStorage.getItem(`milestones_${userId}`) || '[]');
     const earnedBadges = oldMilestones.map(t => `task_${t}`);
-    return { xp: 0, earnedBadges, stats: { tasksCompleted: 0, docsCreated: 0, messagesSent: 0, sheetsCreated: 0 }, streak: 0, lastLoginDate: null, bestStreak: 0 };
+    return normalizeAchievementData({
+        xp: 0,
+        earnedBadges,
+        stats: { tasksCompleted: 0, docsCreated: 0, messagesSent: 0, sheetsCreated: 0 },
+        streak: 0,
+        lastLoginDate: null,
+        bestStreak: 0
+    });
 }
+
+let achievementsSyncTimer = null;
 
 /**
  * Save user's achievement data to localStorage
@@ -16963,6 +17018,53 @@ function saveUserAchievementData(data) {
     if (!currentAuthUser) return;
     const userId = currentAuthUser.uid;
     localStorage.setItem(`achievements_${userId}`, JSON.stringify(data));
+    scheduleAchievementSync(data);
+}
+
+async function writeAchievementsToFirestore(data) {
+    if (!db || !currentAuthUser) return;
+    try {
+        const { doc, setDoc, serverTimestamp } = await import('https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js');
+        const userRef = doc(db, 'users', currentAuthUser.uid);
+        const payload = {
+            ...normalizeAchievementData(data),
+            updatedAt: serverTimestamp()
+        };
+        await setDoc(userRef, { achievements: payload }, { merge: true });
+    } catch (error) {
+        console.warn('Achievement sync failed:', error?.message || error);
+    }
+}
+
+function scheduleAchievementSync(data) {
+    if (!db || !currentAuthUser) return;
+    const snapshot = JSON.parse(JSON.stringify(normalizeAchievementData(data)));
+    if (achievementsSyncTimer) {
+        clearTimeout(achievementsSyncTimer);
+    }
+    achievementsSyncTimer = setTimeout(() => {
+        writeAchievementsToFirestore(snapshot);
+    }, 800);
+}
+
+async function loadAchievementDataFromFirestore() {
+    if (!db || !currentAuthUser) return;
+    try {
+        const { doc, getDoc } = await import('https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js');
+        const userRef = doc(db, 'users', currentAuthUser.uid);
+        const userDoc = await getDoc(userRef);
+        if (!userDoc.exists()) return;
+
+        const remoteData = userDoc.data()?.achievements;
+        if (!remoteData) return;
+
+        const localData = getUserAchievementData();
+        const merged = mergeAchievementData(localData, remoteData);
+        saveUserAchievementData(merged);
+        renderAchievementsTab();
+    } catch (error) {
+        console.warn('Achievement load failed:', error?.message || error);
+    }
 }
 
 // TEMP: Local-only XP recalculation (easy to remove)
@@ -17107,6 +17209,8 @@ async function syncRetroactiveAchievements() {
     debugLog('🔄 Syncing retroactive achievements...');
     
     try {
+        const { collection, getDocs } = await import('https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js');
+
         // Count completed tasks by this user
         // Check status === 'done' or 'won' (leads), and match by assignee, completedBy, or createdBy
         const tasksRef = collection(db, 'teams', teamId, 'tasks');
