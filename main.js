@@ -5899,6 +5899,27 @@ function initTasks() {
         });
     }
 
+    // SVG icon definitions for projects/spreadsheets (monochromatic, clean design) - 10 icons max
+    const PROJECT_ICONS = {
+        folder: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 7.5V18a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6.586a1 1 0 01-.707-.293l-1.414-1.414A1 1 0 009.586 5H5a2 2 0 00-2 2.5z"/></svg>',
+        briefcase: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 012-2h4a2 2 0 012 2v2"/><line x1="12" y1="12" x2="12" y2="12.01"/></svg>',
+        rocket: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 00-2.91-.09z"/><path d="M12 15l-3-3a22 22 0 012-3.95A12.88 12.88 0 0122 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 01-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/></svg>',
+        globe: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg>',
+        chart: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>',
+        lightbulb: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0018 8 6 6 0 006 8c0 1 .23 2.23 1.5 3.5A4.61 4.61 0 018.91 14"/></svg>',
+        star: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>',
+        users: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>',
+        code: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>',
+        heart: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg>'
+    };
+
+    const DEFAULT_SPREADSHEET_ICON = Object.keys(PROJECT_ICONS)[0];
+
+    function getSpreadsheetIconSVG(iconKey) {
+        const resolvedKey = PROJECT_ICONS[iconKey] ? iconKey : DEFAULT_SPREADSHEET_ICON;
+        return PROJECT_ICONS[resolvedKey];
+    }
+
     // Initialize spreadsheet modal handlers
     initSpreadsheetModal();
     
@@ -6149,13 +6170,14 @@ function initTasks() {
             `;
         }
 
+        const spreadsheetIconSVG = getSpreadsheetIconSVG(spreadsheet.icon);
         card.innerHTML = `
             <button class="spreadsheet-card-menu-btn" title="More options">
                 <i class="fas fa-ellipsis-v"></i>
             </button>
             <div class="spreadsheet-card-header-row">
                 <div class="spreadsheet-card-icon" style="background: ${spreadsheet.color}15; color: ${spreadsheet.color};">
-                    <i class="fas ${spreadsheet.icon || 'fa-table'}"></i>
+                    ${spreadsheetIconSVG}
                 </div>
             </div>
             <div class="spreadsheet-card-content">
@@ -6380,6 +6402,31 @@ function initTasks() {
         }, 100);
     }
     
+    function setSpreadsheetIcon(iconKey) {
+        const input = document.getElementById('spreadsheetIcon');
+        const selectedDisplay = document.getElementById('spreadsheetIconSelected');
+        const resolvedKey = PROJECT_ICONS[iconKey] ? iconKey : DEFAULT_SPREADSHEET_ICON;
+        if (input) input.value = resolvedKey;
+        if (selectedDisplay) selectedDisplay.innerHTML = getSpreadsheetIconSVG(resolvedKey);
+
+        document.querySelectorAll('#spreadsheetIconPicker .icon-picker-option').forEach(btn => {
+            btn.classList.toggle('selected', btn.dataset.icon === resolvedKey);
+        });
+    }
+
+    function setSpreadsheetColor(color) {
+        const input = document.getElementById('spreadsheetColor');
+        const swatch = document.getElementById('spreadsheetColorSwatch');
+        const hexInput = document.getElementById('spreadsheetColorHex');
+        if (input) input.value = color;
+        if (swatch) swatch.style.background = color;
+        if (hexInput) hexInput.value = color.toUpperCase();
+
+        document.querySelectorAll('#spreadsheetColorPicker .color-picker-recent-btn').forEach(btn => {
+            btn.classList.toggle('selected', btn.dataset.color.toUpperCase() === color.toUpperCase());
+        });
+    }
+
     function openEditSpreadsheetModal(spreadsheet) {
         // Populate modal with existing values
         const modal = document.getElementById('spreadsheetModal');
@@ -6402,20 +6449,10 @@ function initTasks() {
         if (typeField) typeField.style.display = 'none';
         
         // Set icon
-        const iconButtons = modal.querySelectorAll('.unified-icon-option');
-        iconButtons.forEach(btn => {
-            const isSelected = btn.dataset.icon === spreadsheet.icon;
-            btn.classList.toggle('selected', isSelected);
-        });
-        document.getElementById('spreadsheetIcon').value = spreadsheet.icon || 'fa-table';
+        setSpreadsheetIcon(spreadsheet.icon || DEFAULT_SPREADSHEET_ICON);
         
         // Set color
-        const colorButtons = modal.querySelectorAll('.unified-color-option');
-        colorButtons.forEach(btn => {
-            const isSelected = btn.dataset.color === spreadsheet.color;
-            btn.classList.toggle('selected', isSelected);
-        });
-        document.getElementById('spreadsheetColor').value = spreadsheet.color || '#0070f3';
+        setSpreadsheetColor(spreadsheet.color || '#0070F3');
         
         // Set visibility
         const visibilityToggle = modal.querySelector('.visibility-toggle[data-target="spreadsheetVisibility"]');
@@ -6546,9 +6583,7 @@ function initTasks() {
             titleInput.value = spreadsheet.name;
         }
         if (iconPreview) {
-            // Validate icon class - must be a valid FontAwesome class
-            const iconClass = (spreadsheet.icon || 'fa-table').replace(/[^a-zA-Z0-9-]/g, '');
-            iconPreview.innerHTML = `<i class="fas ${iconClass}"></i>`;
+            iconPreview.innerHTML = getSpreadsheetIconSVG(spreadsheet.icon);
             iconPreview.style.background = `${spreadsheet.color}15`;
             iconPreview.style.color = spreadsheet.color;
         }
@@ -9266,8 +9301,8 @@ function initTasks() {
         popup.innerHTML = `
             <input type="url" placeholder="https://example.com" value="${escapeHtml(currentUrl)}">
             <div class="link-input-actions">
-                <button class="link-cancel-btn">Cancel</button>
-                <button class="link-save-btn">Save</button>
+                <button class="unified-btn unified-btn-secondary link-cancel-btn">Cancel</button>
+                <button class="unified-btn unified-btn-primary link-save-btn">Save</button>
             </div>
         `;
         
@@ -10353,6 +10388,36 @@ function initTasks() {
         }
 
         // Create spreadsheet modal HTML dynamically - Unified Modern Style
+        const SPREADSHEET_COLOR_PALETTE = [
+            '#0070F3',
+            '#FF3B30',
+            '#FF9500',
+            '#FFCC00',
+            '#34C759',
+            '#00C7BE',
+            '#5856D6',
+            '#AF52DE'
+        ];
+
+        const defaultSpreadsheetIcon = DEFAULT_SPREADSHEET_ICON;
+        const defaultSpreadsheetColor = SPREADSHEET_COLOR_PALETTE[0];
+
+        const spreadsheetIconOptionsHTML = Object.entries(PROJECT_ICONS).map(([key, svg], index) => {
+            const isSelected = index === 0 ? 'selected' : '';
+            return `
+                <button type="button" class="icon-picker-option ${isSelected}" data-icon="${key}" title="${key}">
+                    ${svg}
+                </button>
+            `;
+        }).join('');
+
+        const spreadsheetDefaultIconSVG = getSpreadsheetIconSVG(defaultSpreadsheetIcon);
+
+        const spreadsheetColorOptionsHTML = SPREADSHEET_COLOR_PALETTE.map((color, index) => {
+            const isSelected = index === 0 ? 'selected' : '';
+            return `<button type="button" class="color-picker-recent-btn ${isSelected}" data-color="${color}" style="background: ${color};"></button>`;
+        }).join('');
+
         const modalHTML = `
             <div class="unified-modal" id="spreadsheetModal">
                 <div class="unified-modal-container">
@@ -10399,24 +10464,15 @@ function initTasks() {
                                     <label class="unified-form-label">
                                         <i class="fas fa-icons"></i> Icon
                                     </label>
-                                    <div class="icon-picker-inline narrow" id="iconSelectGrid">
+                                    <div class="icon-picker-inline narrow" id="spreadsheetIconPicker">
                                         <div class="icon-picker-inner-pill">
-                                            <span class="icon-picker-selected" id="spreadsheetIconSelected"><i class="fas fa-table"></i></span>
+                                            <span class="icon-picker-selected" id="spreadsheetIconSelected">${spreadsheetDefaultIconSVG}</span>
                                         </div>
                                         <div class="icon-picker-options">
-                                            <button type="button" class="icon-picker-option selected" data-icon="fa-table"><i class="fas fa-table"></i></button>
-                                            <button type="button" class="icon-picker-option" data-icon="fa-list-check"><i class="fas fa-list-check"></i></button>
-                                            <button type="button" class="icon-picker-option" data-icon="fa-clipboard-list"><i class="fas fa-clipboard-list"></i></button>
-                                            <button type="button" class="icon-picker-option" data-icon="fa-folder"><i class="fas fa-folder"></i></button>
-                                            <button type="button" class="icon-picker-option" data-icon="fa-calendar"><i class="fas fa-calendar"></i></button>
-                                            <button type="button" class="icon-picker-option" data-icon="fa-star"><i class="fas fa-star"></i></button>
-                                            <button type="button" class="icon-picker-option" data-icon="fa-briefcase"><i class="fas fa-briefcase"></i></button>
-                                            <button type="button" class="icon-picker-option" data-icon="fa-bolt"><i class="fas fa-bolt"></i></button>
-                                            <button type="button" class="icon-picker-option" data-icon="fa-rocket"><i class="fas fa-rocket"></i></button>
-                                            <button type="button" class="icon-picker-option" data-icon="fa-heart"><i class="fas fa-heart"></i></button>
+                                            ${spreadsheetIconOptionsHTML}
                                         </div>
                                     </div>
-                                    <input type="hidden" id="spreadsheetIcon" value="fa-table">
+                                    <input type="hidden" id="spreadsheetIcon" value="${defaultSpreadsheetIcon}">
                                 </div>
                                 
                                 <!-- Color -->
@@ -10424,23 +10480,16 @@ function initTasks() {
                                     <label class="unified-form-label">
                                         <i class="fas fa-palette"></i> Color
                                     </label>
-                                    <div class="color-picker-inline narrow" id="colorSelectGrid">
+                                    <div class="color-picker-inline narrow" id="spreadsheetColorPicker">
                                         <div class="color-picker-inner-pill">
-                                            <div class="color-picker-current-swatch" id="spreadsheetColorSwatch" style="background: #0070f3;"></div>
-                                            <input type="text" id="spreadsheetColorHex" value="#0070f3" maxlength="7" spellcheck="false" autocomplete="off" inputmode="text" aria-label="Hex color" style="color:#ff2d9f;background:transparent;border:0;outline:0;box-shadow:none;padding:0;margin:0;font:600 15px/1 -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', sans-serif;letter-spacing:0.4px;text-transform:uppercase;">
+                                            <div class="color-picker-current-swatch" id="spreadsheetColorSwatch" style="background: ${defaultSpreadsheetColor};"></div>
+                                            <input type="text" id="spreadsheetColorHex" value="${defaultSpreadsheetColor}" maxlength="7" spellcheck="false" autocomplete="off" inputmode="text" aria-label="Hex color" style="color:#ff2d9f;background:transparent;border:0;outline:0;box-shadow:none;padding:0;margin:0;font:600 15px/1 -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', sans-serif;letter-spacing:0.4px;text-transform:uppercase;">
                                         </div>
-                                        <div class="color-picker-recent" id="spreadsheetColorOptions">
-                                            <button type="button" class="color-picker-recent-btn" data-color="#FF3B30" style="background: #FF3B30;"></button>
-                                            <button type="button" class="color-picker-recent-btn" data-color="#FF9500" style="background: #FF9500;"></button>
-                                            <button type="button" class="color-picker-recent-btn" data-color="#FFCC00" style="background: #FFCC00;"></button>
-                                            <button type="button" class="color-picker-recent-btn" data-color="#34C759" style="background: #34C759;"></button>
-                                            <button type="button" class="color-picker-recent-btn" data-color="#00C7BE" style="background: #00C7BE;"></button>
-                                            <button type="button" class="color-picker-recent-btn" data-color="#0070F3" style="background: #0070F3;"></button>
-                                            <button type="button" class="color-picker-recent-btn" data-color="#5856D6" style="background: #5856D6;"></button>
-                                            <button type="button" class="color-picker-recent-btn" data-color="#AF52DE" style="background: #AF52DE;"></button>
+                                        <div class="color-picker-recent">
+                                            ${spreadsheetColorOptionsHTML}
                                         </div>
                                     </div>
-                                    <input type="hidden" id="spreadsheetColor" value="#0070f3">
+                                    <input type="hidden" id="spreadsheetColor" value="${defaultSpreadsheetColor}">
                                 </div>
                                 
                                 <!-- Visibility - Full Width -->
@@ -10479,21 +10528,19 @@ function initTasks() {
         }
 
         // Handle icon selection
-        const iconGrid = document.getElementById('iconSelectGrid');
+        const iconGrid = document.getElementById('spreadsheetIconPicker');
         const iconInput = document.getElementById('spreadsheetIcon');
         if (iconGrid && iconInput) {
             iconGrid.addEventListener('click', (e) => {
-                const btn = e.target.closest('.unified-icon-option');
+                const btn = e.target.closest('.icon-picker-option');
                 if (btn) {
-                    iconGrid.querySelectorAll('.unified-icon-option').forEach(b => b.classList.remove('selected'));
-                    btn.classList.add('selected');
-                    iconInput.value = btn.dataset.icon;
+                    setSpreadsheetIcon(btn.dataset.icon);
                 }
             });
         }
 
         // Handle color selection (inline color picker)
-        const colorGrid = document.getElementById('colorSelectGrid');
+        const colorGrid = document.getElementById('spreadsheetColorPicker');
         const colorInput = document.getElementById('spreadsheetColor');
         const colorSwatch = document.getElementById('spreadsheetColorSwatch');
         const colorHexInput = document.getElementById('spreadsheetColorHex');
@@ -10501,11 +10548,7 @@ function initTasks() {
             colorGrid.addEventListener('click', (e) => {
                 const btn = e.target.closest('.color-picker-recent-btn');
                 if (btn) {
-                    colorGrid.querySelectorAll('.color-picker-recent-btn').forEach(b => b.classList.remove('selected'));
-                    btn.classList.add('selected');
-                    colorInput.value = btn.dataset.color;
-                    colorSwatch.style.background = btn.dataset.color;
-                    if (colorHexInput) colorHexInput.value = btn.dataset.color.toUpperCase();
+                    setSpreadsheetColor(btn.dataset.color);
                 }
             });
             
@@ -10515,15 +10558,26 @@ function initTasks() {
                     const normalized = normalizeHexInput(colorHexInput.value);
                     colorHexInput.value = normalized;
                     if (normalized.length === 7) {
-                        colorInput.value = normalized;
-                        colorSwatch.style.background = normalized;
-                        colorGrid.querySelectorAll('.color-picker-recent-btn').forEach(b => {
-                            b.classList.toggle('selected', b.dataset.color.toUpperCase() === normalized.toUpperCase());
-                        });
+                        setSpreadsheetColor(normalized);
                     }
                 });
             }
         }
+
+        // Apply color limiting based on available width
+        setTimeout(() => {
+            const picker = document.getElementById('spreadsheetColorPicker');
+            if (picker) {
+                const limitedColors = limitColorsByWidth(picker, SPREADSHEET_COLOR_PALETTE);
+                const recentContainer = picker.querySelector('.color-picker-recent');
+                if (recentContainer) {
+                    const buttons = recentContainer.querySelectorAll('.color-picker-recent-btn');
+                    buttons.forEach((btn, idx) => {
+                        btn.style.display = idx < limitedColors.length ? '' : 'none';
+                    });
+                }
+            }
+        }, 0);
 
         // Handle type selection
         const typeSelectRow = document.getElementById('typeSelectRow');
@@ -10665,12 +10719,10 @@ function initTasks() {
                 
                 // Reset form and selections
                 form.reset();
-                iconGrid.querySelectorAll('.icon-picker-option').forEach((b, i) => b.classList.toggle('selected', i === 0));
-                colorGrid.querySelectorAll('.color-picker-recent-btn').forEach((b, i) => b.classList.toggle('selected', i === 0));
+                setSpreadsheetIcon(defaultSpreadsheetIcon);
+                setSpreadsheetColor(defaultSpreadsheetColor);
                 typeSelectRow.querySelectorAll('.unified-segmented-option').forEach((b, i) => b.classList.toggle('active', i === 0));
                 document.querySelectorAll('#spreadsheetModal .visibility-toggle').forEach((o, i) => o.classList.toggle('selected', i === 0));
-                document.getElementById('spreadsheetIcon').value = 'fa-table';
-                document.getElementById('spreadsheetColor').value = '#0070f3';
                 document.getElementById('spreadsheetType').value = 'tasks';
                 
                 // Clear pending project ID
@@ -10954,7 +11006,7 @@ function initTasks() {
                 const createData = {
                     name: spreadsheet.name,
                     type: spreadsheet.type || 'tasks',
-                    icon: spreadsheet.icon || 'fa-table',
+                    icon: spreadsheet.icon || DEFAULT_SPREADSHEET_ICON,
                     color: spreadsheet.color || '#0070f3',
                     pinned: spreadsheet.pinned === true,
                     columns: spreadsheet.columns || defaultColumns,
@@ -10992,7 +11044,7 @@ function initTasks() {
                 const updateData = {
                     name: spreadsheet.name,
                     type: spreadsheet.type || 'tasks',
-                    icon: spreadsheet.icon || 'fa-table',
+                    icon: spreadsheet.icon || DEFAULT_SPREADSHEET_ICON,
                     color: spreadsheet.color || '#0070f3',
                     pinned: spreadsheet.pinned === true,
                     columns: spreadsheet.columns || defaultColumns,
@@ -11086,7 +11138,7 @@ function initTasks() {
                     id: docSnap.id,
                     name: data.name,
                     type: spreadsheetType, // CRITICAL: Load the type!
-                    icon: data.icon || 'fa-table',
+                    icon: data.icon || DEFAULT_SPREADSHEET_ICON,
                     color: data.color || '#0070f3',
                     pinned: data.pinned === true,
                     columns: data.columns || defaultColumns,
@@ -13838,7 +13890,7 @@ function initTasks() {
                 <div class="reference-picker-item" data-id="${escapeHtml(sheet.id)}">
                     <div style="display: flex; align-items: center; gap: 12px;">
                         <div class="reference-item-icon sheet">
-                            <i class="fas ${escapeHtml(sheet.icon || 'fa-table')}"></i>
+                            ${getSpreadsheetIconSVG(sheet.icon)}
                         </div>
                         <div style="flex: 1;">
                             <div class="reference-item-title">${escapeHtml(sheet.name)}</div>
@@ -14114,7 +14166,7 @@ function initTasks() {
                         chip.classList.add('unavailable');
                         chip.innerHTML = '<i class="fas fa-lock chip-icon"></i><span>Unavailable</span>';
                     } else {
-                        chip.innerHTML = `<i class="fas ${escapeHtml(sheet.icon || 'fa-table')} chip-icon"></i><span>${escapeHtml(sheet.name)}</span>`;
+                        chip.innerHTML = `<span class="chip-icon">${getSpreadsheetIconSVG(sheet.icon)}</span><span>${escapeHtml(sheet.name)}</span>`;
                         chip.onclick = async (e) => {
                             e.stopPropagation();
                             e.preventDefault();
@@ -14184,7 +14236,7 @@ function initTasks() {
                 const columnLabels = { title: 'Task', status: 'Status', priority: 'Priority' };
                 
                 let tableHTML = '<div class="doc-embed-header doc-embed-header-compact">';
-                tableHTML += `<div class="doc-embed-title"><i class="fas ${escapeHtml(sheet.icon || 'fa-table')}"></i> ${escapeHtml(sheet.name)}</div>`;
+                tableHTML += `<div class="doc-embed-title"><span class="doc-embed-icon">${getSpreadsheetIconSVG(sheet.icon)}</span> ${escapeHtml(sheet.name)}</div>`;
                 tableHTML += `<button class="doc-embed-open-btn" onclick="navigateToSpreadsheet('${escapeHtml(id)}')">Open full sheet</button>`;
                 tableHTML += '</div>';
                 tableHTML += '<div class="doc-embed-table-wrapper doc-embed-table-wrapper-compact">';
@@ -14881,20 +14933,6 @@ function initTasks() {
         return allColors.slice(0, Math.min(maxButtons, allColors.length));
     }
 
-    // SVG icon definitions for projects (monochromatic, clean design) - 10 icons max
-    const PROJECT_ICONS = {
-        folder: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 7.5V18a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6.586a1 1 0 01-.707-.293l-1.414-1.414A1 1 0 009.586 5H5a2 2 0 00-2 2.5z"/></svg>',
-        briefcase: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 012-2h4a2 2 0 012 2v2"/><line x1="12" y1="12" x2="12" y2="12.01"/></svg>',
-        rocket: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 00-2.91-.09z"/><path d="M12 15l-3-3a22 22 0 012-3.95A12.88 12.88 0 0122 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 01-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/></svg>',
-        globe: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg>',
-        chart: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>',
-        lightbulb: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0018 8 6 6 0 006 8c0 1 .23 2.23 1.5 3.5A4.61 4.61 0 018.91 14"/></svg>',
-        star: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>',
-        users: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>',
-        code: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>',
-        heart: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg>'
-    };
-
     function createProjectModal() {
         const existingModal = document.getElementById('createProjectModal');
         if (existingModal) return;
@@ -15338,7 +15376,7 @@ function initTasks() {
                             <div class="theme-selector-minimal" style="flex-wrap: wrap;">
                                 <label class="theme-btn ${!currentProjectId ? 'active' : ''}">
                                     <input type="radio" name="projectAssignOption" value="" ${!currentProjectId ? 'checked' : ''} style="display:none;">
-                                    <i class="fas fa-times" style="font-size: 11px;"></i> None
+                                    None
                                 </label>
                                 ${projectOptionsHTML}
                             </div>
@@ -16143,10 +16181,10 @@ function populateTaskSpreadsheetDropdown(defaultSpreadsheetId = null) {
                 return;
             }
             
-            const icon = spreadsheet.icon || 'fa-table';
+            const icon = getSpreadsheetIconSVG(spreadsheet.icon);
             optionsHTML += `
                 <div class="dropdown-menu-option" data-value="${spreadsheet.id}">
-                    <i class="fas ${icon} dropdown-icon"></i>
+                    <span class="dropdown-icon">${icon}</span>
                     <span>${escapeHtml(spreadsheet.name)}</span>
                 </div>
             `;
@@ -16179,11 +16217,12 @@ function populateTaskSpreadsheetDropdown(defaultSpreadsheetId = null) {
         selectedOption.innerHTML += '<i class="fas fa-check"></i>';
         
         const icon = selectedOption.querySelector('.dropdown-icon');
-        const text = selectedOption.querySelector('span').textContent;
+        const text = selectedOption.querySelector('span:not(.dropdown-icon)')?.textContent || '';
+        const iconMarkup = icon ? icon.innerHTML : getSpreadsheetIconSVG(DEFAULT_SPREADSHEET_ICON);
         const triggerContent = trigger.querySelector('.dropdown-trigger-content') || trigger.querySelector('.unified-dropdown-value');
         if (triggerContent) {
             triggerContent.innerHTML = `
-                <i class="fas ${icon ? icon.classList[1] : 'fa-table'} dropdown-icon"></i>
+                <span class="dropdown-icon">${iconMarkup}</span>
                 <span>${text}</span>
             `;
         }
@@ -16230,9 +16269,10 @@ function initTaskModalDropdowns() {
     // Spreadsheet dropdown
     setupCustomDropdown('taskSpreadsheet', (value, option) => {
         const icon = option.querySelector('.dropdown-icon, .unified-dropdown-icon');
-        const text = option.querySelector('span').textContent;
+        const text = option.querySelector('span:not(.dropdown-icon):not(.unified-dropdown-icon)')?.textContent || '';
+        const iconMarkup = icon ? icon.innerHTML : getSpreadsheetIconSVG(DEFAULT_SPREADSHEET_ICON);
         return `
-            <i class="fas ${icon ? icon.classList[1] : 'fa-table'} unified-dropdown-icon"></i>
+            <span class="unified-dropdown-icon">${iconMarkup}</span>
             <span>${text}</span>
         `;
     });
@@ -16966,6 +17006,38 @@ function recalculateAchievementXPFromBadges() {
     showToast('XP recalculated', 'success');
 }
 
+// TEMP: Recalculate XP from badges + completed tasks + docs
+function recalculateAchievementXPFromStatsAndBadges() {
+    if (!currentAuthUser || !isGamificationEnabled()) return;
+
+    const data = getUserAchievementData();
+    const stats = data.stats || {};
+
+    let totalXP = 0;
+    totalXP += (stats.tasksCompleted || 0) * XP_CONFIG.taskCompleteMedium;
+    totalXP += (stats.docsCreated || 0) * XP_CONFIG.docCreate;
+
+    const allBadges = [
+        ...ACHIEVEMENT_BADGES.tasks,
+        ...ACHIEVEMENT_BADGES.docs,
+        ...ACHIEVEMENT_BADGES.messages,
+        ...ACHIEVEMENT_BADGES.sheets,
+        ...ACHIEVEMENT_BADGES.streaks,
+        ...ACHIEVEMENT_BADGES.special
+    ];
+
+    for (const badge of allBadges) {
+        if (data.earnedBadges?.includes(badge.id) && badge.xpReward) {
+            totalXP += badge.xpReward;
+        }
+    }
+
+    data.xp = totalXP;
+    saveUserAchievementData(data);
+    renderAchievementsTab();
+    showToast('XP recalculated (temp)', 'success');
+}
+
 /**
  * Check if gamification is enabled
  */
@@ -17377,6 +17449,14 @@ function renderAchievementsTab() {
             </div>
         `).join('');
 
+    }
+
+    const recalcBtn = document.getElementById('recalculateXpBtn');
+    if (recalcBtn && !recalcBtn.dataset.bound) {
+        recalcBtn.dataset.bound = 'true';
+        recalcBtn.addEventListener('click', () => {
+            recalculateAchievementXPFromStatsAndBadges();
+        });
     }
     
     // Render badges
@@ -28577,7 +28657,7 @@ function populateLeadSpreadsheetDropdown() {
     
     menu.innerHTML = leadsSpreadsheets.map(s => `
         <div class="dropdown-menu-option" data-value="${s.id}">
-            <i class="fas ${s.icon || 'fa-table'}" style="color: ${s.color || '#007AFF'}"></i>
+            <span class="dropdown-icon" style="color: ${s.color || '#007AFF'}">${getSpreadsheetIconSVG(s.icon)}</span>
             <span>${escapeHtml(s.name)}</span>
         </div>
     `).join('');
